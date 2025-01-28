@@ -33,6 +33,13 @@ test = false
 bench = false
 required-features = ["executable-deps"]
 
+[[bin]]
+name = "ethersync-hedgedoc"
+test = false
+bench = false
+doc = false
+required-features = ["executable-deps"]
+
 [lib]
 name = "teamtype"
 
@@ -49,6 +56,7 @@ clap_mangen = "0.3"
 
 [dependencies]
 anyhow = "1"
+async-stream = "0.3"
 async-trait = "0.1"
 automerge = "0.8"
 clap = { version = "4.5", features = ["derive", "env"], optional = true }
@@ -56,6 +64,7 @@ constant_time_eq = "0.4"
 derive_more = { version = "2", features = ["as_ref", "deref", "display"] }
 dissimilar = "1"
 futures = { version = "0.3", default-features = false }
+futures-util = "0.3"
 git2 = { version = "0.20", default-features = false }
 ignore = "0.4"
 iroh = "0.35" # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
@@ -68,8 +77,10 @@ operational-transform = "0.6"
 path-clean = "1"
 postcard = { version = "1", features = ["alloc"] }
 rand = "0.8" # must match types used in iroh 0.35
+reqwest = { version = "0.12", features = ["cookies"] }
 ropey = "1"
 rust-ini = "0.21"
+rust_socketio = { path = "../../rust-socketio/socketio", features = ["async"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
@@ -86,7 +97,8 @@ url = "2"
 
 [dependencies.tokio]
 version = "1"
-features = ["rt", "io-std", "io-util", "macros", "net", "time"]
+#features = ["rt", "io-std", "io-util", "macros", "net", "time"]
+features = ["full"]
 
 [dev-dependencies]
 pretty_assertions = "1"
