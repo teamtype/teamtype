@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use ethersync::types::{
-    ContentLengthCodec, EditorProtocolMessageFromEditor, EditorProtocolObject, JSONRPCFromEditor,
-    JSONRPCResponse,
+    ContentLengthCodec, EditorProtocolMessageError, EditorProtocolMessageFromEditor,
+    EditorProtocolObject, JSONRPCFromEditor, JSONRPCResponse,
 };
 use futures::{SinkExt, StreamExt};
 use futures_util::FutureExt;
@@ -57,7 +57,6 @@ impl HedgedocBinding {
         self.buffered_transmits.pop_front()
     }
     fn handle_input(&mut self, (event, data): (String, Payload)) {
-        dbg!(&event, &data);
         match event.as_str() {
             "operation" => {
                 if let Payload::Text(data) = data {
@@ -85,7 +84,36 @@ impl HedgedocBinding {
     }
 }
 
+struct InnerEditorBinding {
+    buffered_transmits_to_hedgedoc: VecDeque<String>,
+}
+
+impl InnerEditorBinding {
+    fn new() -> Self {
+        Self {
+            buffered_transmits_to_hedgedoc: VecDeque::new(),
+        }
+    }
+    fn poll_transmit_to_hedgedoc(&mut self) -> Option<String> {
+        self.buffered_transmits_to_hedgedoc.pop_front()
+    }
+    fn handle_input(&mut self, message: EditorProtocolMessageFromEditor) -> Result<(), String> {
+        match message {
+            EditorProtocolMessageFromEditor::Open { .. } => {}
+            EditorProtocolMessageFromEditor::Edit { delta, .. } => {
+                self.buffered_transmits_to_hedgedoc
+                    .push_back(format!("{:?}", delta));
+            }
+            _ => {
+                // todo
+            }
+        }
+        Ok(())
+    }
+}
+
 struct EditorBinding {
+    inner: InnerEditorBinding,
     buffered_transmits_to_hedgedoc: VecDeque<String>,
     buffered_transmits_to_editor: VecDeque<String>,
 }
@@ -93,6 +121,7 @@ struct EditorBinding {
 impl EditorBinding {
     fn new() -> Self {
         Self {
+            inner: InnerEditorBinding::new(),
             buffered_transmits_to_hedgedoc: VecDeque::new(),
             buffered_transmits_to_editor: VecDeque::new(),
         }
@@ -108,29 +137,31 @@ impl EditorBinding {
         if let Ok(parsed) = parsed {
             match parsed {
                 JSONRPCFromEditor::Request { id, payload } => {
-                    match payload {
-                        EditorProtocolMessageFromEditor::Open { .. } => {
-                            self.buffered_transmits_to_editor.push_back(
-                                (EditorProtocolObject::Response(JSONRPCResponse::RequestSuccess {
-                                    id,
-                                    result: "ok".to_string(),
-                                }))
-                                .to_jsonrpc()
-                                .expect("should work"),
-                            );
-                        }
-                        EditorProtocolMessageFromEditor::Edit { delta, .. } => {
-                            self.buffered_transmits_to_hedgedoc
-                                .push_back(format!("{:?}", delta));
-                        }
-                        _ => {
-                            //todo!();
-                        }
-                    }
+                    let result = self.inner.handle_input(payload);
+                    let response = match result {
+                        Err(error) => JSONRPCResponse::RequestError {
+                            id: Some(id),
+                            error: EditorProtocolMessageError {
+                                code: -1,
+                                message: error,
+                                data: None,
+                            },
+                        },
+                        Ok(_) => JSONRPCResponse::RequestSuccess {
+                            id,
+                            result: "success".into(),
+                        },
+                    };
+                    let object = EditorProtocolObject::Response(response);
+                    self.buffered_transmits_to_editor
+                        .push_back(object.to_jsonrpc().expect("should work"));
                 }
-                _ => {
-                    todo!();
+                JSONRPCFromEditor::Notification { payload } => {
+                    let _ = self.inner.handle_input(payload);
                 }
+            }
+            while let Some(message) = self.inner.poll_transmit_to_hedgedoc() {
+                self.buffered_transmits_to_hedgedoc.push_back(message);
             }
         }
     }
@@ -139,7 +170,6 @@ impl EditorBinding {
 async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payload)>) {
     let server = "https://md.ha.si";
     let cookie = get_cookie(server).await.expect("Failed to get cookie");
-    dbg!(&cookie);
 
     let (tx, rx) = mpsc::channel(32);
 
@@ -182,7 +212,6 @@ async fn main() {
     let mut running = true;
     while running {
         if let Some((event, data)) = hedgedoc.poll_transmit() {
-            dbg!(&event, &data);
             socket.emit(event, data).await.expect("Failed to emit");
             continue;
         }
@@ -208,7 +237,6 @@ async fn main() {
             editor_message_maybe = stdin.next() => {
                 if let Some(Ok(editor_message)) = editor_message_maybe {
                     editor.handle_input(editor_message.clone());
-                    //hedgedoc.insert(editor_message);
                 } else {
                     running = false;
                 }
