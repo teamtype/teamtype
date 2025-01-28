@@ -1,10 +1,12 @@
 use anyhow::{bail, Result};
 use ethersync::{
+    ot::OTServer,
     path::RelativePath,
     types::{
         ComponentMessage, ContentLengthCodec, EditorProtocolMessageError,
         EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, EditorProtocolObject,
-        EditorTextDelta, JSONRPCFromEditor, JSONRPCResponse, TextDelta, TextOp,
+        EditorTextDelta, JSONRPCFromEditor, JSONRPCResponse, RevisionedEditorTextDelta, TextDelta,
+        TextOp,
     },
 };
 use futures::{SinkExt, StreamExt};
@@ -73,8 +75,27 @@ impl HedgedocBinding {
                     if revision > self.latest_revision {
                         self.latest_revision = revision;
                     }
-                    let op = TextOp::Insert("!".to_string());
-                    let delta = TextDelta(vec![op]);
+
+                    // TODO: Move this conversion to types.rs.
+                    let mut delta = TextDelta::default();
+                    for component in data[2].as_array().unwrap() {
+                        match component {
+                            serde_json::Value::Number(n) => {
+                                let n = n.as_i64().unwrap();
+                                if n > 0 {
+                                    delta.retain(n as usize);
+                                } else {
+                                    delta.delete(-n as usize);
+                                }
+                            }
+                            serde_json::Value::String(s) => {
+                                delta.insert(s);
+                            }
+                            _ => {
+                                panic!("unexpected component");
+                            }
+                        }
+                    }
                     let message = ComponentMessage::Edit {
                         file_path: RelativePath::new("todo"),
                         delta,
@@ -87,32 +108,55 @@ impl HedgedocBinding {
             }
         }
     }
-    fn insert(&mut self, text: String) {
-        self.buffered_transmits_to_hedgedoc.push_back((
-            "operation".to_string(),
-            vec![
-                json!(0),      //self.latest_revision),
-                json!([text]), // needs to have proper "length"!
-                json!({"ranges": [{"anchor": 0, "head": 0}]}),
-            ]
-            .into(),
-        ));
+    fn handle_inner(&mut self, message: ComponentMessage) {
+        match message {
+            ComponentMessage::Edit { delta, .. } => {
+                let mut text = Vec::new();
+                for op in delta.0 {
+                    match op {
+                        TextOp::Retain(n) => {
+                            text.push(json!(n));
+                        }
+                        TextOp::Insert(s) => {
+                            text.push(json!(s));
+                        }
+                        TextOp::Delete(n) => {
+                            text.push(json!(-(n as i64)));
+                        }
+                    }
+                }
+                self.buffered_transmits_to_hedgedoc.push_back((
+                    "operation".to_string(),
+                    vec![
+                        json!(0),
+                        serde_json::Value::Array(text),
+                        json!({"ranges": [{"anchor": 0, "head": 0}]}),
+                    ]
+                    .into(),
+                ));
+            }
+            _ => {
+                todo!();
+            }
+        }
     }
 }
 
 struct InnerEditorBinding {
-    buffered_transmits_to_hedgedoc: VecDeque<String>,
+    ot: OTServer,
+    buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
     buffered_transmits_to_editor: VecDeque<EditorProtocolMessageToEditor>,
 }
 
 impl InnerEditorBinding {
     fn new() -> Self {
         Self {
+            ot: OTServer::new("".to_string()),
             buffered_transmits_to_hedgedoc: VecDeque::new(),
             buffered_transmits_to_editor: VecDeque::new(),
         }
     }
-    fn poll_transmit_to_hedgedoc(&mut self) -> Option<String> {
+    fn poll_transmit_to_hedgedoc(&mut self) -> Option<ComponentMessage> {
         self.buffered_transmits_to_hedgedoc.pop_front()
     }
     fn poll_transmit_to_editor(&mut self) -> Option<EditorProtocolMessageToEditor> {
@@ -121,9 +165,28 @@ impl InnerEditorBinding {
     fn handle_input(&mut self, message: EditorProtocolMessageFromEditor) -> Result<(), String> {
         match message {
             EditorProtocolMessageFromEditor::Open { .. } => {}
-            EditorProtocolMessageFromEditor::Edit { delta, .. } => {
+            EditorProtocolMessageFromEditor::Edit {
+                delta, revision, ..
+            } => {
+                let rev_delta = RevisionedEditorTextDelta {
+                    revision,
+                    delta: delta.clone(),
+                };
+                let (delta_for_crdt, rev_deltas_for_editor) =
+                    self.ot.apply_editor_operation(rev_delta);
                 self.buffered_transmits_to_hedgedoc
-                    .push_back(format!("{:?}", delta));
+                    .push_back(ComponentMessage::Edit {
+                        file_path: RelativePath::new("todo"),
+                        delta: delta_for_crdt,
+                    });
+                self.buffered_transmits_to_editor
+                    .extend(rev_deltas_for_editor.into_iter().map(|rev_delta| {
+                        EditorProtocolMessageToEditor::Edit {
+                            uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                            revision: rev_delta.revision,
+                            delta: rev_delta.delta,
+                        }
+                    }));
             }
             _ => {
                 // todo
@@ -134,13 +197,12 @@ impl InnerEditorBinding {
     fn handle_inner(&mut self, message: ComponentMessage) {
         match message {
             ComponentMessage::Edit { delta, .. } => {
-                let content = "todo".to_string();
-                let text_delta = EditorTextDelta::from_delta(delta, &content);
+                let rev_delta = self.ot.apply_crdt_change(&delta);
                 self.buffered_transmits_to_editor
                     .push_back(EditorProtocolMessageToEditor::Edit {
                         uri: "file:///home/blinry/tmp/playground/file".to_string(),
-                        revision: 0,
-                        delta: text_delta,
+                        revision: rev_delta.revision,
+                        delta: rev_delta.delta,
                     });
             }
             _ => {
@@ -152,7 +214,7 @@ impl InnerEditorBinding {
 
 struct EditorBinding {
     inner: InnerEditorBinding,
-    buffered_transmits_to_hedgedoc: VecDeque<String>,
+    buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
     buffered_transmits_to_editor: VecDeque<String>,
 }
 
@@ -164,7 +226,10 @@ impl EditorBinding {
             buffered_transmits_to_editor: VecDeque::new(),
         }
     }
-    fn poll_transmit_to_hedgedoc(&mut self) -> Option<String> {
+    fn poll_transmit_to_hedgedoc(&mut self) -> Option<ComponentMessage> {
+        while let Some(message) = self.inner.poll_transmit_to_hedgedoc() {
+            self.buffered_transmits_to_hedgedoc.push_back(message);
+        }
         self.buffered_transmits_to_hedgedoc.pop_front()
     }
     fn poll_transmit_to_editor(&mut self) -> Option<String> {
@@ -204,9 +269,6 @@ impl EditorBinding {
                 JSONRPCFromEditor::Notification { payload } => {
                     let _ = self.inner.handle_input(payload);
                 }
-            }
-            while let Some(message) = self.inner.poll_transmit_to_hedgedoc() {
-                self.buffered_transmits_to_hedgedoc.push_back(message);
             }
         }
     }
@@ -267,7 +329,7 @@ async fn main() {
             editor.handle_inner(message);
         }
         if let Some(message) = editor.poll_transmit_to_hedgedoc() {
-            hedgedoc.insert(message);
+            hedgedoc.handle_inner(message);
             continue;
         }
         if let Some(message) = editor.poll_transmit_to_editor() {
