@@ -1,8 +1,4 @@
-const SERVER: &str = "md.ha.si";
-
 use anyhow::{bail, Result};
-use async_stream::stream;
-use futures::stream;
 use futures_util::FutureExt;
 use futures_util::StreamExt;
 use reqwest::cookie::{CookieStore, Jar};
@@ -11,32 +7,28 @@ use rust_socketio::{
     Payload, TransportType,
 };
 use serde_json::json;
+use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::io::AsyncReadExt;
 use tokio::io::BufReader;
+use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::LinesCodec;
 
 async fn get_cookie(url: &str) -> Result<String> {
-    // Create a cookie jar to store cookies
     let cookie_jar = Arc::new(Jar::default());
 
-    // Create a client with the cookie jar
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .cookie_provider(cookie_jar.clone())
         .build()?;
 
-    // Send a GET request to the URL
     let response = client.get(url).send().await?;
 
-    // Ensure the response was successful
     if !response.status().is_success() {
         bail!(format!("Failed to fetch URL: {}", response.status()));
     }
 
-    // Retrieve cookies from the cookie jar
     if let Some(cookies) = cookie_jar.cookies(&url.parse()?) {
         // Return the cookies as a string
         Ok(cookies.to_str()?.to_string())
@@ -45,165 +37,132 @@ async fn get_cookie(url: &str) -> Result<String> {
     }
 }
 
-type EditorMessage = u8;
+struct HedgedocBinding {
+    latest_revision: u64,
+    buffered_transmits: VecDeque<(String, Payload)>,
+}
 
-#[tokio::main]
-async fn main() {
-    //// Set up stream from be stdin, streamed byte by byte.
-    //let mut stdin = tokio::io::stdin();
-    //let editor_stream = stream! {
-    //    let mut buf = [0; 1];
-    //    loop {
-    //        match stdin.read_exact(&mut buf).await {
-    //            Ok(_) => {
-    //                yield buf[0];
-    //            }
-    //            Err(e) => {
-    //                eprintln!("Error reading from stdin: {:?}", e);
-    //                break;
-    //            }
-    //        }
-    //    }
-    //};
-
-    //let mut socket_read = FramedRead::new(socket_read, LinesCodec::new());
-
-    //let mut editor_stream = Box::pin(editor_stream);
-
-    let mut editor_stream = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
-
-    let mut running = true;
-    while running {
-        tokio::select! {
-            editor_message_maybe = editor_stream.next() => {
-                match editor_message_maybe {
-                    Some(editor_message) => {
-                        // integrate editor message
-                        dbg!(editor_message);
-                    }
-                    None => {
-                        // editor stream ended
-                        running = false;
+impl HedgedocBinding {
+    fn new() -> Self {
+        Self {
+            latest_revision: 0,
+            buffered_transmits: VecDeque::new(),
+        }
+    }
+    fn poll_transmit(&mut self) -> Option<(String, Payload)> {
+        self.buffered_transmits.pop_front()
+    }
+    fn handle_input(&mut self, (event, data): (String, Payload)) {
+        dbg!(&event, &data);
+        match event.as_str() {
+            "operation" => {
+                if let Payload::Text(data) = data {
+                    let revision = data[1].as_u64().unwrap();
+                    if revision > self.latest_revision {
+                        self.latest_revision = revision;
                     }
                 }
             }
+            _ => {
+                todo!();
+            }
         }
     }
-    println!("done");
+    fn insert(&mut self, text: String) {
+        self.buffered_transmits.push_back((
+            "operation".to_string(),
+            vec![
+                json!(self.latest_revision),
+                json!([text, 1]), // needs to have proper "length"!
+                json!({"ranges": [{"anchor": 0, "head": 0}]}),
+            ]
+            .into(),
+        ));
+    }
+}
 
-    /*
-    // define a callback which is called when a payload is received
-    // this callback gets the payload as well as an instance of the
-    // socket to communicate with the server
-    let callback = |payload: Payload, socket: Client| {
-        async move {
-            match payload {
-                Payload::Text(str) => println!("Received: {:?}", str),
-                Payload::Binary(bin_data) => println!("Received bytes: {:#?}", bin_data),
-                Payload::String(_) => todo!(),
-            }
-            //socket
-            //    .emit("test", json!({"got ack": true}))
-            //    .await
-            //    .expect("Server unreachable");
-        }
-        .boxed()
-    };
+struct EditorBinding {}
 
-    let selection_callback = |payload: Payload, socket: Client| {
-        async move {
-            match payload {
-                Payload::Text(str) => println!("Selection: {:?}", str),
-                Payload::Binary(bin_data) => todo!(),
-                Payload::String(_) => todo!(),
-            }
-        }
-        .boxed()
-    };
+impl EditorBinding {
+    fn new() -> Self {
+        Self {}
+    }
+    fn poll_transmit(&mut self) -> Option<String> {
+        None
+    }
+    fn handle_input(&mut self, message: String) {
+        dbg!(message);
+    }
+}
 
-    let operation_callback = |payload: Payload, socket: Client| {
-        async move {
-            match payload {
-                Payload::Text(str) => println!("Operation: {:?}", str),
-                Payload::Binary(bin_data) => todo!(),
-                Payload::String(_) => todo!(),
-            }
-            socket
-                .emit(
-                    "operation",
-                    vec![
-                        json!(13),
-                        json!(["c", 2]), // doesn't need to have the proper "length"!
-                        json!({"ranges": [{"anchor": 0, "head": 0}]}),
-                    ],
-                )
-                .await
-                .expect("Server unreachable");
-        }
-        .boxed()
-    };
-
+async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payload)>) {
     let server = "https://md.ha.si";
-    //let server = "http://localhost:3000";
-    //let cookie = get_cookie(&format!("{server}/socket.io/?transport=polling"))
-    let cookie = get_cookie(&format!("{server}"))
-        .await
-        .expect("Failed to get cookie");
+    let cookie = get_cookie(server).await.expect("Failed to get cookie");
     dbg!(&cookie);
 
-    // get a socket that is connected to the admin namespace
+    let (tx, rx) = mpsc::channel(32);
+
+    let tx = Arc::new(Mutex::new(tx));
+
+    let callback_tx = Arc::clone(&tx);
+    let callback = move |payload: Payload, _socket: Client| {
+        let callback_tx = Arc::clone(&callback_tx);
+        async move {
+            // Lock and send the message
+            let tx = callback_tx.lock().await;
+            if let Err(e) = tx.send(("operation".to_string(), payload)).await {
+                eprintln!("Failed to send message to channel: {}", e);
+            }
+        }
+        .boxed()
+    };
+
     let socket = ClientBuilder::new(format!("{server}/socket.io/?noteId=test"))
-        //.namespace("/blubb")
         .transport_type(TransportType::Polling)
         .opening_header("Cookie", cookie)
-        //.auth(json!({"noteId": "test"}))
-        .on("connect", |_, _| {
-            async move { println!("connected") }.boxed()
-        })
-        .on("selection", selection_callback)
-        .on("doc", callback)
-        .on("operation", operation_callback)
-        .on("error", |err, _| {
-            async move { eprintln!("Error: {:#?}", err) }.boxed()
-        })
+        .on("operation", callback)
         .connect()
         .await
         .expect("Connection failed");
 
-    //// define a callback, that's executed when the ack got acked
-    //let ack_callback = |message: Payload, _: Client| {
-    //    async move {
-    //        println!("Yehaa! My ack got acked?");
-    //        println!("Ack data: {:#?}", message);
-    //    }
-    //    .boxed()
-    //};
+    (socket, rx)
+}
 
-    //let json_payload = json!({"myAckData": 123});
-    //// emit with an ack
-    //socket
-    //    .emit_with_ack("test", json_payload, Duration::from_secs(2), ack_callback)
-    //    .await
-    //    .expect("Server unreachable");
+#[tokio::main]
+async fn main() {
+    let (socket, mut rx) = create_socket().await;
+    let mut editor_stream = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
 
-    println!("myyyy connected");
+    let mut hedgedoc = HedgedocBinding::new();
+    let mut editor = EditorBinding::new();
 
-    //let json_payload = json!({});
-    //socket
-    //    .emit("version", json_payload)
-    //    .await
-    //    .expect("Server unreachable");
-    //println!("done");
-
-    socket
-        .emit("selection", json!({"ranges": [{"anchor": 0, "head": 2}]}))
-        .await
-        .expect("Server unreachable");
-
-    //socket.disconnect().await.expect("Disconnect failed");
-
-    loop {
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    let mut running = true;
+    while running {
+        if let Some((event, data)) = hedgedoc.poll_transmit() {
+            dbg!(&event, &data);
+            socket.emit(event, data).await.expect("Failed to emit");
+            continue;
+        }
+        if let Some(message) = editor.poll_transmit() {
+            println!("{}", message);
+            continue;
+        }
+        tokio::select! {
+            socket_message_maybe = rx.recv() => {
+                if let Some(socket_message) = socket_message_maybe {
+                    hedgedoc.handle_input(socket_message);
+                } else {
+                    running = false;
+                }
+            }
+            editor_message_maybe = editor_stream.next() => {
+                if let Some(Ok(editor_message)) = editor_message_maybe {
+                    editor.handle_input(editor_message.clone());
+                    hedgedoc.insert(editor_message);
+                } else {
+                    running = false;
+                }
+            }
+        }
     }
-    */
 }
