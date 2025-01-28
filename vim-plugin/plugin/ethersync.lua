@@ -72,7 +72,8 @@ local function connect()
         client.terminate()
     end
 
-    local params = { "client" }
+    local program = "ethersync-hedgedoc"
+    local params = {}
 
     local dispatchers = {
         notification = function(method, notification_params)
@@ -89,11 +90,11 @@ local function connect()
     if vim.version().api_level < 12 then
         -- In Vim 0.9, the API was to pass the command and its parameters as two arguments.
         ---@diagnostic disable-next-line: param-type-mismatch
-        client = vim.lsp.rpc.start("ethersync", params, dispatchers)
+        client = vim.lsp.rpc.start(program, params, dispatchers)
     else
         -- While in Vim 0.10, it is combined into one table.
         local cmd = params
-        table.insert(cmd, 1, "ethersync")
+        table.insert(cmd, 1, program)
         client = vim.lsp.rpc.start(cmd, dispatchers)
     end
 
