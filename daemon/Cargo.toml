@@ -34,13 +34,22 @@ bench = false
 doc = false
 required-features = ["executable-deps"]
 
+[[bin]]
+name = "ethersync-hedgedoc"
+test = false
+bench = false
+doc = false
+required-features = ["executable-deps"]
+
 [dependencies]
 anyhow = "1.0.81"
+async-stream = "0.3.6"
 automerge = "0.5.9"
 clap = { version = "4.5.3", features = ["derive", "env"], optional = true }
 derive_more = { version = "1.0.0", features = ["as_ref", "deref", "display"] }
 dissimilar = "1.0.9"
 futures = { version = "0.3.30", default-features = false }
+futures-util = "0.3.31"
 ignore = "0.4.22"
 libp2p = { version = "0.54.1", features = [
     "tokio",
@@ -58,8 +67,10 @@ operational-transform = "0.6.1"
 path-clean = "1.0.1"
 pbkdf2 = "0.12.2"
 rand = "0.8.5"
+reqwest = { version = "0.12.12", features = ["cookies"] }
 ropey = "1.6.1"
 rust-ini = "0.21.1"
+rust_socketio = { path = "../../rust-socketio/socketio", features = ["async"] }
 serde = { version = "1.0.198", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10.8"
@@ -74,7 +85,8 @@ tracing-subscriber = { version = "0.3.18", default-features = false, features = 
 
 [dependencies.tokio]
 version = "1"
-features = ["rt", "io-std", "io-util", "macros", "net", "time"]
+#features = ["rt", "io-std", "io-util", "macros", "net", "time"]
+features = ["full"]
 
 [features]
 executable-deps = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
