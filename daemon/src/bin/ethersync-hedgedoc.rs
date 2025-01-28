@@ -10,10 +10,13 @@ use serde_json::json;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use teamtype::editor_protocol::{
-    EditorProtocolMessageError, EditorProtocolMessageFromEditor, IncomingMessage, JSONRPCResponse,
-    OutgoingMessage,
+    EditorProtocolMessageError, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
+    IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
-use teamtype::types::ContentLengthCodec;
+use teamtype::{
+    path::RelativePath,
+    types::{ComponentMessage, ContentLengthCodec, EditorTextDelta, TextDelta, TextOp},
+};
 use tokio::io::{BufReader, BufWriter};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
@@ -44,18 +47,23 @@ async fn get_cookie(url: &str) -> Result<String> {
 
 struct HedgedocBinding {
     latest_revision: u64,
-    buffered_transmits: VecDeque<(String, Payload)>,
+    buffered_transmits_to_hedgedoc: VecDeque<(String, Payload)>,
+    buffered_transmits_to_editor: VecDeque<ComponentMessage>,
 }
 
 impl HedgedocBinding {
     fn new() -> Self {
         Self {
             latest_revision: 0,
-            buffered_transmits: VecDeque::new(),
+            buffered_transmits_to_hedgedoc: VecDeque::new(),
+            buffered_transmits_to_editor: VecDeque::new(),
         }
     }
-    fn poll_transmit(&mut self) -> Option<(String, Payload)> {
-        self.buffered_transmits.pop_front()
+    fn poll_transmit_to_hedgedoc(&mut self) -> Option<(String, Payload)> {
+        self.buffered_transmits_to_hedgedoc.pop_front()
+    }
+    fn poll_transmit_to_editor(&mut self) -> Option<ComponentMessage> {
+        self.buffered_transmits_to_editor.pop_front()
     }
     fn handle_input(&mut self, (event, data): (String, Payload)) {
         match event.as_str() {
@@ -65,6 +73,13 @@ impl HedgedocBinding {
                     if revision > self.latest_revision {
                         self.latest_revision = revision;
                     }
+                    let op = TextOp::Insert("!".to_string());
+                    let delta = TextDelta(vec![op]);
+                    let message = ComponentMessage::Edit {
+                        file_path: RelativePath::new("todo"),
+                        delta,
+                    };
+                    self.buffered_transmits_to_editor.push_back(message);
                 }
             }
             _ => {
@@ -73,7 +88,7 @@ impl HedgedocBinding {
         }
     }
     fn insert(&mut self, text: String) {
-        self.buffered_transmits.push_back((
+        self.buffered_transmits_to_hedgedoc.push_back((
             "operation".to_string(),
             vec![
                 json!(0),      //self.latest_revision),
@@ -87,16 +102,21 @@ impl HedgedocBinding {
 
 struct InnerEditorBinding {
     buffered_transmits_to_hedgedoc: VecDeque<String>,
+    buffered_transmits_to_editor: VecDeque<EditorProtocolMessageToEditor>,
 }
 
 impl InnerEditorBinding {
     fn new() -> Self {
         Self {
             buffered_transmits_to_hedgedoc: VecDeque::new(),
+            buffered_transmits_to_editor: VecDeque::new(),
         }
     }
     fn poll_transmit_to_hedgedoc(&mut self) -> Option<String> {
         self.buffered_transmits_to_hedgedoc.pop_front()
+    }
+    fn poll_transmit_to_editor(&mut self) -> Option<EditorProtocolMessageToEditor> {
+        self.buffered_transmits_to_editor.pop_front()
     }
     fn handle_input(&mut self, message: EditorProtocolMessageFromEditor) -> Result<(), String> {
         match message {
@@ -110,6 +130,24 @@ impl InnerEditorBinding {
             }
         }
         Ok(())
+    }
+    fn handle_inner(&mut self, message: ComponentMessage) {
+        match message {
+            ComponentMessage::Edit { delta, .. } => {
+                let content = "todo".to_string();
+                let text_delta = EditorTextDelta::try_from_delta(delta, &content)
+                    .expect("Failed to parse EditorTextDelta");
+                self.buffered_transmits_to_editor
+                    .push_back(EditorProtocolMessageToEditor::Edit {
+                        uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                        revision: 0,
+                        delta: text_delta,
+                    });
+            }
+            _ => {
+                todo!();
+            }
+        }
     }
 }
 
@@ -131,6 +169,13 @@ impl EditorBinding {
         self.buffered_transmits_to_hedgedoc.pop_front()
     }
     fn poll_transmit_to_editor(&mut self) -> Option<String> {
+        while let Some(message) = self.inner.poll_transmit_to_editor() {
+            self.buffered_transmits_to_editor.push_back(
+                OutgoingMessage::Notification(message)
+                    .to_jsonrpc()
+                    .expect("should work"),
+            );
+        }
         self.buffered_transmits_to_editor.pop_front()
     }
     fn handle_input(&mut self, message: String) {
@@ -165,6 +210,9 @@ impl EditorBinding {
                 self.buffered_transmits_to_hedgedoc.push_back(message);
             }
         }
+    }
+    fn handle_inner(&mut self, message: ComponentMessage) {
+        self.inner.handle_inner(message);
     }
 }
 
@@ -212,9 +260,12 @@ async fn main() {
 
     let mut running = true;
     while running {
-        if let Some((event, data)) = hedgedoc.poll_transmit() {
+        if let Some((event, data)) = hedgedoc.poll_transmit_to_hedgedoc() {
             socket.emit(event, data).await.expect("Failed to emit");
             continue;
+        }
+        if let Some(message) = hedgedoc.poll_transmit_to_editor() {
+            editor.handle_inner(message);
         }
         if let Some(message) = editor.poll_transmit_to_hedgedoc() {
             hedgedoc.insert(message);
