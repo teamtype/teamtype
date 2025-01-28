@@ -14,6 +14,9 @@ use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
+use tokio::io::BufReader;
+use tokio_util::codec::FramedRead;
+use tokio_util::codec::LinesCodec;
 
 async fn get_cookie(url: &str) -> Result<String> {
     // Create a cookie jar to store cookies
@@ -46,24 +49,28 @@ type EditorMessage = u8;
 
 #[tokio::main]
 async fn main() {
-    // Set up stream from be stdin, streamed byte by byte.
-    let mut stdin = tokio::io::stdin();
-    let editor_stream = stream! {
-        let mut buf = [0; 1];
-        loop {
-            match stdin.read_exact(&mut buf).await {
-                Ok(_) => {
-                    yield buf[0];
-                }
-                Err(e) => {
-                    eprintln!("Error reading from stdin: {:?}", e);
-                    break;
-                }
-            }
-        }
-    };
+    //// Set up stream from be stdin, streamed byte by byte.
+    //let mut stdin = tokio::io::stdin();
+    //let editor_stream = stream! {
+    //    let mut buf = [0; 1];
+    //    loop {
+    //        match stdin.read_exact(&mut buf).await {
+    //            Ok(_) => {
+    //                yield buf[0];
+    //            }
+    //            Err(e) => {
+    //                eprintln!("Error reading from stdin: {:?}", e);
+    //                break;
+    //            }
+    //        }
+    //    }
+    //};
 
-    let mut editor_stream = Box::pin(editor_stream);
+    //let mut socket_read = FramedRead::new(socket_read, LinesCodec::new());
+
+    //let mut editor_stream = Box::pin(editor_stream);
+
+    let mut editor_stream = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
 
     let mut running = true;
     while running {
@@ -82,6 +89,7 @@ async fn main() {
             }
         }
     }
+    println!("done");
 
     /*
     // define a callback which is called when a payload is received
