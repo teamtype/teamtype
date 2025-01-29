@@ -63,8 +63,8 @@ use tracing::debug;
 ///
 #[derive(Debug, Default)]
 pub struct OTServer {
-    editor_revision: usize,
-    daemon_revision: usize,
+    pub editor_revision: usize,
+    pub daemon_revision: usize,
     /// "Source of truth" operations.
     operations: Vec<OperationSeq>,
     /// Operations that we have sent to the editor, but we're not sure whether it has
