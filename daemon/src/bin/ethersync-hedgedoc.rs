@@ -18,7 +18,7 @@ use teamtype::{
     path::RelativePath,
     types::{
         ComponentMessage, ContentLengthCodec, EditorTextDelta, RevisionedEditorTextDelta,
-        TextDelta, TextOp,
+        RevisionedTextDelta, TextDelta, TextOp,
     },
 };
 use tokio::io::{BufReader, BufWriter};
@@ -50,6 +50,7 @@ async fn get_cookie(url: &str) -> Result<String> {
 }
 
 struct HedgedocBinding {
+    ot: OTServer,
     latest_revision: u64,
     buffered_transmits_to_hedgedoc: VecDeque<(String, Payload)>,
     buffered_transmits_to_editor: VecDeque<ComponentMessage>,
@@ -58,6 +59,7 @@ struct HedgedocBinding {
 impl HedgedocBinding {
     fn new() -> Self {
         Self {
+            ot: OTServer::new("".to_string()),
             latest_revision: 0,
             buffered_transmits_to_hedgedoc: VecDeque::new(),
             buffered_transmits_to_editor: VecDeque::new(),
@@ -73,21 +75,25 @@ impl HedgedocBinding {
         match event.as_str() {
             "operation" => {
                 if let Payload::Text(data) = data {
-                    let revision = data[1].as_u64().unwrap();
-                    if revision > self.latest_revision {
-                        self.latest_revision = revision;
-                    }
+                    // Assume the edit is for the latest revision...
+                    //let revision = data[1].as_u64().unwrap();
+                    //if revision > self.latest_revision {
+                    //    self.latest_revision = revision;
+                    //}
 
                     // TODO: Move this conversion to types.rs.
                     let mut delta = TextDelta::default();
+                    let mut l = 0;
                     for component in data[2].as_array().unwrap() {
                         match component {
                             serde_json::Value::Number(n) => {
                                 let n = n.as_i64().unwrap();
                                 if n > 0 {
                                     delta.retain(n as usize);
+                                    l += n as usize;
                                 } else {
-                                    delta.delete(-n as usize);
+                                    delta.delete((-n) as usize);
+                                    l += (-n) as usize;
                                 }
                             }
                             serde_json::Value::String(s) => {
@@ -98,6 +104,21 @@ impl HedgedocBinding {
                             }
                         }
                     }
+                    // Fill up until l == length of content
+                    let content = self.ot.current_content();
+                    let content_len = content.chars().count();
+                    if l < content_len {
+                        delta.retain(content_len - l);
+                    }
+
+                    let rev_delta = self.ot.apply_crdt_change(&delta).unwrap();
+                    let delta = RevisionedTextDelta::try_from_rev_ed_delta(
+                        rev_delta,
+                        &self.ot.current_content(),
+                    )
+                    .unwrap()
+                    .delta;
+
                     let message = ComponentMessage::Edit {
                         file_path: RelativePath::new("todo"),
                         delta,
@@ -113,8 +134,20 @@ impl HedgedocBinding {
     fn handle_inner(&mut self, message: ComponentMessage) {
         match message {
             ComponentMessage::Edit { delta, .. } => {
+                let revision = self.ot.daemon_revision;
+                let rev_delta = RevisionedEditorTextDelta {
+                    revision,
+                    delta: EditorTextDelta::try_from_delta(
+                        delta.clone(),
+                        &self.ot.current_content(),
+                    )
+                    .unwrap(),
+                };
+                let (delta_for_crdt, rev_deltas_for_editor) =
+                    self.ot.apply_editor_operation(rev_delta).unwrap();
+
                 let mut text = Vec::new();
-                for op in delta.0 {
+                for op in delta_for_crdt.0 {
                     match op {
                         TextOp::Retain(n) => {
                             text.push(json!(n));
@@ -130,12 +163,16 @@ impl HedgedocBinding {
                 self.buffered_transmits_to_hedgedoc.push_back((
                     "operation".to_string(),
                     vec![
-                        json!(0),
+                        json!(self.ot.daemon_revision),
                         serde_json::Value::Array(text),
                         json!({"ranges": [{"anchor": 0, "head": 0}]}),
                     ]
                     .into(),
                 ));
+
+                self.latest_revision += 1;
+
+                // todo: process rev_deltas_for_editor?
             }
             _ => {
                 todo!();
