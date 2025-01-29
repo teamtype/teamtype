@@ -67,7 +67,6 @@ where
     }
 }
 
-// impl Pipe for Glue
 impl<A, B, InputFromIO, InputToIO, InputToA, OutputFromIO, OutputToIO, OutputFromA>
     Pipe<InputFromIO, InputToIO, OutputFromIO, OutputToIO>
     for Glue<A, B, InputFromIO, InputToIO, InputToA, OutputFromIO, OutputToIO, OutputFromA>
@@ -98,8 +97,6 @@ where
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Pipe that reads bytes, and outputs strings, split by newline
-// The other direction is in reverse.
 #[derive(Default)]
 struct BytesToLinesPipe {
     input_from_io: Vec<u8>,
@@ -132,8 +129,6 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for BytesToLinesPipe {
     }
 }
 
-// Pipe that reads strings, and parses them as numbers
-// The other direction is in reverse.
 #[derive(Default)]
 struct StringToNumberPipe {
     input_from_io: Vec<String>,
@@ -162,23 +157,25 @@ impl Pipe<String, i32, i32, String> for StringToNumberPipe {
     }
 }
 
-fn main() {
+/*fn main() {
     let mut bytes_to_numbers_pipe =
         Glue::new(BytesToLinesPipe::default(), StringToNumberPipe::default());
     let mut stdin = std::io::stdin().lock();
 
     loop {
         // poll from pipe
-        while let Some(n) = bytes_to_numbers_pipe.poll_transmit_from_io() {
+        if let Some(n) = bytes_to_numbers_pipe.poll_transmit_from_io() {
             // double
             let n = 2 * n;
             // write back to pipe
             bytes_to_numbers_pipe.handle_input_to_io(n);
+            continue;
         }
 
-        while let Some(bytes) = bytes_to_numbers_pipe.poll_transmit_to_io() {
+        if let Some(bytes) = bytes_to_numbers_pipe.poll_transmit_to_io() {
             // write to stdout
             std::io::stdout().write_all(&bytes).unwrap();
+            continue;
         }
 
         let buf = &mut [0; 100];
@@ -186,7 +183,9 @@ fn main() {
         // feed to pipe
         bytes_to_numbers_pipe.handle_input_from_io(buf[..n].to_vec());
     }
-}
+}*/
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -228,13 +227,18 @@ impl HedgedocBinding {
             buffered_transmits_to_editor: VecDeque::new(),
         }
     }
-    fn poll_transmit_to_hedgedoc(&mut self) -> Option<(String, Payload)> {
+}
+
+impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payload)>
+    for HedgedocBinding
+{
+    fn poll_transmit_to_io(&mut self) -> Option<(String, Payload)> {
         self.buffered_transmits_to_hedgedoc.pop_front()
     }
-    fn poll_transmit_to_editor(&mut self) -> Option<ComponentMessage> {
+    fn poll_transmit_from_io(&mut self) -> Option<ComponentMessage> {
         self.buffered_transmits_to_editor.pop_front()
     }
-    fn handle_input(&mut self, (event, data): (String, Payload)) {
+    fn handle_input_from_io(&mut self, (event, data): (String, Payload)) {
         match event.as_str() {
             "operation" => {
                 if let Payload::Text(data) = data {
@@ -293,7 +297,7 @@ impl HedgedocBinding {
             }
         }
     }
-    fn handle_inner(&mut self, message: ComponentMessage) {
+    fn handle_input_to_io(&mut self, message: ComponentMessage) {
         match message {
             ComponentMessage::Edit { delta, .. } => {
                 let revision = self.ot.daemon_revision;
@@ -337,13 +341,13 @@ impl HedgedocBinding {
     }
 }
 
-struct InnerEditorBinding {
+struct EditorBinding {
     ot: OTServer,
     buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
     buffered_transmits_to_editor: VecDeque<EditorProtocolMessageToEditor>,
 }
 
-impl InnerEditorBinding {
+impl EditorBinding {
     fn new() -> Self {
         Self {
             ot: OTServer::new("".to_string()),
@@ -351,13 +355,23 @@ impl InnerEditorBinding {
             buffered_transmits_to_editor: VecDeque::new(),
         }
     }
-    fn poll_transmit_to_hedgedoc(&mut self) -> Option<ComponentMessage> {
+}
+
+impl
+    Pipe<
+        EditorProtocolMessageFromEditor,
+        ComponentMessage,
+        ComponentMessage,
+        EditorProtocolMessageToEditor,
+    > for EditorBinding
+{
+    fn poll_transmit_from_io(&mut self) -> Option<ComponentMessage> {
         self.buffered_transmits_to_hedgedoc.pop_front()
     }
-    fn poll_transmit_to_editor(&mut self) -> Option<EditorProtocolMessageToEditor> {
+    fn poll_transmit_to_io(&mut self) -> Option<EditorProtocolMessageToEditor> {
         self.buffered_transmits_to_editor.pop_front()
     }
-    fn handle_input(&mut self, message: EditorProtocolMessageFromEditor) -> Result<(), String> {
+    fn handle_input_from_io(&mut self, message: EditorProtocolMessageFromEditor) {
         match message {
             EditorProtocolMessageFromEditor::Open { .. } => {}
             EditorProtocolMessageFromEditor::Edit {
@@ -387,9 +401,8 @@ impl InnerEditorBinding {
                 // todo
             }
         }
-        Ok(())
     }
-    fn handle_inner(&mut self, message: ComponentMessage) {
+    fn handle_input_to_io(&mut self, message: ComponentMessage) {
         match message {
             ComponentMessage::Edit { delta, .. } => {
                 let rev_delta = self.ot.apply_crdt_change(&delta);
@@ -407,68 +420,48 @@ impl InnerEditorBinding {
     }
 }
 
-struct EditorBinding {
-    inner: InnerEditorBinding,
-    buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
+#[derive(Default)]
+struct AutoAcceptingJsonRpc {
+    buffered_transmits_to_hedgedoc: VecDeque<EditorProtocolMessageFromEditor>,
     buffered_transmits_to_editor: VecDeque<String>,
 }
 
-impl EditorBinding {
-    fn new() -> Self {
-        Self {
-            inner: InnerEditorBinding::new(),
-            buffered_transmits_to_hedgedoc: VecDeque::new(),
-            buffered_transmits_to_editor: VecDeque::new(),
-        }
-    }
-    fn poll_transmit_to_hedgedoc(&mut self) -> Option<ComponentMessage> {
-        while let Some(message) = self.inner.poll_transmit_to_hedgedoc() {
-            self.buffered_transmits_to_hedgedoc.push_back(message);
-        }
+impl Pipe<String, EditorProtocolMessageToEditor, EditorProtocolMessageFromEditor, String>
+    for AutoAcceptingJsonRpc
+{
+    fn poll_transmit_from_io(&mut self) -> Option<EditorProtocolMessageFromEditor> {
         self.buffered_transmits_to_hedgedoc.pop_front()
     }
-    fn poll_transmit_to_editor(&mut self) -> Option<String> {
-        while let Some(message) = self.inner.poll_transmit_to_editor() {
-            self.buffered_transmits_to_editor.push_back(
-                EditorProtocolObject::Request(message)
-                    .to_jsonrpc()
-                    .expect("should work"),
-            );
-        }
+    fn poll_transmit_to_io(&mut self) -> Option<String> {
         self.buffered_transmits_to_editor.pop_front()
     }
-    fn handle_input(&mut self, message: String) {
-        let parsed = JSONRPCFromEditor::from_jsonrpc(&message);
-        if let Ok(parsed) = parsed {
-            match parsed {
-                JSONRPCFromEditor::Request { id, payload } => {
-                    let result = self.inner.handle_input(payload);
-                    let response = match result {
-                        Err(error) => JSONRPCResponse::RequestError {
-                            id: Some(id),
-                            error: EditorProtocolMessageError {
-                                code: -1,
-                                message: error,
-                                data: None,
-                            },
-                        },
-                        Ok(_) => JSONRPCResponse::RequestSuccess {
-                            id,
-                            result: "success".into(),
-                        },
-                    };
-                    let object = EditorProtocolObject::Response(response);
-                    self.buffered_transmits_to_editor
-                        .push_back(object.to_jsonrpc().expect("should work"));
-                }
-                JSONRPCFromEditor::Notification { payload } => {
-                    let _ = self.inner.handle_input(payload);
-                }
+    fn handle_input_from_io(&mut self, message: String) {
+        let parsed = JSONRPCFromEditor::from_jsonrpc(&message).expect("should work");
+        let payload = match parsed {
+            JSONRPCFromEditor::Request { id, payload } => {
+                // Auto-acknowledge requests (TODO, might not make sense in other settings)
+                let response = JSONRPCResponse::RequestSuccess {
+                    id,
+                    result: "success".into(),
+                };
+                self.buffered_transmits_to_editor.push_back(
+                    EditorProtocolObject::Response(response)
+                        .to_jsonrpc()
+                        .expect("should work"),
+                );
+                payload
             }
-        }
+            JSONRPCFromEditor::Notification { payload } => payload,
+        };
+
+        self.buffered_transmits_to_hedgedoc.push_back(payload);
     }
-    fn handle_inner(&mut self, message: ComponentMessage) {
-        self.inner.handle_inner(message);
+    fn handle_input_to_io(&mut self, message: EditorProtocolMessageToEditor) {
+        self.buffered_transmits_to_editor.push_back(
+            EditorProtocolObject::Request(message)
+                .to_jsonrpc()
+                .expect("should work"),
+        );
     }
 }
 
@@ -504,47 +497,48 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
     (socket, rx)
 }
 
-/*#[tokio::main]
+#[tokio::main]
 async fn main() {
     let (socket, mut rx) = create_socket().await;
+
+    let mut editor = Glue::new(AutoAcceptingJsonRpc::default(), EditorBinding::new());
 
     let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
     let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
     let mut hedgedoc = HedgedocBinding::new();
-    let mut editor = EditorBinding::new();
 
     let mut running = true;
     while running {
-        if let Some((event, data)) = hedgedoc.poll_transmit_to_hedgedoc() {
+        if let Some((event, data)) = hedgedoc.poll_transmit_to_io() {
             socket.emit(event, data).await.expect("Failed to emit");
             continue;
         }
-        if let Some(message) = hedgedoc.poll_transmit_to_editor() {
-            editor.handle_inner(message);
-        }
-        if let Some(message) = editor.poll_transmit_to_hedgedoc() {
-            hedgedoc.handle_inner(message);
-            continue;
-        }
-        if let Some(message) = editor.poll_transmit_to_editor() {
+        if let Some(message) = editor.poll_transmit_to_io() {
             stdout
                 .send(message)
                 .await
                 .expect("Failed to write to stdout");
             continue;
         }
+        if let Some(message) = hedgedoc.poll_transmit_from_io() {
+            editor.handle_input_to_io(message);
+        }
+        if let Some(message) = editor.poll_transmit_from_io() {
+            hedgedoc.handle_input_to_io(message);
+            continue;
+        }
         tokio::select! {
             socket_message_maybe = rx.recv() => {
                 if let Some(socket_message) = socket_message_maybe {
-                    hedgedoc.handle_input(socket_message);
+                    hedgedoc.handle_input_from_io(socket_message);
                 } else {
                     running = false;
                 }
             }
             editor_message_maybe = stdin.next() => {
                 if let Some(Ok(editor_message)) = editor_message_maybe {
-                    editor.handle_input(editor_message.clone());
+                    editor.handle_input_from_io(editor_message.clone());
                 } else {
                     running = false;
                 }
@@ -552,4 +546,3 @@ async fn main() {
         }
     }
 }
-*/
