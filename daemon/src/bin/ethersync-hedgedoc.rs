@@ -95,6 +95,47 @@ where
     }
 }
 
+struct Flip<A, InputFromIO, InputToIO, OutputFromIO, OutputToIO>
+where
+    A: Pipe<InputToIO, InputFromIO, OutputToIO, OutputFromIO>,
+{
+    pipe: A,
+    _marker: PhantomData<(InputFromIO, InputToIO, OutputFromIO, OutputToIO)>,
+}
+
+impl<A, InputFromIO, InputToIO, OutputFromIO, OutputToIO>
+    Flip<A, InputFromIO, InputToIO, OutputFromIO, OutputToIO>
+where
+    A: Pipe<InputToIO, InputFromIO, OutputToIO, OutputFromIO>,
+{
+    fn new(pipe: A) -> Self {
+        Self {
+            pipe,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<A, InputFromIO, InputToIO, OutputFromIO, OutputToIO>
+    Pipe<InputFromIO, InputToIO, OutputFromIO, OutputToIO>
+    for Flip<A, InputFromIO, InputToIO, OutputFromIO, OutputToIO>
+where
+    A: Pipe<InputToIO, InputFromIO, OutputToIO, OutputFromIO>,
+{
+    fn handle_input_from_io(&mut self, message: InputFromIO) {
+        self.pipe.handle_input_to_io(message);
+    }
+    fn handle_input_to_io(&mut self, message: InputToIO) {
+        self.pipe.handle_input_from_io(message);
+    }
+    fn poll_transmit_from_io(&mut self) -> Option<OutputFromIO> {
+        self.pipe.poll_transmit_to_io()
+    }
+    fn poll_transmit_to_io(&mut self) -> Option<OutputToIO> {
+        self.pipe.poll_transmit_from_io()
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Default)]
@@ -506,39 +547,34 @@ async fn main() {
     let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
     let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
-    let mut hedgedoc = HedgedocBinding::new();
+    let hedgedoc = Flip::new(HedgedocBinding::new());
+
+    let mut pipeline = Glue::new(editor, hedgedoc);
 
     let mut running = true;
     while running {
-        if let Some((event, data)) = hedgedoc.poll_transmit_to_io() {
+        if let Some((event, data)) = pipeline.poll_transmit_from_io() {
             socket.emit(event, data).await.expect("Failed to emit");
             continue;
         }
-        if let Some(message) = editor.poll_transmit_to_io() {
+        if let Some(message) = pipeline.poll_transmit_to_io() {
             stdout
                 .send(message)
                 .await
                 .expect("Failed to write to stdout");
             continue;
         }
-        if let Some(message) = hedgedoc.poll_transmit_from_io() {
-            editor.handle_input_to_io(message);
-        }
-        if let Some(message) = editor.poll_transmit_from_io() {
-            hedgedoc.handle_input_to_io(message);
-            continue;
-        }
         tokio::select! {
             socket_message_maybe = rx.recv() => {
                 if let Some(socket_message) = socket_message_maybe {
-                    hedgedoc.handle_input_from_io(socket_message);
+                    pipeline.handle_input_to_io(socket_message);
                 } else {
                     running = false;
                 }
             }
             editor_message_maybe = stdin.next() => {
                 if let Some(Ok(editor_message)) = editor_message_maybe {
-                    editor.handle_input_from_io(editor_message.clone());
+                    pipeline.handle_input_from_io(editor_message.clone());
                 } else {
                     running = false;
                 }
