@@ -136,6 +136,57 @@ where
     }
 }
 
+struct Log<Forward, Backward> {
+    buffered_transmits_from_io: VecDeque<Forward>,
+    buffered_transmits_to_io: VecDeque<Backward>,
+    log_file: std::fs::File,
+}
+
+impl<Forward, Backward> Log<Forward, Backward> {
+    fn new(log_file_path: &str) -> Self {
+        Self {
+            buffered_transmits_from_io: VecDeque::new(),
+            buffered_transmits_to_io: VecDeque::new(),
+            log_file: std::fs::OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(log_file_path)
+                .expect("Unable to open log file"),
+        }
+    }
+}
+
+impl<Forward, Backward> Pipe<Forward, Backward, Forward, Backward> for Log<Forward, Backward>
+where
+    Forward: std::fmt::Debug,
+    Backward: std::fmt::Debug,
+{
+    fn handle_input_from_io(&mut self, message: Forward) {
+        self.log_file
+            .write_all(format!(">> {:?}\n", message).as_bytes())
+            .expect("Should be able to write to log file");
+        self.log_file
+            .flush()
+            .expect("Should be able to flush the log file");
+        self.buffered_transmits_from_io.push_back(message);
+    }
+    fn handle_input_to_io(&mut self, message: Backward) {
+        self.log_file
+            .write_all(format!("<< {:?}\n", message).as_bytes())
+            .expect("Should be able to write to log file");
+        self.log_file
+            .flush()
+            .expect("Should be able to flush the log file");
+        self.buffered_transmits_to_io.push_back(message);
+    }
+    fn poll_transmit_from_io(&mut self) -> Option<Forward> {
+        self.buffered_transmits_from_io.pop_front()
+    }
+    fn poll_transmit_to_io(&mut self) -> Option<Backward> {
+        self.buffered_transmits_to_io.pop_front()
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Default)]
@@ -382,13 +433,13 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
     }
 }
 
-struct EditorBinding {
+struct OneSidedOT {
     ot: OTServer,
     buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
     buffered_transmits_to_editor: VecDeque<EditorProtocolMessageToEditor>,
 }
 
-impl EditorBinding {
+impl OneSidedOT {
     fn new() -> Self {
         Self {
             ot: OTServer::new("".to_string()),
@@ -404,7 +455,7 @@ impl
         ComponentMessage,
         ComponentMessage,
         EditorProtocolMessageToEditor,
-    > for EditorBinding
+    > for OneSidedOT
 {
     fn poll_transmit_from_io(&mut self) -> Option<ComponentMessage> {
         self.buffered_transmits_to_hedgedoc.pop_front()
@@ -515,7 +566,7 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
     let tx = Arc::new(Mutex::new(tx));
 
     let callback_tx = Arc::clone(&tx);
-    let callback = move |payload: Payload, _socket: Client| {
+    let operation_callback = move |payload: Payload, _socket: Client| {
         let callback_tx = Arc::clone(&callback_tx);
         async move {
             // Lock and send the message
@@ -527,10 +578,24 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
         .boxed()
     };
 
+    let callback_tx = Arc::clone(&tx);
+    let doc_callback = move |payload: Payload, _socket: Client| {
+        let callback_tx = Arc::clone(&callback_tx);
+        async move {
+            // Lock and send the message
+            let tx = callback_tx.lock().await;
+            if let Err(e) = tx.send(("doc".to_string(), payload)).await {
+                eprintln!("Failed to send message to channel: {}", e);
+            }
+        }
+        .boxed()
+    };
+
     let socket = ClientBuilder::new(format!("{server}/socket.io/?noteId=test"))
         .transport_type(TransportType::Polling)
         .opening_header("Cookie", cookie)
-        .on("operation", callback)
+        .on("operation", operation_callback)
+        .on("doc", doc_callback)
         .connect()
         .await
         .expect("Connection failed");
@@ -542,12 +607,18 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
 async fn main() {
     let (socket, mut rx) = create_socket().await;
 
-    let mut editor = Glue::new(AutoAcceptingJsonRpc::default(), EditorBinding::new());
+    let editor = Glue::new(
+        AutoAcceptingJsonRpc::default(),
+        Glue::new(Log::new("/tmp/ethersynclog"), OneSidedOT::new()),
+    );
 
     let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
     let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
-    let hedgedoc = Flip::new(HedgedocBinding::new());
+    let hedgedoc = Flip::new(Glue::new(
+        Log::new("/tmp/hedgedoclog"),
+        HedgedocBinding::new(),
+    ));
 
     let mut pipeline = Glue::new(editor, hedgedoc);
 
