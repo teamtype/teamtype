@@ -24,8 +24,6 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
-use tokio_util::codec::FramedWrite;
-use tokio_util::codec::{FramedRead, LinesCodec};
 
 trait Pipe<InputFromIO, InputToIO, OutputFromIO, OutputToIO> {
     fn handle_input_from_io(&mut self, message: InputFromIO);
@@ -299,6 +297,38 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for BytesToLinesPipe {
 }
 
 #[derive(Default)]
+struct LinesCodec {
+    input_from_io: String,
+    output_to_io: String,
+}
+
+impl Pipe<String, String, String, String> for LinesCodec {
+    fn handle_input_from_io(&mut self, message: String) {
+        self.input_from_io.push_str(&message);
+    }
+    fn handle_input_to_io(&mut self, message: String) {
+        self.output_to_io.push_str(&message);
+        self.output_to_io.push('\n');
+    }
+    fn poll_transmit_from_io(&mut self) -> Option<String> {
+        if let Some(pos) = self.input_from_io.find('\n') {
+            let message = self.input_from_io.drain(..pos).collect();
+            self.input_from_io.drain(..1);
+            Some(message)
+        } else {
+            None
+        }
+    }
+    fn poll_transmit_to_io(&mut self) -> Option<String> {
+        if self.output_to_io.is_empty() {
+            None
+        } else {
+            Some(self.output_to_io.drain(..).collect())
+        }
+    }
+}
+
+#[derive(Default)]
 struct StringToNumberPipe {
     input_from_io: Vec<String>,
     output_to_io: Vec<String>,
@@ -428,7 +458,7 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                     }
 
                     let message = ComponentMessage::Edit {
-                        file_path: RelativePath::new("todo"),
+                        file_path: RelativePath::new("file"),
                         delta,
                     };
                     self.buffered_transmits_to_editor.push_back(message);
@@ -440,7 +470,7 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                     if let Some(str) = map.get("str") {
                         let content = str.as_str().unwrap();
                         let open = ComponentMessage::Open {
-                            file_path: RelativePath::new("todo"),
+                            file_path: RelativePath::new("file"),
                             content: content.to_string(),
                         };
                         self.buffered_transmits_to_editor.push_back(open);
@@ -448,6 +478,37 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                     if let Some(n) = map.get("revision") {
                         self.latest_revision = n.as_u64().unwrap();
                     }
+                }
+            }
+            "cursor activity" => {
+                if let Payload::Text(data) = data {
+                    let map = data[0].as_object().unwrap();
+
+                    let name = map.get("name").unwrap().as_str().unwrap();
+                    let id = map.get("id").unwrap().as_str().unwrap();
+
+                    // parse the format
+                    let cursor = map.get("cursor").unwrap().as_object().unwrap();
+                    let line = cursor.get("line").unwrap().as_u64().unwrap() as usize;
+                    let ch = cursor.get("ch").unwrap().as_u64().unwrap() as usize;
+                    let range = Range {
+                        start: Position {
+                            line,
+                            character: ch,
+                        },
+                        end: Position {
+                            line,
+                            character: ch,
+                        },
+                    };
+
+                    let message = ComponentMessage::Cursor {
+                        cursor_id: id.to_string(),
+                        name: Some(name.to_string()),
+                        file_path: RelativePath::new("file"),
+                        ranges: vec![range],
+                    };
+                    self.buffered_transmits_to_editor.push_back(message);
                 }
             }
             _ => {
@@ -493,8 +554,21 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
 
                 // todo: process rev_deltas_for_editor?
             }
+            ComponentMessage::Cursor { ranges, .. } => {
+                let range = ranges[0].clone();
+                let message = json!({
+                    "line": range.start.line as u64,
+                    "ch": range.start.character as u64,
+                    "sticky": "after",
+                    "xRel": 3.25, // ???
+                });
+                //https://md.ha.si/socket.io/?noteId=test&EIO=3&transport=polling&t=PJDp9Jn&sid=8LNDtCS1OEzstE25ADiw
+                //65:42["cursor focus",{"line":3,"ch":7,"sticky":"after","xRel":3.25}]68:42["cursor activity",{"line":3,"ch":7,"sticky":"after","xRel":3.25}]
+                self.buffered_transmits_to_hedgedoc
+                    .push_back(("cursor activity".to_string(), vec![message].into()));
+            }
             _ => {
-                todo!();
+                // pass
             }
         }
     }
@@ -536,7 +610,7 @@ impl
                 self.ot = Some(OTServer::new(content.clone()));
                 self.buffered_transmits_to_hedgedoc
                     .push_back(ComponentMessage::Open {
-                        file_path: RelativePath::new("todo"),
+                        file_path: RelativePath::new("file"),
                         content,
                     });
             }
@@ -552,7 +626,7 @@ impl
                         ot.apply_editor_operation(rev_delta);
                     self.buffered_transmits_to_hedgedoc
                         .push_back(ComponentMessage::Edit {
-                            file_path: RelativePath::new("todo"),
+                            file_path: RelativePath::new("file"),
                             delta: delta_for_crdt,
                         });
                     self.buffered_transmits_to_editor.extend(
@@ -565,6 +639,15 @@ impl
                         }),
                     );
                 }
+            }
+            EditorProtocolMessageFromEditor::Cursor { ranges, .. } => {
+                self.buffered_transmits_to_hedgedoc
+                    .push_back(ComponentMessage::Cursor {
+                        cursor_id: "todo".to_string(),
+                        name: Some("todo".to_string()),
+                        file_path: RelativePath::new("file"),
+                        ranges,
+                    });
             }
             _ => {
                 // todo
@@ -584,6 +667,20 @@ impl
                         },
                     );
                 }
+            }
+            ComponentMessage::Cursor {
+                ranges,
+                name,
+                cursor_id,
+                ..
+            } => {
+                self.buffered_transmits_to_editor
+                    .push_back(EditorProtocolMessageToEditor::Cursor {
+                        ranges,
+                        name,
+                        userid: cursor_id,
+                        uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                    })
             }
             _ => {
                 todo!();
@@ -652,6 +749,10 @@ impl Truth {
         message: ComponentMessage,
     ) {
         match &message {
+            ComponentMessage::Cursor { .. } => {
+                // forward
+                other.push_back(message.clone());
+            }
             ComponentMessage::Edit { delta, .. } => {
                 // forward
                 other.push_back(message.clone());
@@ -671,7 +772,7 @@ impl Truth {
 
                         let text_delta: TextDelta = chunks.into();
                         source.push_back(ComponentMessage::Edit {
-                            file_path: RelativePath::new("todo"),
+                            file_path: RelativePath::new("file"),
                             delta: text_delta,
                         });
                     }
@@ -731,7 +832,7 @@ impl Pipe<String, ComponentMessage, ComponentMessage, String> for Debugger {
                 ComponentMessage::Open { file_path, content }
             }
             "edit" => {
-                let file_path = RelativePath::new("todo");
+                let file_path = RelativePath::new("file");
                 let mut delta = TextDelta::default();
                 // loop through components[1..] and parse them into TextDelta
                 // "..." are insertions, negative numbers are deletions, positive numbers are retain
@@ -849,11 +950,25 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
         .boxed()
     };
 
+    let callback_tx = Arc::clone(&tx);
+    let cursor_callback = move |payload: Payload, _socket: Client| {
+        let callback_tx = Arc::clone(&callback_tx);
+        async move {
+            // Lock and send the message
+            let tx = callback_tx.lock().await;
+            if let Err(e) = tx.send(("cursor activity".to_string(), payload)).await {
+                eprintln!("Failed to send message to channel: {}", e);
+            }
+        }
+        .boxed()
+    };
+
     let socket = ClientBuilder::new(format!("{server}/socket.io/?noteId=test"))
         .transport_type(TransportType::Polling)
         .opening_header("Cookie", cookie)
         .on("operation", operation_callback)
         .on("doc", doc_callback)
+        .on("cursor activity", cursor_callback)
         .connect()
         .await
         .expect("Connection failed");
@@ -867,7 +982,7 @@ async fn main() {
 
     let editor = Glue::new(
         Glue::new(
-            Glue::new(Log::new("/tmp/jsonrpclog"), ContentLengthCodec::default()),
+            ContentLengthCodec::default(),
             Glue::new(
                 Log::new("/tmp/ethersynclog"),
                 AutoAcceptingJsonRpc::default(),
@@ -876,10 +991,10 @@ async fn main() {
         Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
     );
 
-    //let _debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
-    let _debugger = Glue::new(
+    //let debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
+    let debugger = Glue::new(
         Glue::new(
-            BytesToLinesPipe::default(),
+            LinesCodec::default(),
             Glue::new(EditorDebugger::default(), Log::new("/tmp/ethersynclog")),
         ),
         Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
@@ -887,9 +1002,6 @@ async fn main() {
 
     let mut buf = vec![0; 1024];
     let mut stdin = tokio::io::stdin();
-    //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
-    //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
-    //let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
     let hedgedoc = Glue::new(Log::new("/tmp/hedgedoclog"), HedgedocBinding::default());
 
@@ -943,12 +1055,12 @@ mod tests {
     fn truth() {
         let mut truth = Truth::default();
         truth.handle_input_from_io(ComponentMessage::Open {
-            file_path: RelativePath::new("todo"),
+            file_path: RelativePath::new("file"),
             content: "foo".to_string(),
         });
         assert_eq!(truth.content, Some("foo".to_string()));
         truth.handle_input_to_io(ComponentMessage::Open {
-            file_path: RelativePath::new("todo"),
+            file_path: RelativePath::new("file"),
             content: "oo".to_string(),
         });
         assert_eq!(truth.content, Some("foo".to_string()));
