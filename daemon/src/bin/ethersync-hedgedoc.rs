@@ -5,8 +5,8 @@ use ethersync::{
     types::{
         ComponentMessage, ContentLengthCodec, EditorProtocolMessageError,
         EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, EditorProtocolObject,
-        EditorTextDelta, JSONRPCFromEditor, JSONRPCResponse, RevisionedEditorTextDelta,
-        RevisionedTextDelta, TextDelta, TextOp,
+        EditorTextDelta, EditorTextOp, JSONRPCFromEditor, JSONRPCResponse, Position, Range,
+        RevisionedEditorTextDelta, RevisionedTextDelta, TextDelta, TextOp,
     },
 };
 use futures::{SinkExt, StreamExt};
@@ -683,6 +683,61 @@ impl Pipe<String, ComponentMessage, ComponentMessage, String> for Debugger {
     }
 }
 
+#[derive(Default)]
+struct EditorDebugger {
+    buffered_transmits_to_io: VecDeque<String>,
+    buffered_transmits_from_io: VecDeque<EditorProtocolMessageFromEditor>,
+}
+
+impl Pipe<String, EditorProtocolMessageToEditor, EditorProtocolMessageFromEditor, String>
+    for EditorDebugger
+{
+    fn poll_transmit_from_io(&mut self) -> Option<EditorProtocolMessageFromEditor> {
+        self.buffered_transmits_from_io.pop_front()
+    }
+    fn poll_transmit_to_io(&mut self) -> Option<String> {
+        self.buffered_transmits_to_io.pop_front()
+    }
+    fn handle_input_from_io(&mut self, message: String) {
+        let components = message.split(" ").collect::<Vec<_>>();
+        let uri = RelativePath::new("file:///todo").to_string();
+        let message = match components[0] {
+            "open" => {
+                let content = components[1..].join(" ");
+                EditorProtocolMessageFromEditor::Open { uri, content }
+            }
+            "edit" => {
+                let revision = components[1].parse().unwrap();
+                let range = Range {
+                    start: Position {
+                        line: components[2].parse().unwrap(),
+                        character: components[3].parse().unwrap(),
+                    },
+                    end: Position {
+                        line: components[4].parse().unwrap(),
+                        character: components[5].parse().unwrap(),
+                    },
+                };
+                let replacement = components[6..].join(" ");
+                let editor_delta = EditorTextDelta(vec![EditorTextOp { range, replacement }]);
+                EditorProtocolMessageFromEditor::Edit {
+                    uri,
+                    revision,
+                    delta: editor_delta,
+                }
+            }
+            _ => {
+                todo!();
+            }
+        };
+        self.buffered_transmits_from_io.push_back(message);
+    }
+    fn handle_input_to_io(&mut self, message: EditorProtocolMessageToEditor) {
+        self.buffered_transmits_to_io
+            .push_back(format!("{:?}\n", message));
+    }
+}
+
 async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payload)>) {
     let server = "https://md.ha.si";
     let cookie = get_cookie(server).await.expect("Failed to get cookie");
@@ -733,25 +788,29 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
 async fn main() {
     let (socket, mut rx) = create_socket().await;
 
-    //let editor = Glue::new(
-    //    Glue::new(AutoAcceptingJsonRpc::default(), OneSidedOT::new()),
-    //    Log::new("/tmp/ethersynclog"),
-    //);
+    let editor = Glue::new(
+        Glue::new(
+            AutoAcceptingJsonRpc::default(),
+            Log::new("/tmp/ethersynclog"),
+        ),
+        Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
+    );
+
+    //let _debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
+    let debugger = Glue::new(
+        Glue::new(EditorDebugger::default(), Log::new("/tmp/ethersynclog")),
+        Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
+    );
 
     let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
     //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
     //let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
-    let debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
-
-    let hedgedoc = Flip::new(Glue::new(
-        Log::new("/tmp/hedgedoclog"),
-        HedgedocBinding::default(),
-    ));
+    let hedgedoc = Glue::new(Log::new("/tmp/hedgedoclog"), HedgedocBinding::default());
 
     let truth = Truth::default();
 
-    let mut pipeline = Glue::new(debugger, Glue::new(truth, hedgedoc));
+    let mut pipeline = Glue::new(debugger, Glue::new(truth, Flip::new(hedgedoc)));
 
     let mut running = true;
     while running {
@@ -760,8 +819,8 @@ async fn main() {
             continue;
         }
         if let Some(message) = pipeline.poll_transmit_to_io() {
-            print!("{message}");
-            //flush
+            //stdout.send(message).await.expect("Failed to send");
+            print!("{}", message);
             std::io::stdout().flush().unwrap();
             continue;
         }

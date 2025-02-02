@@ -234,6 +234,7 @@ fn transform_through_operations(
         // Currently we are implementing this method on data that doesn't carry this 'global' knowledge.
         // So we'll workaround by manually fixing the base_len, if one of the operations is shorter.
         // We do so by simply retaining the required number of characters at the end
+        // TODO: Still needed?
         if my_op_seq.base_len() < their_op_seq.base_len() {
             let diff = their_op_seq.base_len() - my_op_seq.base_len();
             my_op_seq.retain(diff as u64);
@@ -396,6 +397,18 @@ mod tests {
             // For details, check out ../../docs/decisions/02-working-with-vims-eol-behavior.md.
             assert_eq!(to_2nd_editor_2, rev_ed_delta_single(0, (1, 0), (2, 0), ""));
             assert_eq!(ot_server.current_content(), ot_server2.current_content());
+        }
+
+        #[test]
+        fn full_length() {
+            let mut ot_server: OTServer = OTServer::new("1ö3".to_string());
+            let rev_delta = rev_ed_delta_single(0, (0, 0), (0, 0), "0");
+            let (to_crdt, _) = ot_server.apply_editor_operation(rev_delta);
+            let mut expected = TextDelta::default();
+            expected.retain(0);
+            expected.insert("0");
+            expected.retain(3);
+            assert_eq!(to_crdt, expected);
         }
     }
 
