@@ -561,6 +561,7 @@ impl TextDelta {
             ed_delta.0.len() <= 1,
             "We don't yet support EditorTextDelta with multiple operations."
         );
+        let mut l = 0;
         for ed_op in ed_delta {
             let mut delta_step = Self::default();
             if ed_op.range.is_empty() {
@@ -574,6 +575,8 @@ impl TextDelta {
                 let (position, length) = ed_op.range.as_relative(content)?;
                 delta_step.retain(position);
                 delta_step.delete(length);
+                l += position;
+                l += length;
                 if !ed_op.replacement.is_empty() {
                     // replace
                     delta_step.insert(&ed_op.replacement);
@@ -581,6 +584,13 @@ impl TextDelta {
             }
             delta = delta.compose(delta_step);
         }
+
+        // Append retains according to the length of the content.
+        let length_of_content = content.chars().count();
+        if l < length_of_content {
+            delta.retain(length_of_content - l);
+        }
+
         Ok(delta)
     }
 }
