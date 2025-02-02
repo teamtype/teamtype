@@ -21,19 +21,31 @@ impl TextDelta {
     pub fn apply(&self, content: &str) -> String {
         let mut result = String::new();
         let mut position = 0;
+        let mut l = 0;
         for op in &self.0 {
             match op {
                 TextOp::Retain(n) => {
-                    result.push_str(&content[position..position + *n]);
+                    // Unicode aware!
+                    let text = content.chars().skip(position).take(*n).collect::<String>();
+                    result.push_str(&text);
                     position += n;
+                    l += n;
                 }
                 TextOp::Insert(s) => {
                     result.push_str(s);
                 }
                 TextOp::Delete(n) => {
                     position += n;
+                    l += n;
                 }
             }
+        }
+        if l != content.chars().count() {
+            panic!(
+                "Length of delta application does not match content length: {} vs {}",
+                l,
+                content.chars().count()
+            );
         }
         result
     }
