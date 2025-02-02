@@ -797,20 +797,20 @@ async fn main() {
     );
 
     //let _debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
-    let debugger = Glue::new(
+    let _debugger = Glue::new(
         Glue::new(EditorDebugger::default(), Log::new("/tmp/ethersynclog")),
         Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
     );
 
-    let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
-    //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
-    //let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
+    //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
+    let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
+    let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
     let hedgedoc = Glue::new(Log::new("/tmp/hedgedoclog"), HedgedocBinding::default());
 
     let truth = Truth::default();
 
-    let mut pipeline = Glue::new(debugger, Glue::new(truth, Flip::new(hedgedoc)));
+    let mut pipeline = Glue::new(editor, Glue::new(truth, Flip::new(hedgedoc)));
 
     let mut running = true;
     while running {
@@ -819,9 +819,9 @@ async fn main() {
             continue;
         }
         if let Some(message) = pipeline.poll_transmit_to_io() {
-            //stdout.send(message).await.expect("Failed to send");
-            print!("{}", message);
-            std::io::stdout().flush().unwrap();
+            stdout.send(message).await.expect("Failed to send");
+            //print!("{}", message);
+            //std::io::stdout().flush().unwrap();
             continue;
         }
         tokio::select! {
@@ -861,6 +861,5 @@ mod tests {
         });
         assert_eq!(truth.content, Some("foo".to_string()));
         let from_io = truth.poll_transmit_from_io().unwrap();
-        dbg!(&from_io);
     }
 }
