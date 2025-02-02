@@ -181,7 +181,10 @@ local function on_buffer_open()
         vim.bo.eol = false
     end
 
-    send_request("open", { uri = uri }, function()
+    -- TODO: Make sure that the eol fits in here correctly
+    local content = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+
+    send_request("open", { uri = uri, content = content }, function()
         debug("Tracking Edits")
         ensure_autoread_is_off()
         track_edits(filename, uri)

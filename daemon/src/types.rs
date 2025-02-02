@@ -17,6 +17,28 @@ use tracing::{debug, error, warn};
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);
 
+impl TextDelta {
+    pub fn apply(&self, content: &str) -> String {
+        let mut result = String::new();
+        let mut position = 0;
+        for op in &self.0 {
+            match op {
+                TextOp::Retain(n) => {
+                    result.push_str(&content[position..position + *n]);
+                    position += n;
+                }
+                TextOp::Insert(s) => {
+                    result.push_str(s);
+                }
+                TextOp::Delete(n) => {
+                    position += n;
+                }
+            }
+        }
+        result
+    }
+}
+
 impl IntoIterator for TextDelta {
     type Item = TextOp;
     type IntoIter = std::vec::IntoIter<Self::Item>;
@@ -156,6 +178,7 @@ impl JSONRPCFromEditor {
 pub enum EditorProtocolMessageFromEditor {
     Open {
         uri: DocumentUri,
+        content: String,
     },
     Close {
         uri: DocumentUri,
@@ -177,6 +200,7 @@ pub enum EditorProtocolMessageFromEditor {
 pub enum ComponentMessage {
     Open {
         file_path: RelativePath,
+        content: String,
     },
     Close {
         file_path: RelativePath,
@@ -216,7 +240,8 @@ mod test_serde {
             JSONRPCFromEditor::Request {
                 id: 1,
                 payload: EditorProtocolMessageFromEditor::Open {
-                    uri: "file:///tmp/file".into()
+                    uri: "file:///tmp/file".into(),
+                    content: "TODO".to_string(),
                 }
             }
         );

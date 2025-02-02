@@ -103,7 +103,7 @@ impl EditorConnection {
         }
 
         match message {
-            EditorProtocolMessageFromEditor::Open { uri } => {
+            EditorProtocolMessageFromEditor::Open { uri, content } => {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
                 let relative_path = RelativePath::try_from_absolute(&self.base_dir, &absolute_path)
@@ -142,6 +142,7 @@ impl EditorConnection {
                 Ok((
                     ComponentMessage::Open {
                         file_path: relative_path,
+                        content: content.to_string(), // TODO added to make compile
                     },
                     vec![],
                 ))
@@ -257,6 +258,7 @@ mod tests {
         let result =
             editor_connection.message_from_editor(&EditorProtocolMessageFromEditor::Open {
                 uri: "file:///foobar/file".to_string(),
+                content: "TODO".to_string(),
             });
 
         assert!(result.is_err());
@@ -275,12 +277,14 @@ mod tests {
         let result =
             editor_connection.message_from_editor(&EditorProtocolMessageFromEditor::Open {
                 uri: format!("file://{}", file.display()),
+                content: "TODO".to_string(),
             });
         assert_eq!(
             result,
             Ok((
                 ComponentMessage::Open {
-                    file_path: RelativePath::new("file")
+                    file_path: RelativePath::new("file"),
+                    content: "TODO".to_string(),
                 },
                 vec![]
             ))

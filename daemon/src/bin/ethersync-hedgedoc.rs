@@ -303,22 +303,11 @@ async fn get_cookie(url: &str) -> Result<String> {
     }
 }
 
+#[derive(Default)]
 struct HedgedocBinding {
-    ot: OTServer,
     latest_revision: u64,
     buffered_transmits_to_hedgedoc: VecDeque<(String, Payload)>,
     buffered_transmits_to_editor: VecDeque<ComponentMessage>,
-}
-
-impl HedgedocBinding {
-    fn new() -> Self {
-        Self {
-            ot: OTServer::new("".to_string()),
-            latest_revision: 0,
-            buffered_transmits_to_hedgedoc: VecDeque::new(),
-            buffered_transmits_to_editor: VecDeque::new(),
-        }
-    }
 }
 
 impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payload)>
@@ -335,24 +324,21 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
             "operation" => {
                 if let Payload::Text(data) = data {
                     // Assume the edit is for the latest revision...
-                    //let revision = data[1].as_u64().unwrap();
-                    //if revision > self.latest_revision {
-                    //    self.latest_revision = revision;
-                    //}
+                    let revision = data[1].as_u64().unwrap();
+                    if revision > self.latest_revision {
+                        self.latest_revision = revision;
+                    }
 
                     // TODO: Move this conversion to types.rs.
                     let mut delta = TextDelta::default();
-                    let mut l = 0;
                     for component in data[2].as_array().unwrap() {
                         match component {
                             serde_json::Value::Number(n) => {
                                 let n = n.as_i64().unwrap();
                                 if n > 0 {
                                     delta.retain(n as usize);
-                                    l += n as usize;
                                 } else {
                                     delta.delete((-n) as usize);
-                                    l += (-n) as usize;
                                 }
                             }
                             serde_json::Value::String(s) => {
@@ -363,25 +349,28 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                             }
                         }
                     }
-                    // Fill up until l == length of content
-                    let content = self.ot.current_content();
-                    let content_len = content.chars().count();
-                    if l < content_len {
-                        delta.retain(content_len - l);
-                    }
-
-                    let rev_delta = self.ot.apply_crdt_change(&delta);
-                    let delta = RevisionedTextDelta::from_rev_ed_delta(
-                        rev_delta,
-                        &self.ot.current_content(),
-                    )
-                    .delta;
 
                     let message = ComponentMessage::Edit {
                         file_path: RelativePath::new("todo"),
                         delta,
                     };
                     self.buffered_transmits_to_editor.push_back(message);
+                }
+            }
+            "doc" => {
+                if let Payload::Text(data) = data {
+                    let map = data[0].as_object().unwrap();
+                    if let Some(str) = map.get("str") {
+                        let content = str.as_str().unwrap();
+                        let open = ComponentMessage::Open {
+                            file_path: RelativePath::new("todo"),
+                            content: content.to_string(),
+                        };
+                        self.buffered_transmits_to_editor.push_back(open);
+                    }
+                    if let Some(n) = map.get("revision") {
+                        self.latest_revision = n.as_u64().unwrap();
+                    }
                 }
             }
             _ => {
@@ -392,16 +381,16 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
     fn handle_input_to_io(&mut self, message: ComponentMessage) {
         match message {
             ComponentMessage::Edit { delta, .. } => {
-                let revision = self.ot.daemon_revision;
-                let rev_delta = RevisionedEditorTextDelta {
-                    revision,
-                    delta: EditorTextDelta::from_delta(delta.clone(), &self.ot.current_content()),
-                };
-                let (delta_for_crdt, rev_deltas_for_editor) =
-                    self.ot.apply_editor_operation(rev_delta);
+                //let revision = self.ot.daemon_revision;
+                //let rev_delta = RevisionedEditorTextDelta {
+                //    revision,
+                //    delta: EditorTextDelta::from_delta(delta.clone(), &self.ot.current_content()),
+                //};
+                //let (delta_for_crdt, rev_deltas_for_editor) =
+                //    self.ot.apply_editor_operation(rev_delta);
 
                 let mut text = Vec::new();
-                for op in delta_for_crdt.0 {
+                for op in delta.0 {
                     match op {
                         TextOp::Retain(n) => {
                             text.push(json!(n));
@@ -417,7 +406,7 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                 self.buffered_transmits_to_hedgedoc.push_back((
                     "operation".to_string(),
                     vec![
-                        json!(self.ot.daemon_revision),
+                        json!(self.latest_revision),
                         serde_json::Value::Array(text),
                         json!({"ranges": [{"anchor": 0, "head": 0}]}),
                     ]
@@ -434,7 +423,7 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
 }
 
 struct OneSidedOT {
-    ot: OTServer,
+    ot: Option<OTServer>,
     buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
     buffered_transmits_to_editor: VecDeque<EditorProtocolMessageToEditor>,
 }
@@ -442,7 +431,7 @@ struct OneSidedOT {
 impl OneSidedOT {
     fn new() -> Self {
         Self {
-            ot: OTServer::new("".to_string()),
+            ot: None,
             buffered_transmits_to_hedgedoc: VecDeque::new(),
             buffered_transmits_to_editor: VecDeque::new(),
         }
@@ -465,29 +454,39 @@ impl
     }
     fn handle_input_from_io(&mut self, message: EditorProtocolMessageFromEditor) {
         match message {
-            EditorProtocolMessageFromEditor::Open { .. } => {}
+            EditorProtocolMessageFromEditor::Open { content, .. } => {
+                self.ot = Some(OTServer::new(content.clone()));
+                self.buffered_transmits_to_hedgedoc
+                    .push_back(ComponentMessage::Open {
+                        file_path: RelativePath::new("todo"),
+                        content,
+                    });
+            }
             EditorProtocolMessageFromEditor::Edit {
                 delta, revision, ..
             } => {
-                let rev_delta = RevisionedEditorTextDelta {
-                    revision,
-                    delta: delta.clone(),
-                };
-                let (delta_for_crdt, rev_deltas_for_editor) =
-                    self.ot.apply_editor_operation(rev_delta);
-                self.buffered_transmits_to_hedgedoc
-                    .push_back(ComponentMessage::Edit {
-                        file_path: RelativePath::new("todo"),
-                        delta: delta_for_crdt,
-                    });
-                self.buffered_transmits_to_editor
-                    .extend(rev_deltas_for_editor.into_iter().map(|rev_delta| {
-                        EditorProtocolMessageToEditor::Edit {
-                            uri: "file:///home/blinry/tmp/playground/file".to_string(),
-                            revision: rev_delta.revision,
-                            delta: rev_delta.delta,
-                        }
-                    }));
+                if let Some(ot) = &mut self.ot {
+                    let rev_delta = RevisionedEditorTextDelta {
+                        revision,
+                        delta: delta.clone(),
+                    };
+                    let (delta_for_crdt, rev_deltas_for_editor) =
+                        ot.apply_editor_operation(rev_delta);
+                    self.buffered_transmits_to_hedgedoc
+                        .push_back(ComponentMessage::Edit {
+                            file_path: RelativePath::new("todo"),
+                            delta: delta_for_crdt,
+                        });
+                    self.buffered_transmits_to_editor.extend(
+                        rev_deltas_for_editor.into_iter().map(|rev_delta| {
+                            EditorProtocolMessageToEditor::Edit {
+                                uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                                revision: rev_delta.revision,
+                                delta: rev_delta.delta,
+                            }
+                        }),
+                    );
+                }
             }
             _ => {
                 // todo
@@ -497,13 +496,16 @@ impl
     fn handle_input_to_io(&mut self, message: ComponentMessage) {
         match message {
             ComponentMessage::Edit { delta, .. } => {
-                let rev_delta = self.ot.apply_crdt_change(&delta);
-                self.buffered_transmits_to_editor
-                    .push_back(EditorProtocolMessageToEditor::Edit {
-                        uri: "file:///home/blinry/tmp/playground/file".to_string(),
-                        revision: rev_delta.revision,
-                        delta: rev_delta.delta,
-                    });
+                if let Some(ot) = &mut self.ot {
+                    let rev_delta = ot.apply_crdt_change(&delta);
+                    self.buffered_transmits_to_editor.push_back(
+                        EditorProtocolMessageToEditor::Edit {
+                            uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                            revision: rev_delta.revision,
+                            delta: rev_delta.delta,
+                        },
+                    );
+                }
             }
             _ => {
                 todo!();
@@ -553,6 +555,78 @@ impl Pipe<String, EditorProtocolMessageToEditor, EditorProtocolMessageFromEditor
             EditorProtocolObject::Request(message)
                 .to_jsonrpc()
                 .expect("should work"),
+        );
+    }
+}
+
+#[derive(Default)]
+struct Truth {
+    content: Option<String>,
+    buffered_transmits_to_front: VecDeque<ComponentMessage>,
+    buffered_transmits_to_back: VecDeque<ComponentMessage>,
+}
+
+impl Truth {
+    fn handle(
+        source: &mut VecDeque<ComponentMessage>,
+        other: &mut VecDeque<ComponentMessage>,
+        true_content: &mut Option<String>,
+        message: ComponentMessage,
+    ) {
+        match &message {
+            ComponentMessage::Edit { delta, .. } => {
+                // forward
+                other.push_back(message.clone());
+                if let Some(true_content_inner) = true_content {
+                    *true_content = Some(delta.apply(&true_content_inner));
+                }
+            }
+            ComponentMessage::Open { content, .. } => {
+                if let Some(true_content) = true_content {
+                    if *true_content == *content {
+                        // All good.
+                    } else {
+                        let chunks = dissimilar::diff(content, true_content);
+                        if let [] | [dissimilar::Chunk::Equal(_)] = chunks.as_slice() {
+                            // nothing to do
+                        }
+
+                        let text_delta: TextDelta = chunks.into();
+                        source.push_back(ComponentMessage::Edit {
+                            file_path: RelativePath::new("todo"),
+                            delta: text_delta,
+                        });
+                    }
+                } else {
+                    *true_content = Some(content.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Pipe<ComponentMessage, ComponentMessage, ComponentMessage, ComponentMessage> for Truth {
+    fn poll_transmit_from_io(&mut self) -> Option<ComponentMessage> {
+        self.buffered_transmits_to_back.pop_front()
+    }
+    fn poll_transmit_to_io(&mut self) -> Option<ComponentMessage> {
+        self.buffered_transmits_to_front.pop_front()
+    }
+    fn handle_input_from_io(&mut self, message: ComponentMessage) {
+        Truth::handle(
+            &mut self.buffered_transmits_to_front,
+            &mut self.buffered_transmits_to_back,
+            &mut self.content,
+            message,
+        );
+    }
+    fn handle_input_to_io(&mut self, message: ComponentMessage) {
+        Truth::handle(
+            &mut self.buffered_transmits_to_back,
+            &mut self.buffered_transmits_to_front,
+            &mut self.content,
+            message,
         );
     }
 }
@@ -608,8 +682,8 @@ async fn main() {
     let (socket, mut rx) = create_socket().await;
 
     let editor = Glue::new(
-        AutoAcceptingJsonRpc::default(),
-        Glue::new(Log::new("/tmp/ethersynclog"), OneSidedOT::new()),
+        Glue::new(AutoAcceptingJsonRpc::default(), OneSidedOT::new()),
+        Log::new("/tmp/ethersynclog"),
     );
 
     let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
@@ -617,10 +691,12 @@ async fn main() {
 
     let hedgedoc = Flip::new(Glue::new(
         Log::new("/tmp/hedgedoclog"),
-        HedgedocBinding::new(),
+        HedgedocBinding::default(),
     ));
 
-    let mut pipeline = Glue::new(editor, hedgedoc);
+    let truth = Truth::default();
+
+    let mut pipeline = Glue::new(Glue::new(editor, truth), hedgedoc);
 
     let mut running = true;
     while running {
@@ -651,5 +727,27 @@ async fn main() {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truth() {
+        let mut truth = Truth::default();
+        truth.handle_input_from_io(ComponentMessage::Open {
+            file_path: RelativePath::new("todo"),
+            content: "foo".to_string(),
+        });
+        assert_eq!(truth.content, Some("foo".to_string()));
+        truth.handle_input_to_io(ComponentMessage::Open {
+            file_path: RelativePath::new("todo"),
+            content: "oo".to_string(),
+        });
+        assert_eq!(truth.content, Some("foo".to_string()));
+        let from_io = truth.poll_transmit_from_io().unwrap();
+        dbg!(&from_io);
     }
 }

@@ -586,12 +586,11 @@ impl DocumentActor {
 
     async fn inside_message_to_doc(&mut self, message: &ComponentMessage) {
         match message {
-            ComponentMessage::Open { file_path } => {
+            ComponentMessage::Open { file_path, content } => {
                 self.current_file_content(file_path).unwrap_or_else(|_| {
                     // The file doesn't exist yet - create it in the Automerge document.
-                    let text = String::new();
-                    self.crdt_doc.initialize_text(&text, file_path);
-                    text
+                    self.crdt_doc.initialize_text(content, file_path);
+                    content.to_string()
                 });
             }
             ComponentMessage::Close { file_path } => {
