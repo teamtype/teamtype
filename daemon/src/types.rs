@@ -565,9 +565,11 @@ impl TextDelta {
         for ed_op in ed_delta {
             let mut delta_step = Self::default();
             if ed_op.range.is_empty() {
+                let position = ed_op.range.start.try_to_offset(content).unwrap();
+                l += position;
                 if !ed_op.replacement.is_empty() {
                     // insert
-                    delta_step.retain(ed_op.range.start.try_to_offset(content)?);
+                    delta_step.retain(position);
                     delta_step.insert(&ed_op.replacement);
                 }
             } else {
@@ -588,7 +590,7 @@ impl TextDelta {
         // Append retains according to the length of the content.
         let length_of_content = content.chars().count();
         if l < length_of_content {
-            delta.retain(length_of_content - l);
+            delta.retain(dbg!(length_of_content - l));
         }
 
         Ok(delta)
