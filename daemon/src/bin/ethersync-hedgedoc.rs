@@ -1009,6 +1009,11 @@ async fn main() {
 
     let mut pipeline = glue![editor_pipeline, truth, Flip::new(hedgedoc_pipeline)];
 
+    // Process first message from Hedgedoc direction, so that it determines the content.
+    let socket_message = rx.recv().await.unwrap();
+    pipeline.handle_input_to_io(socket_message);
+
+    // Then, start the full pipeline.
     let mut running = true;
     while running {
         if let Some((event, data)) = pipeline.poll_transmit_from_io() {
