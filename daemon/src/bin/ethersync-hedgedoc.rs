@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use futures::{SinkExt, StreamExt};
 use futures_util::FutureExt;
 use reqwest::cookie::{CookieStore, Jar};
@@ -19,12 +19,12 @@ use teamtype::{
     ot::OTServer,
     path::RelativePath,
     types::{
-        ComponentMessage, ContentLengthCodec, EditorTextDelta, EditorTextOp, Position, Range,
+        ComponentMessage, EditorTextDelta, EditorTextOp, Position, Range,
         RevisionedEditorTextDelta, RevisionedTextDelta, TextDelta, TextOp,
     },
 };
-use tokio::io::{BufReader, BufWriter};
 use tokio::sync::Mutex;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::sync::mpsc;
 use tokio_util::codec::FramedWrite;
 use tokio_util::codec::{FramedRead, LinesCodec};
@@ -190,6 +190,92 @@ where
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Default)]
+struct ContentLengthCodec {
+    input_from_io: Vec<u8>,
+    input_to_io: Vec<u8>,
+}
+
+impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
+    fn handle_input_from_io(&mut self, message: Vec<u8>) {
+        self.input_from_io.extend(message);
+    }
+    fn handle_input_to_io(&mut self, message: String) {
+        let content_length = message.len();
+        let mut bytes = format!("Content-Length: {}\r\n\r\n", content_length).into_bytes();
+        bytes.extend(message.into_bytes());
+        self.input_to_io.extend(bytes);
+    }
+    fn poll_transmit_to_io(&mut self) -> Option<Vec<u8>> {
+        if self.input_to_io.is_empty() {
+            None
+        } else {
+            Some(self.input_to_io.drain(..).collect())
+        }
+    }
+    fn poll_transmit_from_io(&mut self) -> Option<String> {
+        // Find the position of the Content-Length header.
+        let content_length_header = b"Content-Length: ";
+        let content_length_header_len = content_length_header.len();
+        let start_of_header = match self
+            .input_from_io
+            .windows(content_length_header_len)
+            .position(|window| window == content_length_header)
+        {
+            Some(pos) => pos,
+            None => return None,
+        };
+
+        // Find the end of the line after that.
+        let (end_of_line, end_of_line_bytes) = match self.input_from_io
+            [start_of_header + content_length_header.len()..]
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+        {
+            Some(pos) => (pos, 4),
+            // Even though this is not valid in terms of the spec, also
+            // accept plain newline separators in order to simplify manual testing.
+            None => match self.input_from_io[start_of_header + content_length_header.len()..]
+                .windows(2)
+                .position(|window| window == b"\n\n")
+            {
+                Some(pos) => (pos, 2),
+                None => return None,
+            },
+        };
+
+        // Parse the content length.
+        let content_length = std::str::from_utf8(
+            &self.input_from_io[start_of_header + content_length_header.len()
+                ..start_of_header + content_length_header.len() + end_of_line],
+        )
+        .unwrap()
+        .parse::<usize>()
+        .unwrap();
+        let content_start =
+            start_of_header + content_length_header.len() + end_of_line + end_of_line_bytes;
+
+        // Check if we have enough content.
+        if self.input_from_io.len() < content_start + content_length {
+            return None;
+        }
+
+        // Discard the header.
+        self.input_from_io.drain(..content_start);
+        // Return the content.
+        Some(
+            std::str::from_utf8(
+                &self
+                    .input_from_io
+                    .drain(..content_length)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap()
+            .to_string(),
+        )
+    }
+}
 
 #[derive(Default)]
 struct BytesToLinesPipe {
@@ -785,21 +871,29 @@ async fn main() {
 
     let editor = Glue::new(
         Glue::new(
-            AutoAcceptingJsonRpc::default(),
-            Log::new("/tmp/ethersynclog"),
+            Glue::new(Log::new("/tmp/jsonrpclog"), ContentLengthCodec::default()),
+            Glue::new(
+                Log::new("/tmp/ethersynclog"),
+                AutoAcceptingJsonRpc::default(),
+            ),
         ),
         Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
     );
 
     //let _debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
     let _debugger = Glue::new(
-        Glue::new(EditorDebugger::default(), Log::new("/tmp/ethersynclog")),
+        Glue::new(
+            BytesToLinesPipe::default(),
+            Glue::new(EditorDebugger::default(), Log::new("/tmp/ethersynclog")),
+        ),
         Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
     );
 
+    let mut buf = vec![0; 1024];
+    let mut stdin = tokio::io::stdin();
     //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), LinesCodec::new());
-    let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
-    let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
+    //let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
+    //let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
 
     let hedgedoc = Glue::new(Log::new("/tmp/hedgedoclog"), HedgedocBinding::default());
 
@@ -814,9 +908,10 @@ async fn main() {
             continue;
         }
         if let Some(message) = pipeline.poll_transmit_to_io() {
-            stdout.send(message).await.expect("Failed to send");
-            //print!("{}", message);
-            //std::io::stdout().flush().unwrap();
+            tokio::io::stdout()
+                .write_all(message.as_slice())
+                .await
+                .expect("Failed to write to stdout");
             continue;
         }
         tokio::select! {
@@ -827,11 +922,19 @@ async fn main() {
                     running = false;
                 }
             }
-            message_maybe = stdin.next() => {
-                if let Some(Ok(message)) = message_maybe {
-                    pipeline.handle_input_from_io(message.clone());
-                } else {
-                    running = false;
+            result = stdin.read(&mut buf) => {
+                match result {
+                    Ok(0) => {
+                        // eof
+                        running = false;
+                    }
+                    Ok(n) => {
+                        pipeline.handle_input_from_io(buf[..n].to_vec());
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading from stdin: {}", e);
+                        running = false;
+                    }
                 }
             }
         }
