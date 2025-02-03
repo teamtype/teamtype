@@ -191,21 +191,21 @@ where
 
 #[derive(Default)]
 struct ContentLengthCodec {
-    input_from_io: Vec<u8>,
-    input_to_io: Vec<u8>,
+    input_from_io: String,
+    input_to_io: String,
 }
 
-impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
-    fn handle_input_from_io(&mut self, message: Vec<u8>) {
-        self.input_from_io.extend(message);
+impl Pipe<String, String, String, String> for ContentLengthCodec {
+    fn handle_input_from_io(&mut self, message: String) {
+        self.input_from_io.push_str(&message);
     }
     fn handle_input_to_io(&mut self, message: String) {
         let content_length = message.len();
-        let mut bytes = format!("Content-Length: {}\r\n\r\n", content_length).into_bytes();
-        bytes.extend(message.into_bytes());
-        self.input_to_io.extend(bytes);
+        let string = format!("Content-Length: {}\r\n\r\n", content_length);
+        self.input_to_io.push_str(&string);
+        self.input_to_io.push_str(&message);
     }
-    fn poll_transmit_to_io(&mut self) -> Option<Vec<u8>> {
+    fn poll_transmit_to_io(&mut self) -> Option<String> {
         if self.input_to_io.is_empty() {
             None
         } else {
@@ -218,6 +218,7 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
         let content_length_header_len = content_length_header.len();
         let start_of_header = match self
             .input_from_io
+            .as_bytes()
             .windows(content_length_header_len)
             .position(|window| window == content_length_header)
         {
@@ -228,6 +229,7 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
         // Find the end of the line after that.
         let (end_of_line, end_of_line_bytes) = match self.input_from_io
             [start_of_header + content_length_header.len()..]
+            .as_bytes()
             .windows(4)
             .position(|window| window == b"\r\n\r\n")
         {
@@ -235,6 +237,7 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
             // Even though this is not valid in terms of the spec, also
             // accept plain newline separators in order to simplify manual testing.
             None => match self.input_from_io[start_of_header + content_length_header.len()..]
+                .as_bytes()
                 .windows(2)
                 .position(|window| window == b"\n\n")
             {
@@ -244,13 +247,10 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
         };
 
         // Parse the content length.
-        let content_length = std::str::from_utf8(
-            &self.input_from_io[start_of_header + content_length_header.len()
-                ..start_of_header + content_length_header.len() + end_of_line],
-        )
-        .unwrap()
-        .parse::<usize>()
-        .unwrap();
+        let content_length = &self.input_from_io[start_of_header + content_length_header.len()
+            ..start_of_header + content_length_header.len() + end_of_line]
+            .parse::<usize>()
+            .unwrap();
         let content_start =
             start_of_header + content_length_header.len() + end_of_line + end_of_line_bytes;
 
@@ -262,16 +262,7 @@ impl Pipe<Vec<u8>, String, String, Vec<u8>> for ContentLengthCodec {
         // Discard the header.
         self.input_from_io.drain(..content_start);
         // Return the content.
-        Some(
-            std::str::from_utf8(
-                &self
-                    .input_from_io
-                    .drain(..content_length)
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap()
-            .to_string(),
-        )
+        Some(self.input_from_io.drain(..content_length).collect())
     }
 }
 
@@ -913,10 +904,8 @@ async fn main() {
             continue;
         }
         if let Some(message) = pipeline.poll_transmit_to_io() {
-            tokio::io::stdout()
-                .write_all(message.as_slice())
-                .await
-                .expect("Failed to write to stdout");
+            print!("{message}");
+            std::io::stdout().flush().unwrap();
             continue;
         }
         tokio::select! {
@@ -934,7 +923,7 @@ async fn main() {
                         running = false;
                     }
                     Ok(n) => {
-                        pipeline.handle_input_from_io(buf[..n].to_vec());
+                        pipeline.handle_input_from_io(String::from_utf8(buf[..n].to_vec()).unwrap());
                     }
                     Err(e) => {
                         eprintln!("Error reading from stdin: {}", e);
