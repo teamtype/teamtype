@@ -585,20 +585,13 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
     }
 }
 
+#[derive(Default)]
 struct OneSidedOT {
     ot: Option<OTServer>,
+    // TODO: Hack, to quickly support single files.
+    uri: Option<String>,
     buffered_transmits_to_hedgedoc: VecDeque<ComponentMessage>,
     buffered_transmits_to_editor: VecDeque<EditorProtocolMessageToEditor>,
-}
-
-impl OneSidedOT {
-    fn new() -> Self {
-        Self {
-            ot: None,
-            buffered_transmits_to_hedgedoc: VecDeque::new(),
-            buffered_transmits_to_editor: VecDeque::new(),
-        }
-    }
 }
 
 impl
@@ -617,7 +610,8 @@ impl
     }
     fn handle_input_from_io(&mut self, message: EditorProtocolMessageFromEditor) {
         match message {
-            EditorProtocolMessageFromEditor::Open { content, .. } => {
+            EditorProtocolMessageFromEditor::Open { content, uri } => {
+                self.uri = Some(uri);
                 self.ot = Some(OTServer::new(content.clone()));
                 self.buffered_transmits_to_hedgedoc
                     .push_back(ComponentMessage::Open {
@@ -643,7 +637,7 @@ impl
                     self.buffered_transmits_to_editor.extend(
                         rev_deltas_for_editor.into_iter().map(|rev_delta| {
                             EditorProtocolMessageToEditor::Edit {
-                                uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                                uri: self.uri.clone().unwrap(),
                                 revision: rev_delta.revision,
                                 delta: rev_delta.delta,
                             }
@@ -672,7 +666,7 @@ impl
                     let rev_delta = ot.apply_crdt_change(&delta);
                     self.buffered_transmits_to_editor.push_back(
                         EditorProtocolMessageToEditor::Edit {
-                            uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                            uri: self.uri.clone().unwrap(),
                             revision: rev_delta.revision,
                             delta: rev_delta.delta,
                         },
@@ -690,7 +684,7 @@ impl
                         ranges,
                         name,
                         userid: cursor_id,
-                        uri: "file:///home/blinry/tmp/playground/file".to_string(),
+                        uri: self.uri.clone().unwrap(),
                     })
             }
             _ => {
@@ -1010,7 +1004,7 @@ async fn main() {
 
     //let editor = glue![LinesCodec::default(), EditorDebugger::default()];
 
-    let editor_pipeline = glue![editor, OneSidedOT::new()];
+    let editor_pipeline = glue![editor, OneSidedOT::default()];
 
     let mut buf = vec![0; 1024];
     let mut stdin = tokio::io::stdin();
