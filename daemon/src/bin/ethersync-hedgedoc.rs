@@ -927,9 +927,17 @@ impl Pipe<String, EditorProtocolMessageToEditor, EditorProtocolMessageFromEditor
     }
 }
 
-async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payload)>) {
-    let server = "https://md.ha.si";
-    let cookie = get_cookie(server).await.expect("Failed to get cookie");
+async fn create_socket(
+    hedgedoc_url: &str,
+) -> (Client, tokio::sync::mpsc::Receiver<(String, Payload)>) {
+    let server = hedgedoc_url
+        .split("/")
+        .take(3)
+        .collect::<Vec<_>>()
+        .join("/");
+    let note = hedgedoc_url.split("/").nth(3).unwrap();
+
+    let cookie = get_cookie(&server).await.expect("Failed to get cookie");
 
     let (tx, rx) = mpsc::channel(32);
 
@@ -974,7 +982,7 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
         .boxed()
     };
 
-    let socket = ClientBuilder::new(format!("{server}/socket.io/?noteId=test"))
+    let socket = ClientBuilder::new(format!("{server}/socket.io/?noteId={note}"))
         .transport_type(TransportType::Polling)
         .opening_header("Cookie", cookie)
         .on("operation", operation_callback)
@@ -989,7 +997,11 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
 
 #[tokio::main]
 async fn main() {
-    let (socket, mut rx) = create_socket().await;
+    let hedgedoc_url = std::env::args()
+        .nth(1)
+        .expect("Please provide the Hedgedoc URL");
+
+    let (socket, mut rx) = create_socket(&hedgedoc_url).await;
 
     let editor = glue![
         ContentLengthCodec::default(),

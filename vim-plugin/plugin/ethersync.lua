@@ -67,13 +67,13 @@ local function process_operation_for_editor(method, parameters)
 end
 
 -- Connect to the daemon.
-local function connect()
+local function connect(hedgedoc_url)
     if client then
         client.terminate()
     end
 
     local program = "ethersync-hedgedoc"
-    local params = {}
+    local params = { hedgedoc_url }
 
     local dispatchers = {
         notification = function(method, notification_params)
@@ -230,13 +230,41 @@ local function print_info()
     end
 end
 
-vim.api.nvim_create_autocmd({ "BufRead" }, { callback = on_buffer_open })
-vim.api.nvim_create_autocmd({ "BufNewFile" }, { callback = on_buffer_new_file })
-vim.api.nvim_create_autocmd("BufUnload", { callback = on_buffer_close })
+local function connect_buffer(opts)
+    local hedgedoc_url = opts.args
+
+    local filename = vim.fn.expand("%:p")
+    debug("on_buffer_open: " .. filename)
+
+    if not client then
+        connect(hedgedoc_url)
+    end
+
+    local uri = "file://" .. filename
+
+    -- Vim enables eol for an empty file, but we do use this option values
+    -- assuming there's a trailing newline iff eol is true.
+    if vim.fn.getfsize(vim.api.nvim_buf_get_name(0)) == 0 then
+        vim.bo.eol = false
+    end
+
+    -- TODO: Make sure that the eol fits in here correctly
+    local content = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+
+    send_request("open", { uri = uri, content = content }, function()
+        debug("Tracking Edits")
+        ensure_autoread_is_off()
+        track_edits(filename, uri)
+    end)
+end
+
+-- TODO: use this somewhere
+--vim.api.nvim_create_autocmd("BufUnload", { callback = on_buffer_close })
 
 -- This autocommand prevents that, when a file changes on disk while Neovim has the file open,
 -- it should not attempt to reload it. Related to issue #176.
 vim.api.nvim_create_autocmd("FileChangedShell", { callback = function() end })
 
+vim.api.nvim_create_user_command("EthersyncHedgedoc", connect_buffer, { nargs = 1 })
 vim.api.nvim_create_user_command("EthersyncInfo", print_info, {})
 vim.api.nvim_create_user_command("EthersyncJumpToCursor", cursor.jump_to_cursor, {})
