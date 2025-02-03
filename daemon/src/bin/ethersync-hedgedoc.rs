@@ -49,7 +49,6 @@ where
     )>,
 }
 
-// new
 impl<A, B, InputFromIO, InputToIO, InputToA, OutputFromIO, OutputToIO, OutputFromA>
     Glue<A, B, InputFromIO, InputToIO, InputToA, OutputFromIO, OutputToIO, OutputFromA>
 where
@@ -91,6 +90,18 @@ where
         }
         self.a.poll_transmit_to_io()
     }
+}
+
+macro_rules! glue {
+     ( $a:expr, $b:expr $(, $more:expr )* $(,)? ) => {
+        {
+            let pipe = Glue::new($a, $b);
+            $(
+                let pipe = Glue::new(pipe, $more);
+            )*
+            pipe
+        }
+    };
 }
 
 struct Flip<A, InputFromIO, InputToIO, OutputFromIO, OutputToIO>
@@ -980,34 +991,23 @@ async fn create_socket() -> (Client, tokio::sync::mpsc::Receiver<(String, Payloa
 async fn main() {
     let (socket, mut rx) = create_socket().await;
 
-    let editor = Glue::new(
-        Glue::new(
-            ContentLengthCodec::default(),
-            Glue::new(
-                Log::new("/tmp/ethersynclog"),
-                AutoAcceptingJsonRpc::default(),
-            ),
-        ),
-        Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
-    );
+    let editor = glue![
+        ContentLengthCodec::default(),
+        AutoAcceptingJsonRpc::default(),
+    ];
 
-    //let debugger = Glue::new(Debugger::default(), Log::new("/tmp/ethersynclog"));
-    let debugger = Glue::new(
-        Glue::new(
-            LinesCodec::default(),
-            Glue::new(EditorDebugger::default(), Log::new("/tmp/ethersynclog")),
-        ),
-        Glue::new(OneSidedOT::new(), Log::new("/tmp/otlog")),
-    );
+    //let editor = glue![LinesCodec::default(), EditorDebugger::default()];
+
+    let editor_pipeline = glue![editor, OneSidedOT::new()];
 
     let mut buf = vec![0; 1024];
     let mut stdin = tokio::io::stdin();
 
-    let hedgedoc = Glue::new(Log::new("/tmp/hedgedoclog"), HedgedocBinding::default());
+    let hedgedoc_pipeline = glue![Log::new("/tmp/hedgedoclog"), HedgedocBinding::default()];
 
     let truth = Truth::default();
 
-    let mut pipeline = Glue::new(editor, Glue::new(truth, Flip::new(hedgedoc)));
+    let mut pipeline = glue![editor_pipeline, truth, Flip::new(hedgedoc_pipeline)];
 
     let mut running = true;
     while running {
