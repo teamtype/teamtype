@@ -230,8 +230,6 @@ local function print_info()
     end
 end
 
-local function connect_buffer(opts) end
-
 local function on_buffer_read(ev)
     local uri = ev.match
 
@@ -256,11 +254,33 @@ local function on_buffer_read(ev)
     end)
 end
 
+local function on_buffer_write(ev)
+    local uri = ev.match
+
+    uri = uri:match("://(.*)")
+    local parts = vim.split(uri, "/")
+
+    local dir = vim.fn.getenv("HOME") .. "/.cache/ethersync/" .. table.concat(parts, "/", 1, #parts - 1)
+    vim.fn.mkdir(dir, "p")
+
+    local file = dir .. "/" .. parts[#parts]
+    -- TODO: newline correct?
+    local content = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n")
+    local f = io.open(file, "w+")
+    if f then
+        f:write(content)
+        f:close()
+        vim.bo.modified = false
+        print("Written to \"" .. file .. "\"")
+    end
+end
+
 -- Disable netrw.
 vim.g.loaded_netrwPlugin = 1
 vim.g.loaded_netrw = 1
 
 vim.api.nvim_create_autocmd("BufReadCmd", { callback = on_buffer_read, pattern = "https://*" })
+vim.api.nvim_create_autocmd("BufWriteCmd", { callback = on_buffer_write, pattern = "https://*" })
 
 -- TODO: use this somewhere
 --vim.api.nvim_create_autocmd("BufUnload", { callback = on_buffer_close })
