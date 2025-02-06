@@ -3195,9 +3195,9 @@ checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
 name = "openssl-src"
-version = "300.4.2+3.4.1"
+version = "300.6.0+3.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "168ce4e058f975fe43e89d9ccf78ca668601887ae736090aacc23ae353c298e2"
+checksum = "a8e8cbfd3a4a8c8f089147fd7aaa33cf8c7450c4d09f8f80698a0cf093abeff4"
 dependencies = [
  "cc",
 ]
@@ -4031,6 +4031,7 @@ dependencies = [
 [[package]]
 name = "rust_engineio"
 version = "0.6.0"
+source = "git+https://github.com/blinry/rust-socketio?branch=socketio-v2#5c7f6d41643ae07c2b61f83023007cdb1dcaa544"
 dependencies = [
  "adler32",
  "async-stream",
@@ -4053,6 +4054,7 @@ dependencies = [
 [[package]]
 name = "rust_socketio"
 version = "0.6.0"
+source = "git+https://github.com/blinry/rust-socketio?branch=socketio-v2#5c7f6d41643ae07c2b61f83023007cdb1dcaa544"
 dependencies = [
  "adler32",
  "async-stream",
@@ -4882,9 +4884,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.52.1"
+version = "1.52.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67dee974fe86fd92cc45b7a95fdd2f99a36a6d7b0d431a231178d3d670bbcc6"
+checksum = "110a78583f19d5cdb2c5ccf321d1290344e71313c6c37d43520d386027d18386"
 dependencies = [
  "bytes",
  "libc",

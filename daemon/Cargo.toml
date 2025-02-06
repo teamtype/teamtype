@@ -80,7 +80,9 @@ rand = "0.8" # must match types used in iroh 0.35
 reqwest = { version = "0.12", features = ["cookies", "native-tls-vendored"] }
 ropey = "1"
 rust-ini = "0.21"
-rust_socketio = { path = "../../rust-socketio/socketio", features = ["async"] }
+rust_socketio = { git = "https://github.com/blinry/rust-socketio", branch = "socketio-v2", features = [
+    "async",
+] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
