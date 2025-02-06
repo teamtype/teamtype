@@ -70,7 +70,9 @@ rand = "0.8.5"
 reqwest = { version = "0.12.12", features = ["cookies"] }
 ropey = "1.6.1"
 rust-ini = "0.21.1"
-rust_socketio = { path = "../../rust-socketio/socketio", features = ["async"] }
+rust_socketio = { git = "https://github.com/blinry/rust-socketio", branch = "socketio-v2", features = [
+    "async",
+] }
 serde = { version = "1.0.198", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10.8"

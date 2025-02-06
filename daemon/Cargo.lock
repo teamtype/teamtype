@@ -3214,6 +3214,7 @@ dependencies = [
 [[package]]
 name = "rust_engineio"
 version = "0.6.0"
+source = "git+https://github.com/blinry/rust-socketio?branch=socketio-v2#5c7f6d41643ae07c2b61f83023007cdb1dcaa544"
 dependencies = [
  "adler32",
  "async-stream",
@@ -3236,6 +3237,7 @@ dependencies = [
 [[package]]
 name = "rust_socketio"
 version = "0.6.0"
+source = "git+https://github.com/blinry/rust-socketio?branch=socketio-v2#5c7f6d41643ae07c2b61f83023007cdb1dcaa544"
 dependencies = [
  "adler32",
  "async-stream",
@@ -4365,7 +4367,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
