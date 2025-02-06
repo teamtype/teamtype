@@ -230,17 +230,15 @@ local function print_info()
     end
 end
 
-local function connect_buffer(opts)
-    local hedgedoc_url = opts.args
+local function connect_buffer(opts) end
 
-    local filename = vim.fn.expand("%:p")
-    debug("on_buffer_open: " .. filename)
+local function on_buffer_read(ev)
+    local uri = ev.match
 
+    --local hedgedoc_server = uri:match("^https://([^/]+)")
     if not client then
-        connect(hedgedoc_url)
+        connect(uri)
     end
-
-    local uri = "file://" .. filename
 
     -- Vim enables eol for an empty file, but we do use this option values
     -- assuming there's a trailing newline iff eol is true.
@@ -254,9 +252,15 @@ local function connect_buffer(opts)
     send_request("open", { uri = uri, content = content }, function()
         debug("Tracking Edits")
         ensure_autoread_is_off()
-        track_edits(filename, uri)
+        track_edits(uri, uri)
     end)
 end
+
+-- Disable netrw.
+vim.g.loaded_netrwPlugin = 1
+vim.g.loaded_netrw = 1
+
+vim.api.nvim_create_autocmd("BufReadCmd", { callback = on_buffer_read, pattern = "https://*" })
 
 -- TODO: use this somewhere
 --vim.api.nvim_create_autocmd("BufUnload", { callback = on_buffer_close })
@@ -265,6 +269,5 @@ end
 -- it should not attempt to reload it. Related to issue #176.
 vim.api.nvim_create_autocmd("FileChangedShell", { callback = function() end })
 
-vim.api.nvim_create_user_command("EthersyncHedgedoc", connect_buffer, { nargs = 1 })
 vim.api.nvim_create_user_command("EthersyncInfo", print_info, {})
 vim.api.nvim_create_user_command("EthersyncJumpToCursor", cursor.jump_to_cursor, {})
