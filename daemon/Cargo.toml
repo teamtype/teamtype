@@ -77,7 +77,7 @@ operational-transform = "0.6"
 path-clean = "1"
 postcard = { version = "1", features = ["alloc"] }
 rand = "0.8" # must match types used in iroh 0.35
-reqwest = { version = "0.12", features = ["cookies"] }
+reqwest = { version = "0.12", features = ["cookies", "native-tls-vendored"] }
 ropey = "1"
 rust-ini = "0.21"
 rust_socketio = { path = "../../rust-socketio/socketio", features = ["async"] }
