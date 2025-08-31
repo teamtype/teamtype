@@ -67,7 +67,7 @@ operational-transform = "0.6.1"
 path-clean = "1.0.1"
 pbkdf2 = "0.12.2"
 rand = "0.8.5"
-reqwest = { version = "0.12.12", features = ["cookies"] }
+reqwest = { version = "0.12.12", features = ["cookies", "native-tls-vendored"] }
 ropey = "1.6.1"
 rust-ini = "0.21.1"
 rust_socketio = { git = "https://github.com/blinry/rust-socketio", branch = "socketio-v2", features = [
