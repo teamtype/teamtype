@@ -67,6 +67,9 @@ function M.connect(cmd, directory, on_notification, on_disconnect)
                         .. directory
                         .. ")? To stop trying, remove the .teamtype/ directory."
                 )
+                vim.schedule(function()
+                    on_disconnect()
+                end)
             end
         end,
     }
