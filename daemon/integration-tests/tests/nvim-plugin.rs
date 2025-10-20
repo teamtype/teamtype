@@ -5,9 +5,12 @@
 
 use teamtype_integration_tests::actors::*;
 
-use teamtype::types::{
-    factories::*, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
-    EditorProtocolObject, EditorTextDelta, EditorTextOp, JSONRPCFromEditor,
+use teamtype::{
+    editor_protocol::{
+        EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, EditorProtocolObject,
+        JSONRPCFromEditor,
+    },
+    types::{factories::*, EditorTextDelta, EditorTextOp},
 };
 
 use pretty_assertions::assert_eq;
