@@ -94,7 +94,7 @@ function M.connect(cmd, directory, on_connect, on_notification)
     setmetatable(the_connection, { __index = Connection })
 
     -- TODO: Get version number from elsewhere?
-    the_connection:send_request("initialize", { version = "0.9.1" }, function()
+    the_connection:send_request("initialize", { version = "0.9" }, function()
         print("Connected to Teamtype daemon!")
         on_connect(the_connection)
     end, report_error)
