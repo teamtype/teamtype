@@ -52,8 +52,6 @@ The [releases on GitHub](https://github.com/teamtype/teamtype/releases/latest) c
 
 </details>
 
-<!-- TODO: Uncomment once the packages are renamed.
-
 <details>
 <summary>Arch Linux</summary>
 
@@ -61,6 +59,16 @@ The [releases on GitHub](https://github.com/teamtype/teamtype/releases/latest) c
 sudo pacman -S teamtype
 ```
 </details>
+
+<details>
+<summary>Homebrew</summary>
+
+```
+brew install teamtype
+```
+</details>
+
+<!-- TODO: Uncomment once the package has been renamed.
 
 <details>
 <summary>Nix</summary>
