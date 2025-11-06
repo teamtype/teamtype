@@ -68,8 +68,6 @@ brew install teamtype
 ```
 </details>
 
-<!-- TODO: Uncomment once the package has been renamed.
-
 <details>
 <summary>Nix</summary>
 
@@ -81,8 +79,6 @@ nix shell nixpkgs#teamtype
 
 Make sure to also have it in your PATH when you run the editors, or install it to your environment in your preferred way.
 </details>
-
--->
 
 <details>
 <summary>Via Cargo</summary>
