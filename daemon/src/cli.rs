@@ -7,9 +7,25 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
+fn get_version() -> &'static str {
+    let version = env!("CARGO_PKG_VERSION");
+    let git_hash = option_env!("GIT_HASH");
+    let commit_date = option_env!("GIT_COMMIT_DATE");
+    let is_dirty = option_env!("GIT_DIRTY").unwrap_or("false") == "true";
+
+    let version = match (git_hash, commit_date) {
+        (Some(hash), Some(date)) if hash != "unknown" && date != "unknown" => {
+            let dirty_suffix = if is_dirty { "-modified" } else { "" };
+            format!("{version} ({hash}{dirty_suffix} {date})")
+        }
+        _ => version.to_string(),
+    };
+    Box::leak(version.into_boxed_str())
+}
+
 // TODO: Define these constants in the teamtype crate, and use them here.
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version=get_version(), about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
     #[command(subcommand)]
