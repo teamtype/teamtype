@@ -9,8 +9,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 *Multiplayer mode for your text editor!*
 
-> [!IMPORTANT]
-> This project used to be called "Ethersync" until October 2025. See [this PR](https://github.com/teamtype/teamtype/pull/436) for our motivation. It might take a while for the official packages to be renamed.
+> [!NOTE]
+> This project used to be called "Ethersync" until October 2025. See [this PR](https://github.com/teamtype/teamtype/pull/436) for our motivation.
 
 Teamtype enables real-time collaborative editing of local text files. You can use it for pair programming or note-taking, for example. It's the missing real-time complement to Git!
 
