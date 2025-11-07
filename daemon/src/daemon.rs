@@ -975,7 +975,7 @@ impl Daemon {
         }
         if let Some(config::Peer::SecretAddress(ref secret_address)) = app_config.peer {
             connection_manager
-                .connect(secret_address.to_string())
+                .connect(secret_address.clone())
                 .await
                 .context("Failed to connect to specified peer")?;
         }
