@@ -21,9 +21,22 @@
 (defun file-opened ()
   (message "File %s" buffer-file-name)
   (message "Root: %s" (find-root buffer-file-name))
-  (track-changes (lambda (from to replacement)
-                   (message "Replaced from (%s) to (%s) with %s" from to replacement)
-                   ))
+  (let* ((proc (make-process
+                :name "teamtype"
+                :buffer nil
+                :command '("teamtype" "client")
+                :connection-type 'pipe))
+         (conn (make-instance 'jsonrpc-process-connection
+                              :process proc
+                              :request-dispatcher (lambda (_conn method params)
+                                                    (message "request %s %S" method params))
+                              :notification-dispatcher (lambda (_conn method params)
+                                                         (message "notification %s %S" method params))
+                              :on-shutdown (lambda (_conn) (message "shutdown")))))
+    (jsonrpc-notify conn "open" `(:uri ,buffer-file-name)))
+  ;(track-changes (lambda (from to replacement)
+  ;                 (message "Replaced from (%s) to (%s) with %s" from to replacement)
+  ;                 ))
   )
 
 (add-hook 'find-file-hook #'file-opened)
