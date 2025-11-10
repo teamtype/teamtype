@@ -1,7 +1,7 @@
 (require 'jsonrpc)
 
-(defvar process nil)
-(defvar connection nil)
+(defvar process nil "The `teamtype client` process")
+(defvar connection nil "The jsonrpc connection to that process")
 
 (defun line-col-to-pos (line col)
   (save-excursion
@@ -24,6 +24,8 @@
 (defun file-opened ()
   (message "File %s" buffer-file-name)
   (message "Root: %s" (find-root buffer-file-name))
+
+  ; Initialize the connection if there is none yet.
   (when (not connection)
     (setq process (make-process
                     :name "teamtype"
@@ -33,13 +35,16 @@
     (set-process-query-on-exit-flag process nil)
     (setq connection (make-instance 'jsonrpc-process-connection
                                     :process process
+                                    ; TODO: Use the find-root function here.
                                     :request-dispatcher (lambda (_conn method params)
                                                           (message "request %s %S" method params))
                                     :notification-dispatcher (lambda (_conn method params)
                                                                (message "notification %s %S" method params))
                                     :on-shutdown (lambda (_conn) (message "shutdown")))))
+
   (jsonrpc-async-request connection "open" `(:uri ,(browse-url-file-url buffer-file-name) :content "blabb")
                          :success-fn (lambda ()
+                                       ; TODO: We don't seem to get here yet?
                                        (track-changes (lambda (from to replacement)
                                                         (message "Replaced from (%s) to (%s) with %s" from to replacement)))
                                        )))
@@ -64,17 +69,10 @@
 
 (defun my-after-change (beg end len)
   (message "after")
-  ; (message "Replaced '%s' with '%s' at position %d (%s)"
-  ;          my-last-change-old-text
-  ;          (buffer-substring-no-properties beg end)
-  ;          beg
-  ;          (pos-to-line-col beg)
-  ;          )
   (funcall change-callback
            (pos-to-line-col beg)
            (pos-to-line-col end)
            (buffer-substring-no-properties beg end))
-  ;(replace-region 0 0 0 0 "!")
   )
 
 (defun track-changes (callback)
