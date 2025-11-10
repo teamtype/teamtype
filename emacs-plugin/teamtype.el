@@ -30,6 +30,7 @@
                     :buffer nil
                     :command '("teamtype" "client")
                     :connection-type 'pipe))
+    (set-process-query-on-exit-flag process nil)
     (setq connection (make-instance 'jsonrpc-process-connection
                                     :process process
                                     :request-dispatcher (lambda (_conn method params)
@@ -37,11 +38,11 @@
                                     :notification-dispatcher (lambda (_conn method params)
                                                                (message "notification %s %S" method params))
                                     :on-shutdown (lambda (_conn) (message "shutdown")))))
-  (jsonrpc-notify connection "open" `(:uri ,buffer-file-name))
-  ;(track-changes (lambda (from to replacement)
-  ;                 (message "Replaced from (%s) to (%s) with %s" from to replacement)
-  ;                 ))
-  )
+  (jsonrpc-async-request connection "open" `(:uri ,(browse-url-file-url buffer-file-name) :content "blabb")
+                         :success-fn (lambda ()
+                                       (track-changes (lambda (from to replacement)
+                                                        (message "Replaced from (%s) to (%s) with %s" from to replacement)))
+                                       )))
 
 (add-hook 'find-file-hook #'file-opened)
 
