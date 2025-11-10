@@ -1,5 +1,8 @@
 (require 'jsonrpc)
 
+(defvar process nil)
+(defvar connection nil)
+
 (defun line-col-to-pos (line col)
   (save-excursion
     (goto-char (point-min))
@@ -21,19 +24,20 @@
 (defun file-opened ()
   (message "File %s" buffer-file-name)
   (message "Root: %s" (find-root buffer-file-name))
-  (let* ((proc (make-process
-                :name "teamtype"
-                :buffer nil
-                :command '("teamtype" "client")
-                :connection-type 'pipe))
-         (conn (make-instance 'jsonrpc-process-connection
-                              :process proc
-                              :request-dispatcher (lambda (_conn method params)
-                                                    (message "request %s %S" method params))
-                              :notification-dispatcher (lambda (_conn method params)
-                                                         (message "notification %s %S" method params))
-                              :on-shutdown (lambda (_conn) (message "shutdown")))))
-    (jsonrpc-notify conn "open" `(:uri ,buffer-file-name)))
+  (when (not connection)
+    (setq process (make-process
+                    :name "teamtype"
+                    :buffer nil
+                    :command '("teamtype" "client")
+                    :connection-type 'pipe))
+    (setq connection (make-instance 'jsonrpc-process-connection
+                                    :process process
+                                    :request-dispatcher (lambda (_conn method params)
+                                                          (message "request %s %S" method params))
+                                    :notification-dispatcher (lambda (_conn method params)
+                                                               (message "notification %s %S" method params))
+                                    :on-shutdown (lambda (_conn) (message "shutdown")))))
+  (jsonrpc-notify connection "open" `(:uri ,buffer-file-name))
   ;(track-changes (lambda (from to replacement)
   ;                 (message "Replaced from (%s) to (%s) with %s" from to replacement)
   ;                 ))
@@ -46,7 +50,7 @@
 (defvar-local my-last-change-old-text nil)
 
 (defvar-local change-callback nil
-  "Callback to run on buffer changes in the current buffer.")
+              "Callback to run on buffer changes in the current buffer.")
 
 (defun pos-to-line-col (pos)
   (save-excursion
