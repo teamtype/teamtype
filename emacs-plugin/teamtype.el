@@ -42,12 +42,18 @@
                                                                (message "notification %s %S" method params))
                                     :on-shutdown (lambda (_conn) (message "shutdown")))))
 
-  (jsonrpc-async-request connection "open" `(:uri ,(browse-url-file-url buffer-file-name) :content "blabb")
-                         :success-fn (lambda ()
-                                       ; TODO: We don't seem to get here yet?
-                                       (track-changes (lambda (from to replacement)
-                                                        (message "Replaced from (%s) to (%s) with %s" from to replacement)))
-                                       )))
+  (jsonrpc-request connection "open" `(:uri ,(browse-url-file-url buffer-file-name) :content "blabb"))
+  (track-changes (lambda (from to replacement)
+                   (message "Replaced from (%s) to (%s) with %s" from to replacement)
+                   (jsonrpc-request connection "edit" `(:uri ,(browse-url-file-url buffer-file-name)
+                                                             :revision 0
+                                                             :delta [(
+                                                                     :range (
+                                                                             :start (:line 0 :character 0)
+                                                                             :end (:line 0 :character 0))
+                                                                     :replacement ,replacement)]))
+                   ))
+  )
 
 (add-hook 'find-file-hook #'file-opened)
 
@@ -65,7 +71,7 @@
 
 ; Note: beg and end are 1-indexed "character positions"! Not sure yet what exactly that means.
 (defun my-before-change (beg end)
-  (setq my-last-change-old-text (buffer-substring-no-properties beg end)))
+  (setq-local my-last-change-old-text (buffer-substring-no-properties beg end)))
 
 (defun my-after-change (beg end len)
   (message "after")
