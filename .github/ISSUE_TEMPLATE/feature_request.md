@@ -1,9 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2025 NONE
-
-SPDX-License-Identifier: CC0-1.0
--->
-
 ---
 name: Feature request
 about: Suggest an idea for this project
