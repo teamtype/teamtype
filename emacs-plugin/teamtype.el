@@ -202,7 +202,9 @@ Returns a cons (LINE . CHARACTER)."
   (let* ((uri (plist-get params :uri))
          (revision (plist-get params :revision))
          (delta (plist-get params :delta))
-         (filepath (string-remove-prefix "file://" uri))
+         ; Remove the 'file://' from the URI
+         ; TODO: We probably need to remove HTTP encodings here?
+         (filepath (substring uri 7))
          (buffer (find-buffer-visiting filepath)))
 
     (when buffer
