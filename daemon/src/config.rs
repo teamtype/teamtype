@@ -72,7 +72,7 @@ impl AppConfig {
                 ),
                 rendezvous_url: general_section
                     .get("rendezvous_url")
-                    .map(|url| url.to_string()),
+                    .map(ToString::to_string),
                 sync_vcs: false,
             })
         } else {
