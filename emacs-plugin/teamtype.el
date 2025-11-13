@@ -86,7 +86,6 @@ Returns a cons (LINE . CHARACTER)."
                    :noquery t))
          (connection (make-instance 'jsonrpc-process-connection
                                     :process process
-                                    :request-dispatcher #'teamtype--handle-request
                                     :notification-dispatcher #'teamtype--handle-notification
                                     :on-shutdown (lambda (_conn)
                                                    (message "Teamtype connection closed"))))
@@ -143,15 +142,12 @@ Returns a cons (LINE . CHARACTER)."
 
 (defvar-local teamtype--last-change-beg nil)
 (defvar-local teamtype--last-change-end nil)
-(defvar-local teamtype--last-change-old-text nil)
 
 (defun teamtype--before-change (beg end)
   "Track the region and text before a change."
   (unless teamtype--ignore-changes
     (setq-local teamtype--last-change-beg beg)
-    (setq-local teamtype--last-change-end end)
-    (setq-local teamtype--last-change-old-text
-                (buffer-substring-no-properties beg end))))
+    (setq-local teamtype--last-change-end end)))
 
 (defun teamtype--after-change (beg end _len)
   "Send the change to the daemon after a buffer modification."
@@ -182,10 +178,6 @@ Returns a cons (LINE . CHARACTER)."
 
 ;;; Protocol Message Handlers
 
-(defun teamtype--handle-request (_conn method params)
-  "Handle JSON-RPC requests from daemon."
-  (message "Teamtype request: %s %S" method params))
-
 (defun teamtype--handle-notification (_conn method params)
   "Handle JSON-RPC notifications from daemon."
   (cond
@@ -215,6 +207,7 @@ Returns a cons (LINE . CHARACTER)."
   "Apply DELTA to the current buffer."
   (setq-local teamtype--ignore-changes t)
   (save-excursion
+    ; https://www.gnu.org/software/emacs/manual/html_node/elisp/JSONRPC-JSON-object-format.html
     (dolist (change (append delta nil)) ; Convert vector to list
       (let* ((range (plist-get change :range))
              (replacement (plist-get change :replacement))
