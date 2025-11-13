@@ -121,7 +121,7 @@ Returns a cons (LINE . CHARACTER)."
     (condition-case err
         (progn
           (let ((result (jsonrpc-request connection "open"
-                                         (list :uri uri :content content)
+                                         `(:uri ,uri :content ,content)
                                          :timeout 10)))
             (message "Open request succeeded: %S" result))
           (teamtype--track-changes)
@@ -135,7 +135,7 @@ Returns a cons (LINE . CHARACTER)."
   (when (and teamtype--client buffer-file-name)
     (let* ((uri (concat "file://" buffer-file-name))
            (connection (plist-get teamtype--client :connection)))
-      (jsonrpc-notify connection "close" (list :uri uri))
+      (jsonrpc-notify connection "close" `(:uri ,uri))
       (setq-local teamtype--client nil))))
 
 ;;; Change Tracking
@@ -157,19 +157,19 @@ Returns a cons (LINE . CHARACTER)."
              (end-pos (teamtype--pos-to-line-col teamtype--last-change-end))
              (new-text (buffer-substring-no-properties beg end))
              (uri (concat "file://" buffer-file-name))
-             (delta (vector (list :range (list :start (list :line (car start-pos)
-                                                            :character (cdr start-pos))
-                                               :end (list :line (car end-pos)
-                                                          :character (cdr end-pos)))
-                                  :replacement new-text)))
+             (delta `[(:range (:start (:line ,(car start-pos)
+                                       :character ,(cdr start-pos))
+                               :end (:line ,(car end-pos)
+                                       :character ,(cdr end-pos)))
+                       :replacement ,new-text)])
              (connection (plist-get teamtype--client :connection)))
 
         (setq-local teamtype--editor-revision (1+ teamtype--editor-revision))
 
         (jsonrpc-request connection "edit"
-                         (list :uri uri
-                               :revision teamtype--daemon-revision
-                               :delta delta))))))
+                         `(:uri ,uri
+                               :revision ,teamtype--daemon-revision
+                               :delta ,delta))))))
 
 (defun teamtype--track-changes ()
   "Start tracking changes for the current buffer."
