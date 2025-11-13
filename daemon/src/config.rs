@@ -36,6 +36,7 @@ pub struct AppConfig {
     pub peer: Option<Peer>,
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
+    pub magic_wormhole_rendezvous_url: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
 }
@@ -69,6 +70,9 @@ impl AppConfig {
                         )
                     },
                 ),
+                magic_wormhole_rendezvous_url: general_section
+                    .get("magic_wormhole_rendezvous_url")
+                    .map(ToString::to_string),
                 sync_vcs: false,
             })
         } else {
@@ -86,9 +90,12 @@ impl AppConfig {
     pub async fn resolve_peer(self) -> Result<Self> {
         let peer = match self.peer {
             Some(Peer::JoinCode(ref join_code)) => {
-                let secret_address = get_secret_address_from_wormhole(join_code).await.context(
-                    "Failed to retreive secret address, was this join code already used?",
-                )?;
+                let secret_address = get_secret_address_from_wormhole(
+                    join_code,
+                    self.magic_wormhole_rendezvous_url.clone(),
+                )
+                .await
+                .context("Failed to retreive secret address, was this join code already used?")?;
                 info!(
                     "Derived peer from join code. Storing in config (overwriting previous config)."
                 );
@@ -108,6 +115,7 @@ impl AppConfig {
             peer: Some(peer),
             emit_join_code: self.emit_join_code,
             emit_secret_address: self.emit_secret_address,
+            magic_wormhole_rendezvous_url: self.magic_wormhole_rendezvous_url,
             sync_vcs: self.sync_vcs,
         })
     }
@@ -131,6 +139,9 @@ impl AppConfig {
                 peer: self.peer.or(other.peer),
                 emit_join_code: self.emit_join_code && other.emit_join_code,
                 emit_secret_address: self.emit_secret_address || other.emit_secret_address,
+                magic_wormhole_rendezvous_url: self
+                    .magic_wormhole_rendezvous_url
+                    .or(other.magic_wormhole_rendezvous_url),
                 sync_vcs: self.sync_vcs || other.sync_vcs,
             },
         }

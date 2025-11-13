@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use self::cli::{Cli, Commands, SyncVcsFlag};
+use self::cli::{Cli, Commands, MagicWormholeFlags, SyncVcsFlag};
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use std::path::{Path, PathBuf};
@@ -76,6 +76,10 @@ async fn main() -> Result<()> {
                 Commands::Share {
                     init,
                     no_join_code,
+                    magic_wormhole_flags:
+                        MagicWormholeFlags {
+                            magic_wormhole_rendezvous_url,
+                        },
                     show_secret_address,
                     sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
@@ -86,6 +90,7 @@ async fn main() -> Result<()> {
                         peer: None,
                         emit_join_code: !no_join_code,
                         emit_secret_address: show_secret_address,
+                        magic_wormhole_rendezvous_url,
                         sync_vcs,
                     };
                     app_config = app_config_cli.merge(AppConfig::from_config_file(&config_file));
@@ -95,6 +100,10 @@ async fn main() -> Result<()> {
                 }
                 Commands::Join {
                     join_code,
+                    magic_wormhole_flags:
+                        MagicWormholeFlags {
+                            magic_wormhole_rendezvous_url,
+                        },
                     sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
                 } => {
@@ -103,6 +112,7 @@ async fn main() -> Result<()> {
                         peer: join_code.map(config::Peer::JoinCode),
                         emit_join_code: false,
                         emit_secret_address: false,
+                        magic_wormhole_rendezvous_url,
                         sync_vcs,
                     };
 

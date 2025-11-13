@@ -44,6 +44,13 @@ pub struct SyncVcsFlag {
     pub sync_vcs: bool,
 }
 
+#[derive(Args)]
+pub struct MagicWormholeFlags {
+    /// Use an alternative Magic Wormhole rendezvous url
+    #[arg(long)]
+    pub magic_wormhole_rendezvous_url: Option<String>,
+}
+
 #[derive(Subcommand)]
 pub enum Commands {
     /// Share a directory with a new peer.
@@ -59,12 +66,16 @@ pub enum Commands {
         #[arg(long)]
         show_secret_address: bool,
         #[command(flatten)]
+        magic_wormhole_flags: MagicWormholeFlags,
+        #[command(flatten)]
         sync_vcs: SyncVcsFlag,
     },
     /// Join a shared directory via a join code, or connect to the most recent one.
     Join {
         /// Specify to connect to a new peer. Otherwise, try to connect to the most recent peer.
         join_code: Option<String>,
+        #[command(flatten)]
+        magic_wormhole_flags: MagicWormholeFlags,
         #[command(flatten)]
         sync_vcs: SyncVcsFlag,
     },
