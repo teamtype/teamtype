@@ -76,11 +76,11 @@ Returns a cons (LINE . CHARACTER)."
 (defun teamtype--create-client (root-dir)
   "Create a new teamtype client for ROOT-DIR."
   (message "Creating Teamtype client for %s" root-dir)
-  (let* ((default-directory root-dir) ; Set working directory for the process
+  (let* ((default-directory root-dir) ; Set working directory for the process.
          (process-name (format "teamtype-%s" root-dir))
          (process (make-process
                    :name process-name
-                   :buffer nil
+                   :buffer nil ; Do not append output of this process to any buffer.
                    :command '("teamtype" "client")
                    :connection-type 'pipe
                    :noquery t))
@@ -94,7 +94,6 @@ Returns a cons (LINE . CHARACTER)."
                        :process process
                        :connection connection
                        :files (make-hash-table :test 'equal))))
-    (message "Process status: %s" (process-status process))
     (push client teamtype--clients)
     (message "Connected to Teamtype daemon in %s" root-dir)
     client))
@@ -119,8 +118,6 @@ Returns a cons (LINE . CHARACTER)."
          (content (teamtype--buffer-content))
          (connection (plist-get client :connection))
          (process (plist-get client :process)))
-
-    (message "Opening file with teamtype - process status: %s" (process-status process))
 
     (condition-case err
         (progn
