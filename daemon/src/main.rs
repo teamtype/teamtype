@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use self::cli::{Cli, Commands, SharedFlags};
+use self::cli::{Cli, Commands, MagicWormholeFlags, SyncVcsFlag};
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use std::path::{Path, PathBuf};
@@ -76,12 +76,12 @@ async fn main() -> Result<()> {
                 Commands::Share {
                     init,
                     no_join_code,
-                    show_secret_address,
-                    shared_flags:
-                        SharedFlags {
-                            sync_vcs,
+                    magic_wormhole_flags:
+                        MagicWormholeFlags {
                             magic_wormhole_rendezvous_url,
                         },
+                    show_secret_address,
+                    sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
                 } => {
                     init_doc = init;
@@ -100,11 +100,11 @@ async fn main() -> Result<()> {
                 }
                 Commands::Join {
                     join_code,
-                    shared_flags:
-                        SharedFlags {
-                            sync_vcs,
+                    magic_wormhole_flags:
+                        MagicWormholeFlags {
                             magic_wormhole_rendezvous_url,
                         },
+                    sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
                 } => {
                     let app_config_cli = AppConfig {

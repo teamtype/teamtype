@@ -71,7 +71,7 @@ impl AppConfig {
                     },
                 ),
                 magic_wormhole_rendezvous_url: general_section
-                    .get("rendezvous_url")
+                    .get("magic_wormhole_rendezvous_url")
                     .map(ToString::to_string),
                 sync_vcs: false,
             })

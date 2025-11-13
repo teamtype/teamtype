@@ -36,12 +36,16 @@ pub struct Cli {
 }
 
 #[derive(Args)]
-pub struct SharedFlags {
+pub struct SyncVcsFlag {
     /// EXPERIMENTAL: Also synchronize version-control directories like .git/ or .jj/, which are normally
     /// ignored. For Git, this will synchronize all branches, commits, etc. as well as your .git/config.
     /// This means that new commits will immediately appear at all peers, you can change branches together, etc.
     #[arg(long)]
     pub sync_vcs: bool,
+}
+
+#[derive(Args)]
+pub struct MagicWormholeFlags {
     /// Use an alternative Magic Wormhole rendezvous url
     #[arg(long)]
     pub magic_wormhole_rendezvous_url: Option<String>,
@@ -62,14 +66,18 @@ pub enum Commands {
         #[arg(long)]
         show_secret_address: bool,
         #[command(flatten)]
-        shared_flags: SharedFlags,
+        magic_wormhole_flags: MagicWormholeFlags,
+        #[command(flatten)]
+        sync_vcs: SyncVcsFlag,
     },
     /// Join a shared directory via a join code, or connect to the most recent one.
     Join {
         /// Specify to connect to a new peer. Otherwise, try to connect to the most recent peer.
         join_code: Option<String>,
         #[command(flatten)]
-        shared_flags: SharedFlags,
+        magic_wormhole_flags: MagicWormholeFlags,
+        #[command(flatten)]
+        sync_vcs: SyncVcsFlag,
     },
     /// Open a JSON-RPC connection to the Teamtype daemon on stdin/stdout. Used by text editor plugins.
     Client,
