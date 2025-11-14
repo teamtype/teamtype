@@ -224,13 +224,26 @@ Returns a cons (LINE . CHARACTER)."
         (insert replacement))))
   (setq-local teamtype--ignore-changes nil))
 
+;;; User Interface Modifications
+
+(defun teamtype--prevent-prompt-when-file-changes-on-disk ()
+  "Disables the supersession check, which is coming up because the daemon writes to disk."
+  (defun teamtype--suppress-supersession-check (original-fn &rest args)
+  "Suppress supersession checks for teamtype-controlled buffers."
+  (if teamtype--client
+      nil ; Return nil = don't prompt, proceed with edit
+      (apply original-fn args)))
+
+  (advice-add 'ask-user-about-supersession-threat :around
+              #'teamtype--suppress-supersession-check))
+
 ;;; Setup
 
 (defun teamtype--setup ()
   "Set up teamtype for the current Emacs session."
   (add-hook 'find-file-hook #'teamtype--file-opened)
-  (add-hook 'kill-buffer-hook #'teamtype--close-file))
-
+  (add-hook 'kill-buffer-hook #'teamtype--close-file)
+  (teamtype--prevent-prompt-when-file-changes-on-disk))
 (teamtype--setup)
 
 (provide 'teamtype)
