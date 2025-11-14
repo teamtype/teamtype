@@ -204,24 +204,41 @@ Returns a cons (LINE . CHARACTER)."
           (setq-local teamtype--daemon-revision (1+ teamtype--daemon-revision)))))))
 
 (defun teamtype--apply-delta (delta)
-  "Apply DELTA to the current buffer."
+  "Apply DELTA to the current buffer.
+Edits are sorted by position (descending) before applying, so that
+later edits don't invalidate positions of earlier edits."
   (setq-local teamtype--ignore-changes t)
   (save-excursion
-    ; https://www.gnu.org/software/emacs/manual/html_node/elisp/JSONRPC-JSON-object-format.html
-    (dolist (change (append delta nil)) ; Convert vector to list
-      (let* ((range (plist-get change :range))
-             (replacement (plist-get change :replacement))
-             (start-info (plist-get range :start))
-             (end-info (plist-get range :end))
-             (start-line (plist-get start-info :line))
-             (start-char (plist-get start-info :character))
-             (end-line (plist-get end-info :line))
-             (end-char (plist-get end-info :character))
-             (beg (teamtype--line-col-to-pos start-line start-char))
-             (end (teamtype--line-col-to-pos end-line end-char)))
-        (delete-region beg end)
-        (goto-char beg)
-        (insert replacement))))
+    ;; Convert all changes to buffer positions
+    (let ((changes-with-positions
+           (mapcar (lambda (change)
+                     (let* ((range (plist-get change :range))
+                            (replacement (plist-get change :replacement))
+                            (start-info (plist-get range :start))
+                            (end-info (plist-get range :end))
+                            (start-line (plist-get start-info :line))
+                            (start-char (plist-get start-info :character))
+                            (end-line (plist-get end-info :line))
+                            (end-char (plist-get end-info :character))
+                            (beg (teamtype--line-col-to-pos start-line start-char))
+                            (end (teamtype--line-col-to-pos end-line end-char)))
+                       (list beg end replacement)))
+                   (append delta nil)))) ; Convert vector to list.
+      ;; Sort by start position descending, then by end position descending
+      (setq changes-with-positions
+            (sort changes-with-positions
+                  (lambda (a b)
+                    (or (> (car a) (car b))
+                        (and (= (car a) (car b))
+                             (> (cadr a) (cadr b)))))))
+      ;; Apply changes in descending order (from end to beginning)
+      (dolist (change changes-with-positions)
+        (let ((beg (car change))
+              (end (cadr change))
+              (replacement (caddr change)))
+          (delete-region beg end)
+          (goto-char beg)
+          (insert replacement)))))
   (setq-local teamtype--ignore-changes nil))
 
 ;;; User Interface Modifications
