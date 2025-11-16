@@ -1,15 +1,7 @@
-;;; teamtype.el --- Collaborative editing with Teamtype -*- lexical-binding: t; -*-
-
-;; SPDX-FileCopyrightText: 2025 Teamtype Contributors
+;; SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
+;; SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
+;;
 ;; SPDX-License-Identifier: AGPL-3.0-or-later
-
-;;; Commentary:
-
-;; This package provides integration with the Teamtype collaborative
-;; editing daemon. It implements the daemon-editor protocol to synchronize
-;; buffer changes with other editors in real-time.
-
-;;; Code:
 
 (require 'jsonrpc)
 (require 'cl-lib)
@@ -22,7 +14,7 @@
 ;; :connection - the JSON-RPC connection
 ;; :files - hash table mapping file paths to file state
 (defvar teamtype--clients nil
-  "List of active teamtype clients.")
+  "List of active Teamtype clients.")
 
 ;;; File State (buffer-local variables)
 
@@ -74,16 +66,15 @@ Returns a cons (LINE . CHARACTER)."
 ;;; Client Management
 
 (defun teamtype--find-or-create-client (root-dir)
-  "Find or create a teamtype client for ROOT-DIR."
-  ;; Look for existing client for this root directory
+  "Find or create a Teamtype client for ROOT-DIR."
+  ;; Look for existing client for this root directory.
   (let ((client (cl-find-if (lambda (c) (string= (plist-get c :root-dir) root-dir))
                             teamtype--clients)))
     (or client
         (teamtype--create-client root-dir))))
 
 (defun teamtype--create-client (root-dir)
-  "Create a new teamtype client for ROOT-DIR."
-  (message "Creating Teamtype client for %s" root-dir)
+  "Create a new Teamtype client for ROOT-DIR."
   (let* ((default-directory root-dir) ; Set working directory for the process.
          (process-name (format "teamtype-%s" root-dir))
          (process (make-process
@@ -108,7 +99,7 @@ Returns a cons (LINE . CHARACTER)."
 ;;; File Operations
 
 (defun teamtype--file-opened ()
-  "Handle opening a file in a teamtype-enabled directory."
+  "Handle opening a file in a Teamtype-enabled directory."
   (when buffer-file-name
     (let ((root-dir (teamtype--find-root buffer-file-name)))
       (when root-dir
@@ -139,7 +130,7 @@ Returns a cons (LINE . CHARACTER)."
        (message "Error details: %S" err)))))
 
 (defun teamtype--close-file ()
-  "Close the current file in teamtype."
+  "Close the current file in Teamtype."
   (when (and teamtype--client buffer-file-name)
     (let* ((uri (teamtype--path-to-uri filepath))
            (connection (plist-get teamtype--client :connection)))
@@ -152,7 +143,7 @@ Returns a cons (LINE . CHARACTER)."
 (defvar-local teamtype--end-pos nil)
 
 (defun teamtype--before-change (beg end)
-  "Track the region and text before a change."
+  "Store the changed region."
   (unless teamtype--ignore-changes
     (setq-local teamtype--start-pos (teamtype--pos-to-line-col beg))
     (setq-local teamtype--end-pos (teamtype--pos-to-line-col end))))
@@ -213,7 +204,7 @@ Edits are sorted by position (descending) before applying, so that
 later edits don't invalidate positions of earlier edits."
   (setq-local teamtype--ignore-changes t)
   (save-excursion
-    ;; Convert all changes to buffer positions
+    ;; Convert all changes to buffer positions.
     (let ((changes-with-positions
            (mapcar (lambda (change)
                      (let* ((range (plist-get change :range))
@@ -228,14 +219,14 @@ later edits don't invalidate positions of earlier edits."
                             (end (teamtype--line-col-to-pos end-line end-char)))
                        (list beg end replacement)))
                    (append delta nil)))) ; Convert vector to list.
-      ;; Sort by start position descending, then by end position descending
+      ;; Sort by start position descending, then by end position descending.
       (setq changes-with-positions
             (sort changes-with-positions
                   (lambda (a b)
                     (or (> (car a) (car b))
                         (and (= (car a) (car b))
                              (> (cadr a) (cadr b)))))))
-      ;; Apply changes in descending order (from end to beginning)
+      ;; Apply changes in descending order (from end to beginning).
       (dolist (change changes-with-positions)
         (let ((beg (car change))
               (end (cadr change))
@@ -252,7 +243,7 @@ later edits don't invalidate positions of earlier edits."
   (defun teamtype--suppress-supersession-check (original-fn &rest args)
   "Suppress supersession checks for teamtype-controlled buffers."
   (if teamtype--client
-      nil ; Return nil = don't prompt, proceed with edit
+      nil ; Return nil = don't prompt, proceed with edit.
       (apply original-fn args)))
 
   (advice-add 'ask-user-about-supersession-threat :around
@@ -261,12 +252,10 @@ later edits don't invalidate positions of earlier edits."
 ;;; Setup
 
 (defun teamtype--setup ()
-  "Set up teamtype for the current Emacs session."
+  "Set up Teamtype for the current Emacs session."
   (add-hook 'find-file-hook #'teamtype--file-opened)
   (add-hook 'kill-buffer-hook #'teamtype--close-file)
   (teamtype--prevent-prompt-when-file-changes-on-disk))
 (teamtype--setup)
 
 (provide 'teamtype)
-
-;;; teamtype.el ends here
