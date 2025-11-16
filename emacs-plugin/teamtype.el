@@ -140,27 +140,25 @@ Returns a cons (LINE . CHARACTER)."
 
 ;;; Change Tracking
 
-(defvar-local teamtype--last-change-beg nil)
-(defvar-local teamtype--last-change-end nil)
+(defvar-local teamtype--start-pos nil)
+(defvar-local teamtype--end-pos nil)
 
 (defun teamtype--before-change (beg end)
   "Track the region and text before a change."
   (unless teamtype--ignore-changes
-    (setq-local teamtype--last-change-beg beg)
-    (setq-local teamtype--last-change-end end)))
+    (setq-local teamtype--start-pos (teamtype--pos-to-line-col beg))
+    (setq-local teamtype--end-pos (teamtype--pos-to-line-col end))))
 
 (defun teamtype--after-change (beg end _len)
   "Send the change to the daemon after a buffer modification."
   (unless teamtype--ignore-changes
     (when teamtype--client
-      (let* ((start-pos (teamtype--pos-to-line-col teamtype--last-change-beg))
-             (end-pos (teamtype--pos-to-line-col teamtype--last-change-end))
-             (new-text (buffer-substring-no-properties beg end))
+      (let* ((new-text (buffer-substring-no-properties beg end))
              (uri (concat "file://" buffer-file-name))
-             (delta `[(:range (:start (:line ,(car start-pos)
-                                       :character ,(cdr start-pos))
-                               :end (:line ,(car end-pos)
-                                       :character ,(cdr end-pos)))
+             (delta `[(:range (:start (:line ,(car teamtype--start-pos)
+                                       :character ,(cdr teamtype--start-pos))
+                               :end (:line ,(car teamtype--end-pos)
+                                       :character ,(cdr teamtype--end-pos)))
                        :replacement ,new-text)])
              (connection (plist-get teamtype--client :connection)))
 
