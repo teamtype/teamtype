@@ -63,6 +63,14 @@ Returns a cons (LINE . CHARACTER)."
   "Get the entire buffer content as a string."
   (buffer-substring-no-properties (point-min) (point-max)))
 
+(defun teamtype--uri-to-path (uri)
+  (url-unhex-string
+    (substring uri 7))) ; Remove the 'file://' from the URI. TODO: Make more stable?
+
+(defun teamtype--path-to-uri (path)
+  (url-encode-url
+    (concat "file://" path)))
+
 ;;; Client Management
 
 (defun teamtype--find-or-create-client (root-dir)
@@ -113,7 +121,7 @@ Returns a cons (LINE . CHARACTER)."
   (setq-local teamtype--editor-revision 0)
   (setq-local teamtype--daemon-revision 0)
 
-  (let* ((uri (concat "file://" filepath))
+  (let* ((uri (teamtype--path-to-uri filepath))
          (content (teamtype--buffer-content))
          (connection (plist-get client :connection))
          (process (plist-get client :process)))
@@ -133,7 +141,7 @@ Returns a cons (LINE . CHARACTER)."
 (defun teamtype--close-file ()
   "Close the current file in teamtype."
   (when (and teamtype--client buffer-file-name)
-    (let* ((uri (concat "file://" buffer-file-name))
+    (let* ((uri (teamtype--path-to-uri filepath))
            (connection (plist-get teamtype--client :connection)))
       (jsonrpc-notify connection "close" `(:uri ,uri))
       (setq-local teamtype--client nil))))
@@ -154,7 +162,7 @@ Returns a cons (LINE . CHARACTER)."
   (unless teamtype--ignore-changes
     (when teamtype--client
       (let* ((new-text (buffer-substring-no-properties beg end))
-             (uri (concat "file://" buffer-file-name))
+             (uri (teamtype--path-to-uri buffer-file-name))
              (delta `[(:range (:start (:line ,(car teamtype--start-pos)
                                        :character ,(cdr teamtype--start-pos))
                                :end (:line ,(car teamtype--end-pos)
@@ -189,9 +197,7 @@ Returns a cons (LINE . CHARACTER)."
   (let* ((uri (plist-get params :uri))
          (revision (plist-get params :revision))
          (delta (plist-get params :delta))
-         ; Remove the 'file://' from the URI
-         ; TODO: We probably need to remove HTTP encodings here?
-         (filepath (substring uri 7))
+         (filepath (teamtype--uri-to-path uri))
          (buffer (find-buffer-visiting filepath)))
 
     (when buffer
