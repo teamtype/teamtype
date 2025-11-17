@@ -966,7 +966,7 @@ impl Daemon {
         if app_config.emit_join_code {
             put_secret_address_into_wormhole(
                 address,
-                app_config.magic_wormhole_rendezvous_url.clone(),
+                app_config.magic_wormhole_relay.clone(),
             )
             .await;
         }

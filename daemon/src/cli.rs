@@ -46,9 +46,9 @@ pub struct SyncVcsFlag {
 
 #[derive(Args)]
 pub struct MagicWormholeFlags {
-    /// Use an alternative Magic Wormhole rendezvous url
+    /// Use an alternative Magic Wormhole mailbox server relay url
     #[arg(long)]
-    pub magic_wormhole_rendezvous_url: Option<String>,
+    pub magic_wormhole_relay: Option<String>,
 }
 
 #[derive(Subcommand)]

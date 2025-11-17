@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
                     no_join_code,
                     magic_wormhole_flags:
                         MagicWormholeFlags {
-                            magic_wormhole_rendezvous_url,
+                            magic_wormhole_relay,
                         },
                     show_secret_address,
                     sync_vcs: SyncVcsFlag { sync_vcs },
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
                         peer: None,
                         emit_join_code: !no_join_code,
                         emit_secret_address: show_secret_address,
-                        magic_wormhole_rendezvous_url,
+                        magic_wormhole_relay,
                         sync_vcs,
                     };
                     app_config = app_config_cli.merge(AppConfig::from_config_file(&config_file));
@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
                     join_code,
                     magic_wormhole_flags:
                         MagicWormholeFlags {
-                            magic_wormhole_rendezvous_url,
+                            magic_wormhole_relay,
                         },
                     sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
                         peer: join_code.map(config::Peer::JoinCode),
                         emit_join_code: false,
                         emit_secret_address: false,
-                        magic_wormhole_rendezvous_url,
+                        magic_wormhole_relay,
                         sync_vcs,
                     };
 
