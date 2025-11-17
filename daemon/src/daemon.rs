@@ -964,11 +964,8 @@ impl Daemon {
             );
         }
         if app_config.emit_join_code {
-            put_secret_address_into_wormhole(
-                address,
-                app_config.magic_wormhole_relay.clone(),
-            )
-            .await;
+            put_secret_address_into_wormhole(address, app_config.magic_wormhole_relay.clone())
+                .await;
         }
         if let Some(config::Peer::SecretAddress(ref secret_address)) = app_config.peer {
             connection_manager
