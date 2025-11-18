@@ -10,7 +10,6 @@ use teamtype_integration_tests::socket::MockSocket;
 async fn expect_request(socket: &mut MockSocket, expected: EditorProtocolMessageFromEditor) {
     loop {
         let msg = socket.recv().await;
-        println!("{:?}", msg);
 
         let message: IncomingMessage =
             serde_json::from_str(&msg.to_string()).expect("Could not parse EditorProtocolMessage");
@@ -26,6 +25,34 @@ async fn expect_request(socket: &mut MockSocket, expected: EditorProtocolMessage
             assert_eq!(expected, message);
         } else {
             panic!("Expected Request, got Notification");
+        }
+        return;
+    }
+}
+
+// TODO: Avoid the duplication with expect_request.
+async fn expect_notification(socket: &mut MockSocket, expected: EditorProtocolMessageFromEditor) {
+    loop {
+        let msg = socket.recv().await;
+
+        let message: IncomingMessage =
+            serde_json::from_str(&msg.to_string()).expect("Could not parse EditorProtocolMessage");
+
+        if let IncomingMessage::Notification {
+            payload: message, ..
+        } = message
+        {
+            assert_eq!(expected, message);
+        } else {
+            if let IncomingMessage::Request {
+                payload: EditorProtocolMessageFromEditor::Cursor { .. },
+                ..
+            } = message
+            {
+                // Ignore cursor messages.
+                continue;
+            }
+            panic!("Expected Notification, got Request");
         }
         return;
     }
@@ -91,6 +118,15 @@ async fn main() -> Result<()> {
                 replacement: "x".to_string(),
             }]),
         },
+    )
+    .await;
+
+    println!("Close the file. I'm expecting a close message.");
+
+    // TODO: Our spec says this "should" be a request, but Neovim sends a notification...
+    expect_notification(
+        &mut socket,
+        EditorProtocolMessageFromEditor::Close { uri: uri.clone() },
     )
     .await;
 
