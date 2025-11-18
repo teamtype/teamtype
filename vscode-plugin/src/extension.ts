@@ -354,15 +354,17 @@ function activateConfigForTextDocument(name: string, document: vscode.TextDocume
     const uri = document.uri.toString()
     debug("OPEN " + decodeURI(uri))
     const content = document.getText()
+
+    // Initialize before sending the open request to make sure
+    // we can immediately handle potential edits
+    client.ot_states[uri] = {
+        revision: new Revision(),
+        content: getLines(document),
+    };
+
     client.connection
         .sendRequest(openType, {uri, content})
         .then(() => {
-            client.ot_states[uri] = {
-                revision: new Revision(),
-                content: getLines(document),
-            }
-
-            updateContents(client, document)
             debug("Successfully opened. Tracking changes.")
         })
         .catch(() => {
