@@ -52,6 +52,15 @@ async fn expect_request(
             socket.send(&response.to_string()).await;
             socket.send("\n").await;
         } else {
+            if let IncomingMessage::Notification {
+                payload: EditorProtocolMessageFromEditor::Cursor { .. },
+                ..
+            } = message
+            {
+                // Ignore cursor messages.
+                continue;
+            }
+
             panic!("Expected Request, got Notification");
         }
         return;
@@ -75,6 +84,11 @@ async fn expect_notification(
             payload: message, ..
         } = message
         {
+            if let EditorProtocolMessageFromEditor::Cursor { .. } = message {
+                // Ignore cursor messages.
+                continue;
+            }
+
             assert_eq!(expected, message);
             check();
         } else {
