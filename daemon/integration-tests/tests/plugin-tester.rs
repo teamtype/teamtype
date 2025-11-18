@@ -32,7 +32,8 @@ async fn expect_request(
             serde_json::from_str(&msg.to_string()).expect("Could not parse EditorProtocolMessage");
 
         if let IncomingMessage::Request {
-            payload: message, ..
+            payload: message,
+            id,
         } = message
         {
             if let EditorProtocolMessageFromEditor::Cursor { .. } = message {
@@ -41,6 +42,15 @@ async fn expect_request(
             }
             assert_eq!(expected, message);
             check();
+
+            // Auto-confirm.
+            let response = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": "success"
+            });
+            socket.send(&response.to_string()).await;
+            socket.send("\n").await;
         } else {
             panic!("Expected Request, got Notification");
         }
@@ -123,14 +133,6 @@ async fn main() -> Result<()> {
         },
     )
     .await;
-
-    let response = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "result": "success"
-    });
-    socket.send(&response.to_string()).await;
-    socket.send("\n").await;
 
     expect_request(
         "Insert an 'x' at the beginning of the document",
