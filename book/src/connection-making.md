@@ -11,7 +11,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 When you run `teamtype share`, you will get a short "join code" like `3-exhausted-bananas`. Another person can use it to connect to you! The code only works once. You can learn about the security properties in the [Magic Wormhole documentation](https://magic-wormhole.readthedocs.io/en/latest/welcome.html#safely).
 
-You can make Teamtype use a custom [relay server](https://github.com/magic-wormhole/magic-wormhole-mailbox-server) with the optional `--magic-wormhole-relay` parameter or by adding it to your (configuration file)[configuration.md].
+You can make Teamtype use a custom [relay server](https://github.com/magic-wormhole/magic-wormhole-mailbox-server) with the optional `--magic-wormhole-relay` parameter or by adding it to your [configuration file](configuration.md).
 ```bash
 teamtype share --magic-wormhole-relay ws://example.com:4000/v1
 ```
