@@ -1,5 +1,6 @@
 use anyhow::Result;
 use pretty_assertions::assert_eq;
+use std::io::Write;
 use teamtype::{
     editor_protocol::{EditorProtocolMessageFromEditor, IncomingMessage},
     sandbox,
@@ -7,7 +8,21 @@ use teamtype::{
 };
 use teamtype_integration_tests::socket::MockSocket;
 
-async fn expect_request(socket: &mut MockSocket, expected: EditorProtocolMessageFromEditor) {
+fn instr(instruction: &str) {
+    print!("[ ] {instruction}.");
+    std::io::stdout().flush().unwrap();
+}
+
+fn check() {
+    println!("\x1B[2G\x1B[32m✓\x1B[0m");
+}
+
+async fn expect_request(
+    instruction: &str,
+    socket: &mut MockSocket,
+    expected: EditorProtocolMessageFromEditor,
+) {
+    instr(instruction);
     loop {
         let msg = socket.recv().await;
 
@@ -23,6 +38,7 @@ async fn expect_request(socket: &mut MockSocket, expected: EditorProtocolMessage
                 continue;
             }
             assert_eq!(expected, message);
+            check();
         } else {
             panic!("Expected Request, got Notification");
         }
@@ -31,7 +47,12 @@ async fn expect_request(socket: &mut MockSocket, expected: EditorProtocolMessage
 }
 
 // TODO: Avoid the duplication with expect_request.
-async fn expect_notification(socket: &mut MockSocket, expected: EditorProtocolMessageFromEditor) {
+async fn expect_notification(
+    instruction: &str,
+    socket: &mut MockSocket,
+    expected: EditorProtocolMessageFromEditor,
+) {
+    instr(instruction);
     loop {
         let msg = socket.recv().await;
 
@@ -43,6 +64,7 @@ async fn expect_notification(socket: &mut MockSocket, expected: EditorProtocolMe
         } = message
         {
             assert_eq!(expected, message);
+            check();
         } else {
             if let IncomingMessage::Request {
                 payload: EditorProtocolMessageFromEditor::Cursor { .. },
@@ -75,12 +97,8 @@ async fn main() -> Result<()> {
 
     let uri = format!("file://{}", &file.display());
 
-    println!(
-        "Open {:?} with your editor. I'm expecting an open message.",
-        &file
-    );
-
     expect_request(
+        &format!("Open {:?} with your editor", &file),
         &mut socket,
         EditorProtocolMessageFromEditor::Open {
             uri: uri.clone(),
@@ -97,9 +115,8 @@ async fn main() -> Result<()> {
     socket.send(&response.to_string()).await;
     socket.send("\n").await;
 
-    println!("Insert an 'x' at the beginning of the document.");
-
     expect_request(
+        "Insert an 'x' at the beginning of the document",
         &mut socket,
         EditorProtocolMessageFromEditor::Edit {
             uri: uri.clone(),
@@ -121,10 +138,9 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    println!("Close the file. I'm expecting a close message.");
-
     // TODO: Our spec says this "should" be a request, but Neovim sends a notification...
     expect_notification(
+        "Close the file. I'm expecting a close message",
         &mut socket,
         EditorProtocolMessageFromEditor::Close { uri: uri.clone() },
     )
