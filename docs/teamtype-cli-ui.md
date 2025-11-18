@@ -16,7 +16,7 @@ This document contains our current idea of how the Commandline User Interface lo
 
 ## Overview
 
-A main inspiration for our UI is a tool called [`Magic Wormhole`](https://magic-wormhole.readthedocs.io/en/latest/welcome.html#example),
+A main inspiration for our UI is a tool called [Magic Wormhole](https://magic-wormhole.readthedocs.io/en/latest/welcome.html#example),
 which uses a random but easily communicable keyword (number-word-word, e.g. 7-crossover-clockwork) to identify a certain transfer.
 
 In our case the keyword identifies a shared project.
