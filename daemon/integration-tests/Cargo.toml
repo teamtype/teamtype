@@ -16,6 +16,10 @@ name = "fuzzer"
 # We set process-global state in this test, so we want to run our own main method.
 harness = false
 
+[[test]]
+name = "plugin-tester"
+harness = false
+
 [dependencies]
 async-trait = "0.1.79"
 nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
