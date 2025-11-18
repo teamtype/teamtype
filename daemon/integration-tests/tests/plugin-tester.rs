@@ -1,20 +1,22 @@
 use anyhow::Result;
 use pretty_assertions::assert_eq;
-use std::io::Write;
 use teamtype::{
-    editor_protocol::{EditorProtocolMessageFromEditor, IncomingMessage},
+    cli_ask::ask,
+    editor_protocol::{
+        EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, IncomingMessage,
+        OutgoingMessage,
+    },
     sandbox,
     types::{EditorTextDelta, EditorTextOp, Position, Range},
 };
 use teamtype_integration_tests::socket::MockSocket;
 
 fn instr(instruction: &str) {
-    print!("[ ] {instruction}.");
-    std::io::stdout().flush().unwrap();
+    println!("[ ] {instruction}.");
 }
 
 fn check() {
-    println!("\x1B[2G\x1B[32m✓\x1B[0m");
+    println!("\x1B[1A\x1B[2G\x1B[32m✓\x1B[0m");
 }
 
 async fn expect_request(
@@ -80,6 +82,21 @@ async fn expect_notification(
     }
 }
 
+async fn send_notification_and_ask(
+    question: &str,
+    socket: &mut MockSocket,
+    message: EditorProtocolMessageToEditor,
+) {
+    let payload = OutgoingMessage::Notification(message).to_jsonrpc().unwrap();
+    socket.send(&format!("{payload}\n")).await;
+
+    if ask(&format!("[ ] {question}")).unwrap() {
+        check();
+    } else {
+        panic!("This should have worked. :(");
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let dir = temp_dir::TempDir::new().expect("Failed to create temp directory");
@@ -133,6 +150,30 @@ async fn main() -> Result<()> {
                     },
                 },
                 replacement: "x".to_string(),
+            }]),
+        },
+    )
+    .await;
+
+    // TODO: Our spec says this "should" be a request, but Neovim sends a notification...
+    send_notification_and_ask(
+        "Was a 'y' inserted after the 'hello'?",
+        &mut socket,
+        EditorProtocolMessageToEditor::Edit {
+            uri: uri.clone(),
+            revision: 1,
+            delta: EditorTextDelta(vec![EditorTextOp {
+                range: Range {
+                    start: Position {
+                        line: 0,
+                        character: 6,
+                    },
+                    end: Position {
+                        line: 0,
+                        character: 6,
+                    },
+                },
+                replacement: "y".to_string(),
             }]),
         },
     )
