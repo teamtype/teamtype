@@ -1,21 +1,99 @@
-use teamtype::sandbox;
+use anyhow::Result;
+use pretty_assertions::assert_eq;
+use teamtype::{
+    editor_protocol::{EditorProtocolMessageFromEditor, IncomingMessage},
+    sandbox,
+    types::{EditorTextDelta, EditorTextOp, Position, Range},
+};
 use teamtype_integration_tests::socket::MockSocket;
 
+async fn expect_request(socket: &mut MockSocket, expected: EditorProtocolMessageFromEditor) {
+    loop {
+        let msg = socket.recv().await;
+        println!("{:?}", msg);
+
+        let message: IncomingMessage =
+            serde_json::from_str(&msg.to_string()).expect("Could not parse EditorProtocolMessage");
+
+        if let IncomingMessage::Request {
+            payload: message, ..
+        } = message
+        {
+            if let EditorProtocolMessageFromEditor::Cursor { .. } = message {
+                // Ignore cursor messages.
+                continue;
+            }
+            assert_eq!(expected, message);
+        } else {
+            panic!("Expected Request, got Notification");
+        }
+        return;
+    }
+}
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let dir = temp_dir::TempDir::new().expect("Failed to create temp directory");
     let mut teamtype_dir = dir.path().to_path_buf();
-    println!("{:?}", &teamtype_dir);
     teamtype_dir.push(".teamtype");
     sandbox::create_dir(dir.path(), &teamtype_dir).expect("Failed to create .teamtype directory");
 
     let file = dir.child("file");
-    sandbox::write_file(dir.path(), &file, b"").expect("Failed to create file in temp directory");
+    sandbox::write_file(dir.path(), &file, b"hello")
+        .expect("Failed to create file in temp directory");
 
     let mut socket_path = dir.child(".teamtype");
     socket_path.push("socket");
     let mut socket = MockSocket::new(&socket_path);
 
-    let m = socket.recv().await;
-    println!("{:?}", m);
+    let uri = format!("file://{}", &file.display());
+
+    println!(
+        "Open {:?} with your editor. I'm expecting an open message.",
+        &file
+    );
+
+    expect_request(
+        &mut socket,
+        EditorProtocolMessageFromEditor::Open {
+            uri: uri.clone(),
+            content: "hello".to_string(),
+        },
+    )
+    .await;
+
+    let response = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "success"
+    });
+    socket.send(&response.to_string()).await;
+    socket.send("\n").await;
+
+    println!("Insert an 'x' at the beginning of the document.");
+
+    expect_request(
+        &mut socket,
+        EditorProtocolMessageFromEditor::Edit {
+            uri: uri.clone(),
+            revision: 0,
+            delta: EditorTextDelta(vec![EditorTextOp {
+                range: Range {
+                    start: Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: 0,
+                        character: 0,
+                    },
+                },
+                replacement: "x".to_string(),
+            }]),
+        },
+    )
+    .await;
+
+    println!("All tests passed! :)");
+    Ok(())
 }
