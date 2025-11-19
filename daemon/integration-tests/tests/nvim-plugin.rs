@@ -390,4 +390,16 @@ async fn nvim_sends_correct_delta() {
         .await;
     assert_nvim_input_yields_replacements("\n\n", "ggdd", vec![replace_ed((0, 0), (1, 0), "")])
         .await;
+
+    // Insert after last line when 'eol' is off.
+    assert_nvim_input_yields_replacements(
+        "",
+        "ix<CR><Esc>ggyyjp",
+        vec![
+            replace_ed((0, 0), (0, 0), "x"),
+            replace_ed((0, 1), (0, 1), "\n"),
+            replace_ed((1, 0), (1, 0), "\nx"),
+        ],
+    )
+    .await;
 }

@@ -110,18 +110,18 @@ local function fix_diff(diff, prev_lines, curr_lines)
             -- The range doesn't start on the first line.
             if diff.range["end"].character == 0 then
                 -- The range ends at the beginning of the line after the visible lines.
-                if diff.range["start"].character == 0 then
+                if string.sub(diff.text, -1) == "\n" then
+                    -- The replacement ends with a newline.
+                    -- Drop it, and shorten the range by one character.
+                    diff.text = string.sub(diff.text, 1, -2)
+                    diff.range["end"].line = diff.range["end"].line - 1
+                    diff.range["end"].character = vim.fn.strchars(prev_lines[diff.range["end"].line + 1])
+                elseif diff.range["start"].character == 0 then
                     -- Operation applies to beginning of lines, that means it's possible to shift it back.
                     -- Modify edit, s.t. not the last \n, but the one before is replaced.
                     diff.range["start"].line = diff.range["start"].line - 1
                     diff.range["end"].line = diff.range["end"].line - 1
                     diff.range["start"].character = vim.fn.strchars(prev_lines[diff.range["start"].line + 1])
-                    diff.range["end"].character = vim.fn.strchars(prev_lines[diff.range["end"].line + 1])
-                elseif string.sub(diff.text, -1) == "\n" then
-                    -- The replacement ends with a newline.
-                    -- Drop it, and shorten the range by one character.
-                    diff.text = string.sub(diff.text, 1, -2)
-                    diff.range["end"].line = diff.range["end"].line - 1
                     diff.range["end"].character = vim.fn.strchars(prev_lines[diff.range["end"].line + 1])
                 else
                     vim.api.nvim_err_writeln(
