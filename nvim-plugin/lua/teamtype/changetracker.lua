@@ -187,10 +187,33 @@ function M.track_changes(buffer, initial_lines, callback)
             return
         end
 
-        -- Special case: When deleting the entire content, when 'eol' is on, there
-        -- will still be a "virtual line" after the current empty line: The file content will be "\n".
-        -- So new_last_line should not be 0, but 1!
-        if vim.bo[buffer].eol and #curr_lines == 2 and curr_lines[1] == "" and last_line == 1 then
+        -- This is a special case for handling a situation where deleting down to a single empty buffer line, but
+        -- 'eol' is on. In this case, the actual buffer content will be "\n", but that's not always communicated
+        -- correctly.
+        --
+        -- Case 1: Opening "\n\n" and pressing ggdd
+        --    prev = 3*""
+        --    cur = 2*""
+        --    fl = 0, ll = 1, nll = 0
+        -- Case 2: Opening "\n\n" and pressing ggdG
+        --    prev = 3*""
+        --    cur = 2*""
+        --    fl = 0, ll = 2, nll = 0
+        --    => needs to be fixed to ll = 1 OR nll = 1
+        -- Case 3: Opening "a\n" and pressing dd
+        --    prev = "a", ""
+        --    cur = 2*""
+        --    fl = 0, ll = 1, nll = 0
+        --    => needs to be fixed to nll = 1
+        --
+        -- Resulting content of all three cases should be the same: \n
+        if
+            vim.bo[buffer].eol
+            and #curr_lines == 2
+            and curr_lines[1] == ""
+            and new_last_line == 0
+            and (last_line >= 2 or #prev_lines_copy == 2)
+        then
             new_last_line = 1
         end
 

@@ -384,4 +384,10 @@ async fn nvim_sends_correct_delta() {
         vec![replace_ed((0, 3), (2, 1), "")],
     )
     .await;
+
+    // Delete stuff down to a single line when 'eol' is on.
+    assert_nvim_input_yields_replacements("\n\n", "ggdG", vec![replace_ed((1, 0), (2, 0), "")])
+        .await;
+    assert_nvim_input_yields_replacements("\n\n", "ggdd", vec![replace_ed((0, 0), (1, 0), "")])
+        .await;
 }
