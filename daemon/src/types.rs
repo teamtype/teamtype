@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::path::RelativePath;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use automerge::{patches::TextRepresentation, ConcreteTextValue, Patch, PatchAction, TextEncoding};
 use dissimilar::Chunk;
 use operational_transform::{Operation as OTOperation, OperationSeq};
@@ -235,6 +235,23 @@ impl Position {
 
     fn try_to_offset(&self, content: &str) -> Result<usize> {
         let rope = Rope::from_str(content);
+
+        // Ropey allows line indices that are one-past-the-end, but we don't want to.
+        if self.line >= rope.len_lines() {
+            bail!("Position is referencing a line that doesn't exist in the content")
+        }
+
+        // Newlines are part of lines in Ropey. To make sure our character offset is
+        // valid, check it against the "actual line length" (with out the optional \n).
+        let line = rope.line(self.line);
+        let mut line_length = line.len_chars();
+        if line.chars().last() == Some('\n') {
+            line_length -= 1;
+        }
+
+        if self.character > line_length {
+            bail!("Position is referencing a character that doesn't exist in the given line")
+        }
 
         Ok(rope.try_line_to_char(self.line)? + self.character)
     }
