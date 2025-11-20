@@ -200,7 +200,6 @@ impl Range {
             || (self.start.line == self.end.line && self.start.character <= self.end.character)
     }
 
-    #[must_use]
     pub fn as_relative(&self, content: &str) -> Result<(usize, usize)> {
         let start_offset = self
             .start
