@@ -57,7 +57,7 @@ impl EditorConnection {
             ComponentMessage::Edit { file_path, delta } => {
                 if let Some(ot_server) = self.ot_servers.get_mut(file_path) {
                     debug!("Applying incoming CRDT patch for {file_path}");
-                    let rev_text_delta_for_editor = ot_server.apply_crdt_change(delta);
+                    let rev_text_delta_for_editor = ot_server.apply_crdt_change(delta).expect("Failed to apply delta originating from another component to OT Server. Probably the delta is invalid.");
 
                     let uri = AbsolutePath::from_parts(&self.app_config.base_dir, file_path)
                         .expect("Should be able to construct absolute URI")
@@ -206,8 +206,17 @@ impl EditorConnection {
                     delta: delta.clone(),
                 };
 
-                let (delta_for_crdt, rev_deltas_for_editor) =
-                    ot_server.apply_editor_operation(rev_delta);
+                let Ok((delta_for_crdt, rev_deltas_for_editor)) =
+                    ot_server.apply_editor_operation(rev_delta)
+                else {
+                    return Err(EditorProtocolMessageError {
+                        code: -1,
+                        message: "Invalid edit".into(),
+                        data: Some(
+                            "This edit can not be applied to the current document content. This is probably a bug in the editor plugin.".into(),
+                        ),
+                    });
+                };
 
                 let uri = AbsolutePath::from_parts(&self.app_config.base_dir, &relative_path)
                     .expect("Should be able to construct absolute URI")

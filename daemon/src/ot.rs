@@ -6,6 +6,7 @@
 #![allow(dead_code)]
 
 use crate::types::{EditorTextDelta, RevisionedEditorTextDelta, RevisionedTextDelta, TextDelta};
+use anyhow::{Context, Result};
 use operational_transform::OperationSeq;
 use tracing::{debug, warn};
 
@@ -92,21 +93,21 @@ impl OTServer {
     }
 
     /// Called when the CRDT world makes a change to the document.
-    pub fn apply_crdt_change(&mut self, delta: &TextDelta) -> RevisionedEditorTextDelta {
+    pub fn apply_crdt_change(&mut self, delta: &TextDelta) -> Result<RevisionedEditorTextDelta> {
         // We can apply the change immediately.
         self.operations.push(delta.clone().into());
         self.editor_queue.push(delta.clone().into());
         self.daemon_revision += 1;
         // Use "previous" content to transform into editor text delta.
-        let editor_delta = EditorTextDelta::from_delta(delta.clone(), &self.current_content);
+        let editor_delta = EditorTextDelta::try_from_delta(delta.clone(), &self.current_content).context("Failed to convert delta to editor delta, under the given content. Was the edit invalid?")?;
         self.current_content = Self::force_apply(&self.current_content, delta.clone().into());
 
         // We assume that the editor is up-to-date, and send the operation to it.
         // If it can't accept it, we will transform and send it later.
-        RevisionedEditorTextDelta {
+        Ok(RevisionedEditorTextDelta {
             revision: self.editor_revision,
             delta: editor_delta,
-        }
+        })
     }
 
     /// Called when the editor sends us an operation.
@@ -114,7 +115,7 @@ impl OTServer {
     pub fn apply_editor_operation(
         &mut self,
         rev_editor_delta: RevisionedEditorTextDelta,
-    ) -> (TextDelta, Vec<RevisionedEditorTextDelta>) {
+    ) -> Result<(TextDelta, Vec<RevisionedEditorTextDelta>)> {
         let daemon_revision = rev_editor_delta.revision;
         self.editor_revision += 1;
 
@@ -157,10 +158,13 @@ impl OTServer {
                 confirmed_editor_op.clone(),
             );
         }
-        let rev_delta = RevisionedTextDelta::from_rev_ed_delta(
+        let rev_delta = RevisionedTextDelta::try_from_rev_ed_delta(
             rev_editor_delta,
             &self.last_confirmed_editor_content,
-        );
+        )
+        .context(
+            "The edit received from the editor has a range that doesn't fit the current content",
+        )?;
         op_seq = rev_delta.delta.into();
 
         debug!(
@@ -175,7 +179,7 @@ impl OTServer {
 
         let deltas_for_editor = self.deltas_for_editor();
 
-        (op_seq.into(), deltas_for_editor)
+        Ok((op_seq.into(), deltas_for_editor))
     }
 
     fn deltas_for_editor(&self) -> Vec<RevisionedEditorTextDelta> {
@@ -183,7 +187,7 @@ impl OTServer {
         let mut document = self.last_confirmed_editor_content.clone();
         for editor_op in &self.editor_queue {
             let delta: TextDelta = editor_op.clone().into();
-            let ed_delta = EditorTextDelta::from_delta(delta, &document);
+            let ed_delta = EditorTextDelta::try_from_delta(delta, &document).expect("It should always be possible to convert delta to editor delta when calculating edits to send to editor in OT Server");
             to_editor.push(RevisionedEditorTextDelta::new(
                 self.editor_revision,
                 ed_delta,
@@ -281,13 +285,13 @@ mod tests {
             let mut ot_server: OTServer = OTServer::new("hello".into());
 
             let to_editor = ot_server.apply_crdt_change(&insert(1, "x"));
-            let expected = EditorTextDelta::from_delta(insert(1, "x"), "hello");
+            let expected = EditorTextDelta::try_from_delta(insert(1, "x"), "hello");
             assert_eq!(to_editor, rev_ed_delta(0, expected));
 
             let (to_crdt, to_editor) =
                 ot_server.apply_editor_operation(rev_ed_delta_single(0, (0, 2), (0, 2), "y"));
             assert_eq!(to_crdt, insert(3, "y"));
-            let expected = EditorTextDelta::from_delta(insert(1, "x"), "heyllo");
+            let expected = EditorTextDelta::try_from_delta(insert(1, "x"), "heyllo");
             assert_eq!(to_editor, vec![rev_ed_delta(1, expected)]);
 
             assert_eq!(
@@ -297,7 +301,7 @@ mod tests {
             assert_eq!(ot_server.current_content(), "hxeyllo");
 
             let to_editor = ot_server.apply_crdt_change(&insert(3, "z"));
-            let expected = EditorTextDelta::from_delta(insert(3, "z"), "TODO");
+            let expected = EditorTextDelta::try_from_delta(insert(3, "z"), "TODO");
             assert_eq!(to_editor, rev_ed_delta(1, expected));
 
             assert_eq!(ot_server.current_content(), "hxezyllo");
@@ -306,7 +310,7 @@ mod tests {
             let (to_crdt, to_editor) =
                 ot_server.apply_editor_operation(rev_ed_delta_single(1, (0, 1), (0, 5), ""));
             assert_eq!(to_crdt, compose(delete(1, 2), delete(2, 2)));
-            let expected = EditorTextDelta::from_delta(insert(1, "z"), "hlo");
+            let expected = EditorTextDelta::try_from_delta(insert(1, "z"), "hlo");
             assert_eq!(to_editor, vec![rev_ed_delta(2, expected)]);
 
             assert_eq!(ot_server.current_content(), "hzlo");
