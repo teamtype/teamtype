@@ -286,13 +286,14 @@ mod tests {
 
             let to_editor = ot_server.apply_crdt_change(&insert(1, "x"));
             let expected = EditorTextDelta::try_from_delta(insert(1, "x"), "hello");
-            assert_eq!(to_editor, rev_ed_delta(0, expected));
+            assert_eq!(to_editor.unwrap(), rev_ed_delta(0, expected.unwrap()));
 
-            let (to_crdt, to_editor) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(0, (0, 2), (0, 2), "y"));
+            let (to_crdt, to_editor) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(0, (0, 2), (0, 2), "y"))
+                .unwrap();
             assert_eq!(to_crdt, insert(3, "y"));
             let expected = EditorTextDelta::try_from_delta(insert(1, "x"), "heyllo");
-            assert_eq!(to_editor, vec![rev_ed_delta(1, expected)]);
+            assert_eq!(to_editor, vec![rev_ed_delta(1, expected.unwrap())]);
 
             assert_eq!(
                 ot_server.operations,
@@ -302,16 +303,17 @@ mod tests {
 
             let to_editor = ot_server.apply_crdt_change(&insert(3, "z"));
             let expected = EditorTextDelta::try_from_delta(insert(3, "z"), "TODO");
-            assert_eq!(to_editor, rev_ed_delta(1, expected));
+            assert_eq!(to_editor.unwrap(), rev_ed_delta(1, expected.unwrap()));
 
             assert_eq!(ot_server.current_content(), "hxezyllo");
 
             // editor thinks: hxeyllo -> hlo
-            let (to_crdt, to_editor) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(1, (0, 1), (0, 5), ""));
+            let (to_crdt, to_editor) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(1, (0, 1), (0, 5), ""))
+                .unwrap();
             assert_eq!(to_crdt, compose(delete(1, 2), delete(2, 2)));
             let expected = EditorTextDelta::try_from_delta(insert(1, "z"), "hlo");
-            assert_eq!(to_editor, vec![rev_ed_delta(2, expected)]);
+            assert_eq!(to_editor, vec![rev_ed_delta(2, expected.unwrap())]);
 
             assert_eq!(ot_server.current_content(), "hzlo");
             assert_eq!(
@@ -329,15 +331,17 @@ mod tests {
 
             // Note: We're not testing some of the returned values.
             // We're mostly interested in the created structure.
-            let (_to_crdt, _to_editor) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(2, (0, 4), (0, 4), "!"));
+            let (_to_crdt, _to_editor) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(2, (0, 4), (0, 4), "!"))
+                .unwrap();
             assert_eq!(ot_server.editor_queue, vec![]);
             assert_eq!(ot_server.last_confirmed_editor_content, "hzlo!");
 
             let _to_editor = ot_server.apply_crdt_change(&insert(1, "o"));
             let _to_editor = ot_server.apply_crdt_change(&insert(2, "\n"));
-            let (_to_crdt, _to_editor) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(2, (0, 5), (0, 5), "\nblubb"));
+            let (_to_crdt, _to_editor) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(2, (0, 5), (0, 5), "\nblubb"))
+                .unwrap();
 
             assert_eq!(ot_server.editor_queue.len(), 2);
             assert_eq!(ot_server.last_confirmed_editor_content, "hzlo!\nblubb");
@@ -347,13 +351,17 @@ mod tests {
         #[test]
         fn can_do_newline_stuff() {
             let mut ot_server: OTServer = OTServer::default();
-            ot_server.apply_crdt_change(&insert(0, "Let's say\nthis could be\na poem."));
-            ot_server.apply_editor_operation(rev_ed_delta_single(
-                ot_server.daemon_revision,
-                (0, 0),
-                (0, 0),
-                "THE POEM\n",
-            ));
+            ot_server
+                .apply_crdt_change(&insert(0, "Let's say\nthis could be\na poem."))
+                .unwrap();
+            ot_server
+                .apply_editor_operation(rev_ed_delta_single(
+                    ot_server.daemon_revision,
+                    (0, 0),
+                    (0, 0),
+                    "THE POEM\n",
+                ))
+                .unwrap();
 
             assert_eq!(
                 ot_server.current_content(),
@@ -363,18 +371,22 @@ mod tests {
             // both do a replacemenet at the "same time", but not overlapping.
 
             // Note: using len because all is ascii and .chars().count() is more noise.
-            ot_server.apply_crdt_change(&replace(
-                "THE POEM\nLet's say\n".len(), // skip
-                "this could".len(),            // replace
-                "I want to",                   // by
-            ));
+            ot_server
+                .apply_crdt_change(&replace(
+                    "THE POEM\nLet's say\n".len(), // skip
+                    "this could".len(),            // replace
+                    "I want to",                   // by
+                ))
+                .unwrap();
 
-            ot_server.apply_editor_operation(rev_ed_delta_single(
-                ot_server.daemon_revision - 1, // same time
-                (3, 0),
-                (3, "a poem".len()),
-                "the boss",
-            ));
+            ot_server
+                .apply_editor_operation(rev_ed_delta_single(
+                    ot_server.daemon_revision - 1, // same time
+                    (3, 0),
+                    (3, "a poem".len()),
+                    "the boss",
+                ))
+                .unwrap();
 
             assert_eq!(
                 ot_server.current_content(),
@@ -386,11 +398,13 @@ mod tests {
         fn newline_join_behavior() {
             let content = "hello\nworld\n";
             let mut ot_server: OTServer = OTServer::new(content.to_string());
-            let (to_crdt_1, _) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(0, (0, 5), (0, 5), " world"));
+            let (to_crdt_1, _) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(0, (0, 5), (0, 5), " world"))
+                .unwrap();
             // Drop the newline (*could* be implicit, see below).
-            let (to_crdt_2, _) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(0, (1, 0), (2, 0), ""));
+            let (to_crdt_2, _) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(0, (1, 0), (2, 0), ""))
+                .unwrap();
 
             assert_eq!(to_crdt_1, insert(5, " world"));
             assert_eq!(to_crdt_2, delete(12, 6));
@@ -400,13 +414,16 @@ mod tests {
             let to_2nd_editor_2 = ot_server2.apply_crdt_change(&to_crdt_2);
 
             assert_eq!(
-                to_2nd_editor,
+                to_2nd_editor.unwrap(),
                 rev_ed_delta_single(0, (0, 5), (0, 5), " world")
             );
             // If the content would be "hello\nworld", without a final newline, the following delta
             // would not correctly "drop" the implicit newline.
             // For details, check out ../../docs/decisions/02-working-with-vims-eol-behavior.md.
-            assert_eq!(to_2nd_editor_2, rev_ed_delta_single(0, (1, 0), (2, 0), ""));
+            assert_eq!(
+                to_2nd_editor_2.unwrap(),
+                rev_ed_delta_single(0, (1, 0), (2, 0), "")
+            );
             assert_eq!(ot_server.current_content(), ot_server2.current_content());
         }
     }
@@ -421,7 +438,7 @@ mod tests {
         #[test]
         fn crdt_change_increases_revision() {
             let mut ot_server: OTServer = OTServer::new("foobar".to_string());
-            ot_server.apply_crdt_change(&dummy_insert(2));
+            ot_server.apply_crdt_change(&dummy_insert(2)).unwrap();
             assert_eq!(ot_server.daemon_revision, 1);
             assert_eq!(ot_server.editor_revision, 0);
         }
@@ -429,7 +446,9 @@ mod tests {
         #[test]
         fn editor_operation_tracks_revision() {
             let mut ot_server: OTServer = OTServer::new("foobar".to_string());
-            ot_server.apply_editor_operation(rev_ed_delta_single(0, (0, 0), (0, 0), "x"));
+            ot_server
+                .apply_editor_operation(rev_ed_delta_single(0, (0, 0), (0, 0), "x"))
+                .unwrap();
             assert_eq!(ot_server.editor_revision, 1);
             assert_eq!(ot_server.daemon_revision, 0);
         }
@@ -437,7 +456,7 @@ mod tests {
         #[test]
         fn crdt_change_tracks_in_queue() {
             let mut ot_server: OTServer = OTServer::new("foobar".to_string());
-            ot_server.apply_crdt_change(&dummy_insert(2));
+            ot_server.apply_crdt_change(&dummy_insert(2)).unwrap();
             assert_eq!(ot_server.editor_queue, vec![dummy_insert(2).into()]);
         }
 
@@ -445,12 +464,14 @@ mod tests {
         fn editor_operation_reduces_editor_queue() {
             let mut ot_server: OTServer = OTServer::new("xx".to_string());
 
-            ot_server.apply_crdt_change(&dummy_insert(2));
-            ot_server.apply_crdt_change(&dummy_insert(5));
-            ot_server.apply_crdt_change(&dummy_insert(8));
+            ot_server.apply_crdt_change(&dummy_insert(2)).unwrap();
+            ot_server.apply_crdt_change(&dummy_insert(5)).unwrap();
+            ot_server.apply_crdt_change(&dummy_insert(8)).unwrap();
             assert_eq!(ot_server.editor_queue.len(), 3);
 
-            ot_server.apply_editor_operation(rev_ed_delta_single(1, (0, 2), (0, 2), "foo"));
+            ot_server
+                .apply_editor_operation(rev_ed_delta_single(1, (0, 2), (0, 2), "foo"))
+                .unwrap();
             // we have already seen one op, so now the queue has only 2 left.
             assert_eq!(ot_server.editor_queue.len(), 2);
         }
@@ -459,8 +480,9 @@ mod tests {
         fn replace_single_character() {
             let mut ot_server: OTServer = OTServer::new("hello".into());
 
-            let (to_crdt, _to_editor) =
-                ot_server.apply_editor_operation(rev_ed_delta_single(0, (0, 1), (0, 2), "u"));
+            let (to_crdt, _to_editor) = ot_server
+                .apply_editor_operation(rev_ed_delta_single(0, (0, 1), (0, 2), "u"))
+                .unwrap();
 
             let mut expected = TextDelta::default();
             expected.retain(1);
