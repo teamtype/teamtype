@@ -745,10 +745,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn conversion_editor_to_text_delta_full_line_deletion_fails() {
         let ed_delta = ed_delta_single((0, 0), (1, 0), "");
-        TextDelta::try_from_ed_delta(ed_delta, "a").unwrap();
+        assert!(TextDelta::try_from_ed_delta(ed_delta, "a").is_err());
     }
 
     #[test]
@@ -1117,51 +1116,73 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
+        fn referencing_one_after_end_of_line_fails() {
+            assert!(Position {
+                line: 0,
+                character: 2,
+            }
+            .try_to_offset("a\n")
+            .is_err());
+        }
+
+        #[test]
+        fn referencing_two_after_end_of_line_fails() {
+            assert!(Position {
+                line: 0,
+                character: 3,
+            }
+            .try_to_offset("ab\n")
+            .is_err());
+        }
+
+        #[test]
         fn referencing_after_last_line_fails() {
-            Position {
+            assert!(Position {
                 line: 1,
                 character: 0,
             }
             .try_to_offset("a")
-            .unwrap();
+            .is_err());
         }
 
         #[test]
-        #[should_panic]
         fn offset_after_end_fails() {
-            Position::try_from_offset(2, "a").unwrap();
+            assert!(Position::try_from_offset(2, "a").is_err());
         }
 
         #[test]
-        #[should_panic]
         fn referencing_two_lines_after_last_line_fails() {
-            assert_eq!(
-                Position {
-                    line: 2,
-                    character: 0
-                }
-                .try_to_offset("a")
-                .unwrap(),
-                1
-            );
+            assert!(Position {
+                line: 2,
+                character: 0
+            }
+            .try_to_offset("a")
+            .is_err());
         }
 
         #[test]
-        #[should_panic]
+        fn referencing_after_last_line_with_try_to_fails() {
+            assert!(Position {
+                line: 2,
+                character: 0,
+            }
+            .try_to_offset("a\n")
+            .is_err());
+        }
+
+        #[test]
         fn offset_out_of_bounds_from_offset() {
-            Position::try_from_offset(17, "h🥕llo,\nneue\nwelt").unwrap();
+            assert!(Position::try_from_offset(17, "h🥕llo,\nneue\nwelt").is_err());
         }
 
         #[test]
-        #[should_panic]
         fn line_too_short() {
-            Position {
+            assert!(Position {
                 line: 1,
                 character: 5,
             }
             .try_to_offset("h🥕llo\nwelt")
-            .unwrap();
+            .is_err());
         }
     }
 }
