@@ -441,8 +441,9 @@ function processUserEdit(event: vscode.TextDocumentChangeEvent) {
 
                 for (const theEdit of edits) {
                     // interestingly this seems to block when it can't send
-                    // TODO: Catch exceptions, for example when daemon disconnects/crashes.
-                    client.connection.sendRequest(editType, theEdit)
+                    client.connection.sendRequest(editType, theEdit).catch((e) => {
+                        vscode.window.showErrorMessage(`Error while sending edit to Teamtype daemon: ${e}. This is probably a bug in the VS Code plugin.`)
+                    })
                     revision.editor += 1
 
                     debug(`sent edit for dR ${revision.daemon} (having edR ${revision.editor})`)

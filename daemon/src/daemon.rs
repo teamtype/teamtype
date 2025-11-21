@@ -691,7 +691,7 @@ impl DocumentActor {
                 self.write_file(file_path);
             }
             ComponentMessage::Edit { file_path, delta } => {
-                self.crdt_doc.apply_delta_to_doc(delta, file_path);
+                self.crdt_doc.apply_delta_to_doc(delta, file_path).expect("Failed to apply delta to document while handling edit ComponentMessage. Probably the delta doesn't fit the document content.");
                 let _ = self.doc_changed_ping_tx.send(());
                 self.write_file(file_path);
             }

@@ -93,7 +93,11 @@ impl Document {
         self.doc.sync().generate_sync_message(peer_state)
     }
 
-    pub fn apply_delta_to_doc(&mut self, delta: &TextDelta, file_path: &RelativePath) {
+    pub fn apply_delta_to_doc(
+        &mut self,
+        delta: &TextDelta,
+        file_path: &RelativePath,
+    ) -> Result<()> {
         let text_obj = self
             .text_obj(file_path)
             .expect("Couldn't get automerge text object, so not able to modify it");
@@ -101,10 +105,12 @@ impl Document {
         let text = self
             .current_file_content(file_path)
             .expect("Should have initialized text before applying delta to it");
-        let ed_delta = EditorTextDelta::from_delta(delta.clone(), &text);
+        // TODO: Can we avoid/handle this panic, same as the one below?
+        let ed_delta = EditorTextDelta::try_from_delta(delta.clone(), &text)?;
 
         for op in &ed_delta.0 {
-            let (start, length) = op.range.as_relative(&text);
+            // TODO: Can we avoid/handle this panic, e.g. by undoing previous deltas of this set?
+            let (start, length) = op.range.as_relative(&text)?;
             self.doc
                 .splice_text(
                     text_obj.clone(),
@@ -116,6 +122,7 @@ impl Document {
             offset -= length as isize;
             offset += op.replacement.chars().count() as isize;
         }
+        Ok(())
     }
 
     pub fn current_file_content(&self, file_path: &RelativePath) -> Result<String> {
@@ -212,7 +219,7 @@ impl Document {
             let text_delta: TextDelta = chunks.into();
             info!("Detected change of {file_path}. Updating.");
             debug!("Full delta of this update: {text_delta}");
-            self.apply_delta_to_doc(&text_delta, file_path);
+            self.apply_delta_to_doc(&text_delta, file_path).expect("Failed to apply delta to document while updating text. Probably the delta doesn't fit the document content.");
             Some(text_delta)
         } else {
             // The file doesn't exist in the CRDT yet, so we need to initialize it.
@@ -400,7 +407,7 @@ mod tests {
         let file = RelativePath::new("text");
 
         document.initialize_text(initial, &file);
-        document.apply_delta_to_doc(delta, &file);
+        document.apply_delta_to_doc(delta, &file).unwrap();
 
         document.assert_file_content(&file, expected);
     }
@@ -453,7 +460,7 @@ mod tests {
         document.initialize_text("", &file2);
 
         let delta = insert(0, "foobar");
-        document.apply_delta_to_doc(&delta, &file1);
+        document.apply_delta_to_doc(&delta, &file1).unwrap();
 
         document.assert_file_content(&file1, "foobar");
         document.assert_file_content(&file2, "");

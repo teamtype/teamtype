@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::path::RelativePath;
+use anyhow::{bail, Context, Result};
 use automerge::{patches::TextRepresentation, ConcreteTextValue, Patch, PatchAction, TextEncoding};
 use dissimilar::Chunk;
 use operational_transform::{Operation as OTOperation, OperationSeq};
@@ -86,11 +87,14 @@ impl RevisionedTextDelta {
         Self { revision, delta }
     }
 
-    pub fn from_rev_ed_delta(rev_ed_delta: RevisionedEditorTextDelta, content: &str) -> Self {
-        Self::new(
+    pub fn try_from_rev_ed_delta(
+        rev_ed_delta: RevisionedEditorTextDelta,
+        content: &str,
+    ) -> Result<Self> {
+        Ok(Self::new(
             rev_ed_delta.revision,
-            TextDelta::from_ed_delta(rev_ed_delta.delta, content),
-        )
+            TextDelta::try_from_ed_delta(rev_ed_delta.delta, content)?,
+        ))
     }
 }
 
@@ -196,14 +200,19 @@ impl Range {
             || (self.start.line == self.end.line && self.start.character <= self.end.character)
     }
 
-    #[must_use]
-    pub fn as_relative(&self, content: &str) -> (usize, usize) {
-        let start_offset = self.start.to_offset(content);
-        let end_offset = self.end.to_offset(content);
+    pub fn as_relative(&self, content: &str) -> Result<(usize, usize)> {
+        let start_offset = self
+            .start
+            .try_to_offset(content)
+            .context("Provided content is too short to compute start offset")?;
+        let end_offset = self
+            .end
+            .try_to_offset(content)
+            .context("Provided content is too short to compute end offset")?;
         if self.is_forward() {
-            (start_offset, end_offset - start_offset)
+            Ok((start_offset, end_offset - start_offset))
         } else {
-            (end_offset, start_offset - end_offset)
+            Ok((end_offset, start_offset - end_offset))
         }
     }
 }
@@ -216,19 +225,34 @@ pub struct Position {
 
 impl Position {
     /// will panic when used with not matching offset/content
-    fn from_offset(full_offset: usize, content: &str) -> Self {
+    fn try_from_offset(full_offset: usize, content: &str) -> Result<Self> {
         let rope = Rope::from_str(content);
-        let line = rope.char_to_line(full_offset);
-        let character = full_offset - rope.line_to_char(line);
-        Self { line, character }
+        let line = rope.try_char_to_line(full_offset)?;
+        let character = full_offset - rope.try_line_to_char(line)?;
+        Ok(Self { line, character })
     }
 
-    fn to_offset(&self, content: &str) -> usize {
+    fn try_to_offset(&self, content: &str) -> Result<usize> {
         let rope = Rope::from_str(content);
 
-        assert!(self.character <= rope.line(self.line).len_chars());
+        // Ropey allows line indices that are one-past-the-end, but we don't want to.
+        if self.line >= rope.len_lines() {
+            bail!("Position is referencing a line that doesn't exist in the content")
+        }
 
-        rope.line_to_char(self.line) + self.character
+        // Newlines are part of lines in Ropey. To make sure our character offset is
+        // valid, check it against the "actual line length" (with out the optional \n).
+        let line = rope.line(self.line);
+        let mut line_length = line.len_chars();
+        if line.chars().last() == Some('\n') {
+            line_length -= 1;
+        }
+
+        if self.character > line_length {
+            bail!("Position is referencing a character that doesn't exist in the given line")
+        }
+
+        Ok(rope.try_line_to_char(self.line)? + self.character)
     }
 }
 
@@ -491,7 +515,7 @@ impl TextDelta {
     /// # Panics
     ///
     /// Will panic if the delta contains multiple operations.
-    pub fn from_ed_delta(ed_delta: EditorTextDelta, content: &str) -> Self {
+    pub fn try_from_ed_delta(ed_delta: EditorTextDelta, content: &str) -> Result<Self> {
         let mut delta = Self::default();
         // TODO: add support, when needed
         assert!(
@@ -503,12 +527,12 @@ impl TextDelta {
             if ed_op.range.is_empty() {
                 if !ed_op.replacement.is_empty() {
                     // insert
-                    delta_step.retain(ed_op.range.start.to_offset(content));
+                    delta_step.retain(ed_op.range.start.try_to_offset(content)?);
                     delta_step.insert(&ed_op.replacement);
                 }
             } else {
                 // delete or replace
-                let (position, length) = ed_op.range.as_relative(content);
+                let (position, length) = ed_op.range.as_relative(content)?;
                 delta_step.retain(position);
                 delta_step.delete(length);
                 if !ed_op.replacement.is_empty() {
@@ -518,7 +542,7 @@ impl TextDelta {
             }
             delta = delta.compose(delta_step);
         }
-        delta
+        Ok(delta)
     }
 }
 
@@ -543,7 +567,7 @@ impl From<Vec<Chunk<'_>>> for TextDelta {
 }
 
 impl EditorTextDelta {
-    pub fn from_delta(delta: TextDelta, content: &str) -> Self {
+    pub fn try_from_delta(delta: TextDelta, content: &str) -> Result<Self> {
         let mut editor_ops = vec![];
         let mut position = 0;
         for op in delta {
@@ -552,8 +576,8 @@ impl EditorTextDelta {
                 TextOp::Delete(n) => {
                     editor_ops.push(EditorTextOp {
                         range: Range {
-                            start: Position::from_offset(position, content),
-                            end: Position::from_offset(position + n, content),
+                            start: Position::try_from_offset(position, content)?,
+                            end: Position::try_from_offset(position + n, content)?,
                         },
                         replacement: String::new(),
                     });
@@ -562,8 +586,8 @@ impl EditorTextDelta {
                 TextOp::Insert(s) => {
                     editor_ops.push(EditorTextOp {
                         range: Range {
-                            start: Position::from_offset(position, content),
-                            end: Position::from_offset(position, content),
+                            start: Position::try_from_offset(position, content)?,
+                            end: Position::try_from_offset(position, content)?,
                         },
                         replacement: s.clone(),
                     });
@@ -571,7 +595,7 @@ impl EditorTextDelta {
             }
         }
 
-        Self(editor_ops)
+        Ok(Self(editor_ops))
     }
 }
 
@@ -689,21 +713,21 @@ mod tests {
     #[test]
     fn conversion_editor_to_text_delta_insert() {
         let ed_delta = ed_delta_single((0, 1), (0, 1), "a");
-        let delta = TextDelta::from_ed_delta(ed_delta, "foo");
+        let delta = TextDelta::try_from_ed_delta(ed_delta, "foo").unwrap();
         assert_eq!(delta, insert(1, "a"));
     }
 
     #[test]
     fn conversion_editor_to_text_delta_delete() {
         let ed_delta = ed_delta_single((0, 0), (0, 1), "");
-        let delta = TextDelta::from_ed_delta(ed_delta, "foo");
+        let delta = TextDelta::try_from_ed_delta(ed_delta, "foo").unwrap();
         assert_eq!(delta, delete(0, 1));
     }
 
     #[test]
     fn conversion_editor_to_text_delta_replacement() {
         let ed_delta = ed_delta_single((0, 5), (1, 0), "\nhello\n");
-        let delta = TextDelta::from_ed_delta(ed_delta, "hello\n");
+        let delta = TextDelta::try_from_ed_delta(ed_delta, "hello\n").unwrap();
         let mut expected_delta = TextDelta::default();
         expected_delta.retain(5);
         expected_delta.insert("\nhello\n");
@@ -714,23 +738,22 @@ mod tests {
     #[test]
     fn conversion_editor_to_text_delta_full_line_deletion() {
         let ed_delta = ed_delta_single((0, 0), (1, 0), "");
-        let delta = TextDelta::from_ed_delta(ed_delta, "a\n");
+        let delta = TextDelta::try_from_ed_delta(ed_delta, "a\n").unwrap();
         let mut expected_delta = TextDelta::default();
         expected_delta.delete(2);
         assert_eq!(expected_delta, delta);
     }
 
     #[test]
-    #[should_panic]
     fn conversion_editor_to_text_delta_full_line_deletion_fails() {
         let ed_delta = ed_delta_single((0, 0), (1, 0), "");
-        TextDelta::from_ed_delta(ed_delta, "a");
+        assert!(TextDelta::try_from_ed_delta(ed_delta, "a").is_err());
     }
 
     #[test]
     fn conversion_editor_to_text_delta_multiline_replacement() {
         let ed_delta = ed_delta_single((1, 0), (2, 0), "xzwei\nx");
-        let delta = TextDelta::from_ed_delta(ed_delta, "xeins\nzwei\ndrei\n");
+        let delta = TextDelta::try_from_ed_delta(ed_delta, "xeins\nzwei\ndrei\n").unwrap();
         let mut expected_delta = TextDelta::default();
         expected_delta.retain(6);
         expected_delta.insert("xzwei\nx");
@@ -747,13 +770,13 @@ mod tests {
         delta.insert("xzwei\nx");
         delta.delete(5);
 
-        let ed_delta = EditorTextDelta::from_delta(delta, content);
+        let ed_delta = EditorTextDelta::try_from_delta(delta, content);
 
         let expected_ed_delta = EditorTextDelta(vec![
             replace_ed((1, 0), (1, 0), "xzwei\nx"),
             replace_ed((1, 0), (2, 0), ""),
         ]);
-        assert_eq!(ed_delta, expected_ed_delta);
+        assert_eq!(ed_delta.unwrap(), expected_ed_delta);
     }
 
     #[test]
@@ -765,14 +788,14 @@ mod tests {
         delta.insert("\nhello\n");
         delta.delete(1);
 
-        let ed_delta = EditorTextDelta::from_delta(delta, content);
+        let ed_delta = EditorTextDelta::try_from_delta(delta, content);
 
         let expected_ed_delta = EditorTextDelta(vec![
             replace_ed((0, 5), (0, 5), "\nhello\n"),
             replace_ed((0, 5), (1, 0), ""),
         ]);
 
-        assert_eq!(expected_ed_delta, ed_delta);
+        assert_eq!(ed_delta.unwrap(), expected_ed_delta);
     }
 
     // Test conversion from the difference crate.
@@ -846,7 +869,7 @@ mod tests {
             assert_eq!(
                 //       position         0123456 78901 2345
                 //       character        0123456 01234 0124
-                Position::from_offset(0, "hallo,\nneue\nwelt"),
+                Position::try_from_offset(0, "hallo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 0,
                     character: 0
@@ -857,7 +880,8 @@ mod tests {
                     line: 0,
                     character: 0
                 }
-                .to_offset("hallo,\nneue\nwelt"),
+                .try_to_offset("hallo,\nneue\nwelt")
+                .unwrap(),
                 0
             );
         }
@@ -865,14 +889,14 @@ mod tests {
         #[test]
         fn more_offset_first_line() {
             assert_eq!(
-                Position::from_offset(3, "hallo,\nneue\nwelt"),
+                Position::try_from_offset(3, "hallo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 0,
                     character: 3
                 }
             );
             assert_eq!(
-                Position::from_offset(3, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(3, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 0,
                     character: 3
@@ -883,7 +907,8 @@ mod tests {
                     line: 0,
                     character: 3
                 }
-                .to_offset("hallo,\nneue\nwelt"),
+                .try_to_offset("hallo,\nneue\nwelt")
+                .unwrap(),
                 3
             );
             assert_eq!(
@@ -891,7 +916,8 @@ mod tests {
                     line: 0,
                     character: 3
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 3
             );
             assert_eq!(
@@ -899,7 +925,8 @@ mod tests {
                     line: 0,
                     character: 6
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 6
             );
         }
@@ -907,35 +934,35 @@ mod tests {
         #[test]
         fn offset_second_line() {
             assert_eq!(
-                Position::from_offset(7, "hallo,\nneue\nwelt"),
+                Position::try_from_offset(7, "hallo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 1,
                     character: 0
                 }
             );
             assert_eq!(
-                Position::from_offset(7, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(7, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 1,
                     character: 0
                 }
             );
             assert_eq!(
-                Position::from_offset(9, "hallo,\nneue\nwelt"),
+                Position::try_from_offset(9, "hallo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 1,
                     character: 2
                 }
             );
             assert_eq!(
-                Position::from_offset(9, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(9, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 1,
                     character: 2
                 }
             );
             assert_eq!(
-                Position::from_offset(11, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(11, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 1,
                     character: 4
@@ -946,7 +973,8 @@ mod tests {
                     line: 1,
                     character: 0
                 }
-                .to_offset("hallo,\nneue\nwelt"),
+                .try_to_offset("hallo,\nneue\nwelt")
+                .unwrap(),
                 7
             );
             assert_eq!(
@@ -954,7 +982,8 @@ mod tests {
                     line: 1,
                     character: 0
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 7
             );
             assert_eq!(
@@ -962,7 +991,8 @@ mod tests {
                     line: 1,
                     character: 2
                 }
-                .to_offset("hallo,\nneue\nwelt"),
+                .try_to_offset("hallo,\nneue\nwelt")
+                .unwrap(),
                 9
             );
             assert_eq!(
@@ -970,7 +1000,8 @@ mod tests {
                     line: 1,
                     character: 2
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 9
             );
         }
@@ -978,28 +1009,28 @@ mod tests {
         #[test]
         fn offset_third_line() {
             assert_eq!(
-                Position::from_offset(12, "hallo,\nneue\nwelt"),
+                Position::try_from_offset(12, "hallo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 2,
                     character: 0
                 }
             );
             assert_eq!(
-                Position::from_offset(12, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(12, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 2,
                     character: 0
                 }
             );
             assert_eq!(
-                Position::from_offset(15, "hallo,\nneue\nwelt"),
+                Position::try_from_offset(15, "hallo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 2,
                     character: 3
                 }
             );
             assert_eq!(
-                Position::from_offset(15, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(15, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 2,
                     character: 3
@@ -1010,7 +1041,8 @@ mod tests {
                     line: 2,
                     character: 0
                 }
-                .to_offset("hallo,\nneue\nwelt"),
+                .try_to_offset("hallo,\nneue\nwelt")
+                .unwrap(),
                 12
             );
             assert_eq!(
@@ -1018,7 +1050,8 @@ mod tests {
                     line: 2,
                     character: 0
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 12
             );
             assert_eq!(
@@ -1026,7 +1059,8 @@ mod tests {
                     line: 2,
                     character: 3
                 }
-                .to_offset("hallo,\nneue\nwelt"),
+                .try_to_offset("hallo,\nneue\nwelt")
+                .unwrap(),
                 15
             );
             assert_eq!(
@@ -1034,7 +1068,8 @@ mod tests {
                     line: 2,
                     character: 3
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 15
             );
         }
@@ -1042,7 +1077,7 @@ mod tests {
         #[test]
         fn last_implicit_newline_does_not_panic() {
             assert_eq!(
-                Position::from_offset(16, "h🥕llo,\nneue\nwelt"),
+                Position::try_from_offset(16, "h🥕llo,\nneue\nwelt").unwrap(),
                 Position {
                     line: 2,
                     character: 4
@@ -1053,7 +1088,8 @@ mod tests {
                     line: 2,
                     character: 4
                 }
-                .to_offset("h🥕llo,\nneue\nwelt"),
+                .try_to_offset("h🥕llo,\nneue\nwelt")
+                .unwrap(),
                 16
             );
         }
@@ -1065,7 +1101,7 @@ mod tests {
                     line: 1,
                     character: 0
                 },
-                Position::from_offset(2, "a\n")
+                Position::try_from_offset(2, "a\n").unwrap()
             );
 
             assert_eq!(
@@ -1073,54 +1109,80 @@ mod tests {
                     line: 1,
                     character: 0
                 }
-                .to_offset("a\n"),
+                .try_to_offset("a\n")
+                .unwrap(),
                 2
             );
         }
 
         #[test]
-        #[should_panic]
+        fn referencing_one_after_end_of_line_fails() {
+            assert!(Position {
+                line: 0,
+                character: 2,
+            }
+            .try_to_offset("a\n")
+            .is_err());
+        }
+
+        #[test]
+        fn referencing_two_after_end_of_line_fails() {
+            assert!(Position {
+                line: 0,
+                character: 3,
+            }
+            .try_to_offset("ab\n")
+            .is_err());
+        }
+
+        #[test]
         fn referencing_after_last_line_fails() {
-            Position {
+            assert!(Position {
                 line: 1,
                 character: 0,
             }
-            .to_offset("a");
+            .try_to_offset("a")
+            .is_err());
         }
 
         #[test]
-        #[should_panic]
         fn offset_after_end_fails() {
-            Position::from_offset(2, "a");
+            assert!(Position::try_from_offset(2, "a").is_err());
         }
 
         #[test]
-        #[should_panic]
         fn referencing_two_lines_after_last_line_fails() {
-            assert_eq!(
-                Position {
-                    line: 2,
-                    character: 0
-                }
-                .to_offset("a"),
-                1
-            );
+            assert!(Position {
+                line: 2,
+                character: 0
+            }
+            .try_to_offset("a")
+            .is_err());
         }
 
         #[test]
-        #[should_panic]
+        fn referencing_after_last_line_with_try_to_fails() {
+            assert!(Position {
+                line: 2,
+                character: 0,
+            }
+            .try_to_offset("a\n")
+            .is_err());
+        }
+
+        #[test]
         fn offset_out_of_bounds_from_offset() {
-            Position::from_offset(17, "h🥕llo,\nneue\nwelt");
+            assert!(Position::try_from_offset(17, "h🥕llo,\nneue\nwelt").is_err());
         }
 
         #[test]
-        #[should_panic]
         fn line_too_short() {
-            Position {
+            assert!(Position {
                 line: 1,
                 character: 5,
             }
-            .to_offset("h🥕llo\nwelt");
+            .try_to_offset("h🥕llo\nwelt")
+            .is_err());
         }
     }
 }
