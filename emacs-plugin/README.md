@@ -5,7 +5,7 @@ SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-To install, add this to your `~/.emacs`:
+To install, add this to your `~/.config/emacs/init.el` (or `~/.emacs`):
 
 ```emacs-lisp
 (add-to-list 'load-path "~/path/to/teamtype/emacs-plugin")
