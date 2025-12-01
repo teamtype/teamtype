@@ -22,6 +22,7 @@ There have been a number of attempts of enabling collaborative text editing! If 
 | [Nextcloud Text](https://github.com/nextcloud/text)                                  | ✅ | ✅ | ❌ | ✅ | ❌ (Web) |
 | [Rustpad](https://github.com/ekzhang/rustpad)                                        | ✅ | ✅ | ❌ | ❌ | ❌ (Web) |
 | [SubEthaEdit](https://en.wikipedia.org/wiki/SubEthaEdit)                             | ✅ | ❌ | ✅ | ❌ | ❌ (Standalone) |
+| [CoVim](https://github.com/FredKSchott/CoVim)                             | ✅ | ❌ | ❌ | ❌ | ❌ (Vim) |
 | [Gobby](https://en.wikipedia.org/wiki/Gobby)                                         | ✅ | ❌ | ✅ | ❌ | ❌ (Standalone) |
 | [codemp](https://code.mp)                                                            | ❌[^server] | ✅ | ❌ | ✅ | ✅ (Neovim, VS Code, Sublime, IntelliJ) |
 | [Floobits](https://github.com/Floobits)                                              | ❌[^server] | ❌ | ❌ | ❌ | ✅ (Sublime, Atom, Neovim, Vim, IntelliJ, Emacs) |
