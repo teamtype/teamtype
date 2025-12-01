@@ -25,6 +25,7 @@ There have been a number of attempts of enabling collaborative text editing! If 
 | [Gobby](https://en.wikipedia.org/wiki/Gobby)                                         | ✅ | ❌ | ✅ | ❌ | ❌ (Standalone) |
 | [codemp](https://code.mp)                                                            | ❌[^server] | ✅ | ❌ | ✅ | ✅ (Neovim, VS Code, Sublime, IntelliJ) |
 | [Floobits](https://github.com/Floobits)                                              | ❌[^server] | ❌ | ❌ | ❌ | ✅ (Sublime, Atom, Neovim, Vim, IntelliJ, Emacs) |
+| [Duckly](https://duckly.com/)                                              | ❌ | ❌ | ❌ | ❌ | ✅ (VS Code, JetBrains Suite) |
 | [Google Docs](https://en.wikipedia.org/wiki/Google_Docs)                             | ❌ | ✅ | ❌ | ❌ | ❌ (Web) |
 | [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/)  | ❌ | ✅ | ❌ | ❌ | ❌ (Visual Studio, VS Code) |
 | [IntelliJ's Code With Me](https://www.jetbrains.com/help/idea/code-with-me.html)     | ❌ | ✅ | ❌ | ❌ | ❌ (IntelliJ) |
