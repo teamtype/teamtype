@@ -167,7 +167,7 @@ local function activate_config_for_buffer(config_name, buf_nr, root_dir)
     -- Ensure that the file exists on disk before we "open" it in the daemon,
     -- to prevent a warning that the file has been created externally (W13).
     -- This resolves issue #92.
-    if string.find(uri, "file://") == 1 and not vim.fn.filereadable(filename) then
+    if string.find(uri, "file://") == 1 and vim.fn.filereadable(filename) == 0 then
         vim.cmd("silent write")
     end
 
