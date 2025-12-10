@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use self::cli::{Cli, Commands, MagicWormholeFlags, SyncVcsFlag};
+use self::cli::{Cli, Commands, ShareJoinFlags};
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use std::path::{Path, PathBuf};
@@ -51,8 +51,6 @@ async fn main() -> Result<()> {
 
     let directory = get_directory(cli.directory).context("Failed to find .teamtype/ directory")?;
 
-    let config_file = directory.join(config::CONFIG_DIR).join(config::CONFIG_FILE);
-
     let socket_path = directory
         .join(config::CONFIG_DIR)
         .join(config::DEFAULT_SOCKET_NAME);
@@ -76,15 +74,19 @@ async fn main() -> Result<()> {
                 Commands::Share {
                     init,
                     no_join_code,
-                    magic_wormhole_flags:
-                        MagicWormholeFlags {
+                    shared_flags:
+                        ShareJoinFlags {
                             magic_wormhole_relay,
+                            sync_vcs,
+                            username,
                         },
                     show_secret_address,
-                    sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
                 } => {
                     init_doc = init;
+
+                    let app_config_from_config_file = AppConfig::from_config_file(&directory);
+
                     let app_config_cli = AppConfig {
                         base_dir: directory,
                         peer: None,
@@ -92,21 +94,25 @@ async fn main() -> Result<()> {
                         emit_secret_address: show_secret_address,
                         magic_wormhole_relay,
                         sync_vcs,
+                        username,
                     };
-                    app_config = app_config_cli.merge(AppConfig::from_config_file(&config_file));
+                    app_config = app_config_cli.merge(app_config_from_config_file);
 
                     // Because of the "share" subcommand, explicitly don't connect anywhere.
                     app_config.peer = None;
                 }
                 Commands::Join {
                     join_code,
-                    magic_wormhole_flags:
-                        MagicWormholeFlags {
+                    shared_flags:
+                        ShareJoinFlags {
                             magic_wormhole_relay,
+                            sync_vcs,
+                            username,
                         },
-                    sync_vcs: SyncVcsFlag { sync_vcs },
                     ..
                 } => {
+                    let app_config_from_config_file = AppConfig::from_config_file(&directory);
+
                     let app_config_cli = AppConfig {
                         base_dir: directory,
                         peer: join_code.map(config::Peer::JoinCode),
@@ -114,9 +120,10 @@ async fn main() -> Result<()> {
                         emit_secret_address: false,
                         magic_wormhole_relay,
                         sync_vcs,
+                        username,
                     };
 
-                    app_config = app_config_cli.merge(AppConfig::from_config_file(&config_file));
+                    app_config = app_config_cli.merge(app_config_from_config_file);
 
                     app_config = app_config
                         .resolve_peer()

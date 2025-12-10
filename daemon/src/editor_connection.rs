@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use tracing::debug;
 
 use crate::{
-    config::{self, AppConfig},
+    config::AppConfig,
     editor_protocol::{
         EditorProtocolMessageError, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
     },
@@ -35,7 +35,7 @@ impl EditorConnection {
     pub fn new(id: String, app_config: AppConfig) -> Self {
         Self {
             id,
-            username: config::get_username(&app_config.base_dir),
+            username: app_config.username.clone(),
             app_config,
             ot_servers: HashMap::new(),
         }

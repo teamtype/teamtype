@@ -22,14 +22,16 @@ pub const LEGACY_CONFIG_DIR: &str = ".ethersync";
 
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
+// TODO: Generate a random funny name.
+const USERNAME_DEFAULT: &str = "Anonymous";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Peer {
     SecretAddress(String),
     JoinCode(String),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 #[must_use]
 pub struct AppConfig {
     pub base_dir: PathBuf,
@@ -39,11 +41,17 @@ pub struct AppConfig {
     pub magic_wormhole_relay: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
+    pub username: Option<String>,
 }
 
 impl AppConfig {
     #[must_use]
-    pub fn from_config_file(config_file: &Path) -> Option<Self> {
+    // Note that this reads the config and has some fallbacks, if the config value doesn't exist.
+    // These fallbacks only get used by the calling main, if there's no value with higher
+    // precedence (e.g. CLI-provided).
+    pub fn from_config_file(base_dir: &Path) -> Option<Self> {
+        let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+
         if config_file.exists() {
             let conf = Ini::load_from_file(config_file)
                 .expect("Could not access config file, even though it exists");
@@ -57,15 +65,15 @@ impl AppConfig {
                     .map(|p| Peer::SecretAddress(p.to_string())),
                 emit_join_code: general_section.get("emit_join_code").map_or(
                     EMIT_JOIN_CODE_DEFAULT,
-                    |p| {
-                        p.parse()
+                    |ejc| {
+                        ejc.parse()
                             .expect("Failed to parse config parameter `emit_join_code` as bool")
                     },
                 ),
                 emit_secret_address: general_section.get("emit_secret_address").map_or(
                     EMIT_SECRET_ADDRESS_DEFAULT,
-                    |p| {
-                        p.parse().expect(
+                    |esa| {
+                        esa.parse().expect(
                             "Failed to parse config parameter `emit_secret_address` as bool",
                         )
                     },
@@ -74,6 +82,11 @@ impl AppConfig {
                     .get("magic_wormhole_relay")
                     .map(ToString::to_string),
                 sync_vcs: false,
+                username: general_section
+                    .get("username")
+                    .map(ToString::to_string)
+                    .or_else(|| get_git_username(base_dir))
+                    .or_else(|| Some(USERNAME_DEFAULT.to_string())),
             })
         } else {
             None
@@ -88,6 +101,7 @@ impl AppConfig {
     /// If we don't have a join code, try to use the configured peer.
     /// Otherwise, fail.
     pub async fn resolve_peer(self) -> Result<Self> {
+        let mut result = self.clone();
         let peer = match self.peer {
             Some(Peer::JoinCode(ref join_code)) => {
                 let secret_address =
@@ -110,14 +124,8 @@ impl AppConfig {
                 bail!("Missing join code, and no peer=<secret address> in .teamtype/config");
             }
         };
-        Ok(Self {
-            base_dir: self.base_dir,
-            peer: Some(peer),
-            emit_join_code: self.emit_join_code,
-            emit_secret_address: self.emit_secret_address,
-            magic_wormhole_relay: self.magic_wormhole_relay,
-            sync_vcs: self.sync_vcs,
-        })
+        result.peer = Some(peer);
+        Ok(result)
     }
 
     #[must_use]
@@ -141,6 +149,7 @@ impl AppConfig {
                 emit_secret_address: self.emit_secret_address || other.emit_secret_address,
                 magic_wormhole_relay: self.magic_wormhole_relay.or(other.magic_wormhole_relay),
                 sync_vcs: self.sync_vcs || other.sync_vcs,
+                username: self.username.or(other.username),
             },
         }
     }
@@ -189,7 +198,7 @@ pub fn has_local_user_config(base_dir: &Path) -> Result<bool> {
 }
 
 #[must_use]
-pub fn get_username(base_dir: &Path) -> Option<String> {
+pub fn get_git_username(base_dir: &Path) -> Option<String> {
     local_git_username(base_dir)
         .or_else(|_| global_git_username())
         .ok()

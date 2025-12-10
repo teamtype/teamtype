@@ -36,19 +36,18 @@ pub struct Cli {
 }
 
 #[derive(Args)]
-pub struct SyncVcsFlag {
+pub struct ShareJoinFlags {
     /// EXPERIMENTAL: Also synchronize version-control directories like .git/ or .jj/, which are normally
     /// ignored. For Git, this will synchronize all branches, commits, etc. as well as your .git/config.
     /// This means that new commits will immediately appear at all peers, you can change branches together, etc.
     #[arg(long)]
     pub sync_vcs: bool,
-}
-
-#[derive(Args)]
-pub struct MagicWormholeFlags {
     /// Use an alternative Magic Wormhole mailbox server relay url
     #[arg(long)]
     pub magic_wormhole_relay: Option<String>,
+    #[arg(long)]
+    /// The name that others see next to your cursor. Defaults to your Git username.
+    pub username: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -66,18 +65,14 @@ pub enum Commands {
         #[arg(long)]
         show_secret_address: bool,
         #[command(flatten)]
-        magic_wormhole_flags: MagicWormholeFlags,
-        #[command(flatten)]
-        sync_vcs: SyncVcsFlag,
+        shared_flags: ShareJoinFlags,
     },
     /// Join a shared directory via a join code, or connect to the most recent one.
     Join {
         /// Specify to connect to a new peer. Otherwise, try to connect to the most recent peer.
         join_code: Option<String>,
         #[command(flatten)]
-        magic_wormhole_flags: MagicWormholeFlags,
-        #[command(flatten)]
-        sync_vcs: SyncVcsFlag,
+        shared_flags: ShareJoinFlags,
     },
     /// Open a JSON-RPC connection to the Teamtype daemon on stdin/stdout. Used by text editor plugins.
     Client,
