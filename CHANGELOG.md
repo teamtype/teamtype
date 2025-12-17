@@ -5,6 +5,16 @@ SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
+# 0.9.1 (unreleased)
+
+## Make the username configurable
+
+Teamtype uses the configured Git username by default, to display next to the cursors other people see.
+
+We added a configuration value `username` which you can set in your `.teamtype/config` to override that name.
+
+You can also use the flag `--username` when using the `share`/`join` subcommands.
+
 # 0.9.0 (2025-10-29)
 
 Teamtype (previously called Ethersync) enables real-time collaborative editing of local text files, with plugins for Neovim and VS Code.

@@ -10,6 +10,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 You can put the following options into a configuration file at `.teamtype/config`:
 
 ```ini
+username = <string>
 peer = <secret_address>
 emit_join_code = <true/false>
 emit_secret_address = <true/false>

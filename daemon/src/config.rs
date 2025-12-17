@@ -202,6 +202,9 @@ pub fn get_git_username(base_dir: &Path) -> Option<String> {
     local_git_username(base_dir)
         .or_else(|_| global_git_username())
         .ok()
+        .filter(|username| !username.is_empty()) // If the username is empty, return None. This can
+                                                 // happen if Git is installed, but no username is
+                                                 // set on any level of Git configuration.
 }
 
 fn local_git_username(base_dir: &Path) -> Result<String> {
