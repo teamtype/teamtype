@@ -4,13 +4,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Data structures and helper methods around influencing the configuration of the application.
-use crate::sandbox;
 use crate::wormhole::get_secret_address_from_wormhole;
 use anyhow::{bail, Context, Result};
 use git2::ConfigLevel;
 use ini::Ini;
 use std::path::{Path, PathBuf};
 use tracing::info;
+use crate::editor::Editor;
+use crate::{editor, sandbox};
+use crate::sandbox::Sandbox;
 
 pub const DOC_FILE: &str = "doc";
 pub const DEFAULT_SOCKET_NAME: &str = "socket";
@@ -31,7 +33,7 @@ pub enum Peer {
     JoinCode(String),
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 #[must_use]
 pub struct AppConfig {
     pub base_dir: PathBuf,
@@ -42,14 +44,32 @@ pub struct AppConfig {
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
     pub username: Option<String>,
+    pub sandbox: Box<dyn Sandbox>,
+    pub editor: Box<dyn Editor>,
 }
 
 impl AppConfig {
+
+    pub fn default() -> AppConfig {
+        let sandbox = sandbox::new();
+        AppConfig {
+            base_dir: PathBuf::default(),
+            peer: Option::default(),
+            emit_join_code: false,
+            emit_secret_address: false,
+            magic_wormhole_relay: Option::default(),
+            sync_vcs: false,
+            username: Option::default(),
+            sandbox: sandbox.clone(),
+            editor: editor::new(sandbox),
+        }
+    }
+
     #[must_use]
     // Note that this reads the config and has some fallbacks, if the config value doesn't exist.
     // These fallbacks only get used by the calling main, if there's no value with higher
     // precedence (e.g. CLI-provided).
-    pub fn from_config_file(base_dir: &Path) -> Option<Self> {
+    pub fn from_config_file(base_dir: &Path, sandbox: Box<dyn Sandbox>, editor: Box<dyn Editor>) -> Option<Self> {
         let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
 
         if config_file.exists() {
@@ -87,6 +107,8 @@ impl AppConfig {
                     .map(ToString::to_string)
                     .or_else(|| get_git_username(base_dir))
                     .or_else(|| Some(USERNAME_DEFAULT.to_string())),
+                sandbox,
+                editor
             })
         } else {
             None
@@ -113,7 +135,7 @@ impl AppConfig {
                 info!(
                     "Derived peer from join code. Storing in config (overwriting previous config)."
                 );
-                store_peer_in_config(&self.base_dir, &self.config_file(), &secret_address)?;
+                self.store_peer_in_config(&secret_address)?;
                 Peer::SecretAddress(secret_address)
             }
             Some(Peer::SecretAddress(secret_address)) => {
@@ -150,18 +172,22 @@ impl AppConfig {
                 magic_wormhole_relay: self.magic_wormhole_relay.or(other.magic_wormhole_relay),
                 sync_vcs: self.sync_vcs || other.sync_vcs,
                 username: self.username.or(other.username),
+                sandbox: self.sandbox,
+                editor: self.editor,
             },
         }
     }
+
+    pub fn store_peer_in_config(&self, peer: &str) -> Result<()> {
+        info!("Storing peer's address in .teamtype/config.");
+
+        let content = format!("peer={peer}\n");
+        self.sandbox.write_file(&self.base_dir, &self.config_file(), content.as_bytes())
+            .context("Failed to write to config file")
+    }
 }
 
-pub fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) -> Result<()> {
-    info!("Storing peer's address in .teamtype/config.");
 
-    let content = format!("peer={peer}\n");
-    sandbox::write_file(directory, config_file, content.as_bytes())
-        .context("Failed to write to config file")
-}
 
 #[must_use]
 pub fn has_git_remote(path: &Path) -> bool {
@@ -226,13 +252,13 @@ fn find_git_repo(path: &Path) -> Result<git2::Repository, git2::Error> {
     git2::Repository::discover(path)
 }
 
-fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
+fn add_teamtype_to_local_gitignore(directory: &Path, sandbox: Box<dyn Sandbox>) -> Result<()> {
     let mut ignore_file_path = directory.join(CONFIG_DIR);
     ignore_file_path.push(".gitignore");
 
     // It's very unlikely that .teamtype/.gitignore will already contain something, but let's
     // still append.
-    let bytes_in = sandbox::read_file(directory, &ignore_file_path).unwrap_or_default();
+    let bytes_in = sandbox.read_file(directory, &ignore_file_path).unwrap_or_default();
     // TODO: use String::from_utf8
     let mut content = std::str::from_utf8(&bytes_in)?.to_string();
 
@@ -241,14 +267,14 @@ fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
     }
     content.push_str("/*\n");
     let bytes_out = content.as_bytes();
-    sandbox::write_file(directory, &ignore_file_path, bytes_out)?;
+    sandbox.write_file(directory, &ignore_file_path, bytes_out)?;
 
     Ok(())
 }
 
-pub fn ensure_teamtype_is_ignored(directory: &Path) -> Result<()> {
+pub fn ensure_teamtype_is_ignored(directory: &Path, sandbox: Box<dyn Sandbox>) -> Result<()> {
     if teamtype_directory_should_be_ignored_but_isnt(directory) {
-        add_teamtype_to_local_gitignore(directory)?;
+        add_teamtype_to_local_gitignore(directory, sandbox)?;
     }
     Ok(())
 }

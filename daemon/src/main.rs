@@ -7,30 +7,27 @@ use self::cli::{Cli, Commands, ShareJoinFlags};
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use std::path::{Path, PathBuf};
-use teamtype::{
-    cli_ask::ask,
-    config::{self, AppConfig},
-    daemon::Daemon,
-    logging, sandbox,
-};
+use teamtype::{cli_ask::ask, config::{self, AppConfig}, daemon::Daemon, editor, logging, sandbox};
 use tokio::signal;
 use tracing::{debug, info, warn};
+use teamtype::sandbox::Sandbox;
+use crate::jsonrpc_forwarder::JsonRPCForwarder;
 
 mod cli;
 mod jsonrpc_forwarder;
 
-fn has_ethersync_directory(dir: &Path) -> bool {
+fn has_ethersync_directory(dir: &Path, sandbox: Box<dyn Sandbox>) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
+    sandbox.exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
 }
 
-fn has_teamtype_directory(dir: &Path) -> bool {
+fn has_teamtype_directory(dir: &Path, sandbox: Box<dyn Sandbox>) -> bool {
     let teamtype_dir = dir.join(config::CONFIG_DIR);
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
+    sandbox.exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
 }
 
 #[tokio::main]
@@ -49,7 +46,9 @@ async fn main() -> Result<()> {
 
     logging::initialize().context("Failed to initialize logging")?;
 
-    let directory = get_directory(cli.directory).context("Failed to find .teamtype/ directory")?;
+    let sandbox = sandbox::new();
+    let editor = editor::new(sandbox.clone());
+    let directory = get_directory(cli.directory, sandbox.clone()).context("Failed to find .teamtype/ directory")?;
 
     let socket_path = directory
         .join(config::CONFIG_DIR)
@@ -65,7 +64,7 @@ async fn main() -> Result<()> {
                 );
             }
 
-            config::ensure_teamtype_is_ignored(&directory)?;
+            config::ensure_teamtype_is_ignored(&directory, sandbox.clone())?;
 
             let mut init_doc = false;
             let mut app_config;
@@ -85,7 +84,7 @@ async fn main() -> Result<()> {
                 } => {
                     init_doc = init;
 
-                    let app_config_from_config_file = AppConfig::from_config_file(&directory);
+                    let app_config_from_config_file = AppConfig::from_config_file(&directory, sandbox.clone(), editor.clone());
 
                     let app_config_cli = AppConfig {
                         base_dir: directory,
@@ -95,6 +94,8 @@ async fn main() -> Result<()> {
                         magic_wormhole_relay,
                         sync_vcs,
                         username,
+                        sandbox,
+                        editor: editor.clone(),
                     };
                     app_config = app_config_cli.merge(app_config_from_config_file);
 
@@ -111,7 +112,7 @@ async fn main() -> Result<()> {
                         },
                     ..
                 } => {
-                    let app_config_from_config_file = AppConfig::from_config_file(&directory);
+                    let app_config_from_config_file = AppConfig::from_config_file(&directory, sandbox.clone(), editor.clone());
 
                     let app_config_cli = AppConfig {
                         base_dir: directory,
@@ -121,6 +122,8 @@ async fn main() -> Result<()> {
                         magic_wormhole_relay,
                         sync_vcs,
                         username,
+                        sandbox,
+                        editor,
                     };
 
                     app_config = app_config_cli.merge(app_config_from_config_file);
@@ -150,7 +153,9 @@ async fn main() -> Result<()> {
             wait_for_shutdown().await;
         }
         Commands::Client => {
-            jsonrpc_forwarder::connection(&socket_path)
+
+            let jsonrpc_forwarder = jsonrpc_forwarder::jsonrpc_forwarder_unix::UnixJsonRPCForwarder{};
+            jsonrpc_forwarder.connection(&socket_path)
                 .await
                 .context("JSON-RPC forwarder failed")?;
         }
@@ -158,12 +163,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
+fn get_directory(directory: Option<PathBuf>, sandbox: Box<dyn Sandbox>) -> Result<PathBuf> {
     let directory = directory
         .unwrap_or_else(|| std::env::current_dir().expect("Could not access current directory"))
         .canonicalize()
         .expect("Could not access given directory");
-    if has_ethersync_directory(&directory) {
+    if has_ethersync_directory(&directory, sandbox.clone()) {
         let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
 
         warn!("You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.", &old_directory.display());
@@ -174,7 +179,7 @@ fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
             &config::CONFIG_DIR,
         ))? {
             let new_directory = directory.join(config::CONFIG_DIR);
-            sandbox::rename_file(&directory, &old_directory, &new_directory)?;
+            sandbox.rename_file(&directory, &old_directory, &new_directory)?;
         } else {
             bail!(
                 "Aborting launch. Rename or remove the {} directory yourself to continue.",
@@ -182,7 +187,7 @@ fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
             );
         }
     }
-    if !has_teamtype_directory(&directory) {
+    if !has_teamtype_directory(&directory, sandbox.clone()) {
         let teamtype_dir = directory.join(config::CONFIG_DIR);
 
         warn!(
@@ -194,7 +199,7 @@ fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
             "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
             config::CONFIG_DIR
         ))? {
-            sandbox::create_dir(&directory, &teamtype_dir)?;
+            sandbox.create_dir(&directory, &teamtype_dir)?;
             info!("Created! Resuming launch.");
         } else {
             bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
