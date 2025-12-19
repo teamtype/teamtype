@@ -9,31 +9,28 @@ use anyhow::{Context, Result, bail};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
 use std::path::{Path, PathBuf};
-use teamtype::{
-    cli_ask::ask,
-    config::{self, AppConfig},
-    daemon::Daemon,
-    logging, sandbox,
-};
+use teamtype::{cli_ask::ask, config::{self, AppConfig}, daemon::Daemon, editor, logging, sandbox};
 use tempfile::{TempDir, tempdir_in};
 use tokio::signal;
 use tracing::{debug, info, warn};
+use teamtype::sandbox::Sandbox;
+use crate::jsonrpc_forwarder::JsonRPCForwarder;
 
 mod cli;
 mod jsonrpc_forwarder;
 
-fn has_ethersync_directory(dir: &Path) -> bool {
+fn has_ethersync_directory(dir: &Path, sandbox: Box<dyn Sandbox>) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
+    sandbox.exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
 }
 
-fn has_teamtype_directory(dir: &Path) -> bool {
+fn has_teamtype_directory(dir: &Path, sandbox: Box<dyn Sandbox>) -> bool {
     let teamtype_dir = dir.join(config::CONFIG_DIR);
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
+    sandbox.exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
 }
 
 #[tokio::main]
@@ -52,9 +49,11 @@ async fn main() -> Result<()> {
 
     logging::initialize().context("Failed to initialize logging")?;
 
-    let temporary_directory = get_temporary_directory(&cli)?;
+    let sandbox = sandbox::new();
+    let editor = editor::new(sandbox.clone());
+    let temporary_directory = get_temporary_directory(&cli, sandbox.clone())?;
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;
-    setup_teamtype_directory(&directory, temporary_directory.as_ref())
+    setup_teamtype_directory(&directory, temporary_directory.as_ref(), sandbox.clone())
         .context("Failed to find .teamtype/ directory")?;
 
     let socket_path = directory
@@ -71,7 +70,7 @@ async fn main() -> Result<()> {
                 );
             }
 
-            config::ensure_teamtype_is_ignored(&directory)?;
+            config::ensure_teamtype_is_ignored(&directory, sandbox.clone())?;
 
             let mut init_doc = false;
             let mut app_config;
@@ -100,6 +99,8 @@ async fn main() -> Result<()> {
                         magic_wormhole_relay,
                         sync_vcs,
                         username,
+                        sandbox,
+                        editor: editor.clone(),
                     };
                     app_config = AppConfig::from_config_file_and_cli(app_config_cli);
 
@@ -125,6 +126,8 @@ async fn main() -> Result<()> {
                         magic_wormhole_relay,
                         sync_vcs,
                         username,
+                        sandbox,
+                        editor,
                     };
 
                     app_config = AppConfig::from_config_file_and_cli(app_config_cli);
@@ -156,7 +159,9 @@ async fn main() -> Result<()> {
             wait_for_shutdown().await;
         }
         Commands::Client => {
-            jsonrpc_forwarder::connection(&socket_path)
+
+            let jsonrpc_forwarder = jsonrpc_forwarder::jsonrpc_forwarder_unix::UnixJsonRPCForwarder{};
+            jsonrpc_forwarder.connection(&socket_path)
                 .await
                 .context("JSON-RPC forwarder failed")?;
         }
@@ -164,7 +169,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
+fn get_temporary_directory(cli: &Cli, sandbox: Box<dyn Sandbox>) -> Result<Option<TempDir>> {
     match cli.command {
         Commands::Share {
             shared_flags:
@@ -183,7 +188,7 @@ fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
             ..
         } => {
             if temporary_directory {
-                let temporary_directory_parent_directory = &get_app_cache_dir()?;
+                let temporary_directory_parent_directory = &get_app_cache_dir(sandbox)?;
                 Ok(Some(
                     tempdir_in(temporary_directory_parent_directory).with_context(|| {
                         format!(
@@ -200,7 +205,7 @@ fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
     }
 }
 
-fn get_app_cache_dir() -> Result<PathBuf> {
+fn get_app_cache_dir(sandbox: Box<dyn Sandbox>) -> Result<PathBuf> {
     let xdg = XdgApp::new("teamtype")?;
     let app_cache_dir = xdg.app_cache()?;
     let app_cache_dir_parent = app_cache_dir.parent().with_context(|| {
@@ -211,7 +216,7 @@ fn get_app_cache_dir() -> Result<PathBuf> {
     })?;
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)?;
+    sandbox.create_dir(app_cache_dir_parent, &app_cache_dir)?;
     Ok(app_cache_dir)
 }
 
@@ -232,8 +237,8 @@ fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<Pat
     Ok(directory)
 }
 
-fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempDir>) -> Result<()> {
-    if has_ethersync_directory(directory) {
+fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempDir>, sandbox: Box<dyn Sandbox>) -> Result<()> {
+    if has_ethersync_directory(directory, sandbox.clone()) {
         let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
 
         warn!(
@@ -247,7 +252,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
             &config::CONFIG_DIR,
         ))? {
             let new_directory = directory.join(config::CONFIG_DIR);
-            sandbox::rename_file(directory, &old_directory, &new_directory)?;
+            sandbox.rename_file(directory, &old_directory, &new_directory)?;
         } else {
             bail!(
                 "Aborting launch. Rename or remove the {} directory yourself to continue.",
@@ -255,7 +260,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
             );
         }
     }
-    if !has_teamtype_directory(directory) {
+    if !has_teamtype_directory(directory, sandbox.clone()) {
         let teamtype_dir = directory.join(config::CONFIG_DIR);
         let directory_is_temporary_directory = temporary_directory.is_some();
         if directory_is_temporary_directory {
@@ -263,7 +268,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
                 "'{}' is the temporary directory that is used as a Teamtype directory.",
                 &directory.display()
             );
-            sandbox::create_dir(directory, &teamtype_dir)?;
+            sandbox.create_dir(directory, &teamtype_dir)?;
         } else {
             warn!(
                 "'{}' hasn't been used as a Teamtype directory before.",
@@ -274,7 +279,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
                 "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
                 config::CONFIG_DIR
             ))? {
-                sandbox::create_dir(directory, &teamtype_dir)?;
+                sandbox.create_dir(directory, &teamtype_dir)?;
                 info!("Created! Resuming launch.");
             } else {
                 bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
