@@ -5,7 +5,7 @@
 
 use crate::config::{self, AppConfig};
 use crate::document::Document;
-use crate::editor::{self, EditorId, EditorWriter};
+use crate::editor::{EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
 use crate::editor_protocol::{
     EditorProtocolMessageError, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
@@ -13,7 +13,6 @@ use crate::editor_protocol::{
 };
 use crate::path::{AbsolutePath, RelativePath};
 use crate::peer;
-use crate::sandbox;
 use crate::types::{
     ComponentMessage, CursorId, CursorState, EphemeralMessage, FileTextDelta, PatchEffect,
     TextDelta,
@@ -125,7 +124,7 @@ impl DocumentActor {
         // If there is a persisted version in base_dir/.teamtype/doc, load it.
         // TODO: Pull out ".teamtype" string into a constant.
         let persistence_file = app_config.base_dir.join(".teamtype/doc");
-        let persistence_file_exists = sandbox::exists(&app_config.base_dir, &persistence_file)
+        let persistence_file_exists = app_config.sandbox.exists(&app_config.base_dir, &persistence_file)
             .expect("Could not check for the existence of the persistence file");
 
         let load_crdt_doc = persistence_file_exists && !init && persist;
@@ -134,7 +133,7 @@ impl DocumentActor {
                 "Loading persisted CRDT document from '{}'.",
                 persistence_file.display()
             );
-            let bytes = sandbox::read_file(&app_config.base_dir, &persistence_file)
+            let bytes = app_config.sandbox.read_file(&app_config.base_dir, &persistence_file)
                 .unwrap_or_else(|_| panic!("Could not read file '{}'", persistence_file.display()));
             Document::load(&bytes)
         } else {
@@ -204,7 +203,7 @@ impl DocumentActor {
                 if self.save_fully {
                     debug!("Persisting CRDT document fully.");
                     let bytes = self.crdt_doc.save();
-                    sandbox::write_file(&self.app_config.base_dir, &persistence_file, &bytes)
+                    self.app_config.sandbox.write_file(&self.app_config.base_dir, &persistence_file, &bytes)
                         .unwrap_or_else(|_| {
                             panic!("Failed to persist to '{}'", persistence_file.display())
                         });
@@ -212,7 +211,7 @@ impl DocumentActor {
                 } else {
                     debug!("Persisting CRDT document incrementally.");
                     let bytes = self.crdt_doc.save_incremental();
-                    sandbox::append_file(&self.app_config.base_dir, &persistence_file, &bytes)
+                    self.app_config.sandbox.append_file(&self.app_config.base_dir, &persistence_file, &bytes)
                         .unwrap_or_else(|_| {
                             panic!("Failed to persist to '{}'", persistence_file.display())
                         });
@@ -240,7 +239,7 @@ impl DocumentActor {
                             if self.owns(&file_path) {
                                 info!("Removing file {file_path}.");
 
-                                sandbox::remove_file(
+                                self.app_config.sandbox.remove_file(
                                     &self.app_config.base_dir,
                                     &self.absolute_path_for_file_path(&file_path),
                                 )
@@ -459,7 +458,7 @@ impl DocumentActor {
     // contains the file already in the `update_text` method anyway.
     fn file_created_or_changed(&mut self, relative_file_path: &RelativePath) {
         let file_path = self.absolute_path_for_file_path(relative_file_path);
-        let new_content = match sandbox::read_file(&self.app_config.base_dir, &file_path) {
+        let new_content = match self.app_config.sandbox.read_file(&self.app_config.base_dir, &file_path) {
             Ok(content) => content,
             Err(e) => {
                 warn!(
@@ -563,7 +562,7 @@ impl DocumentActor {
 
     fn ensure_file_has_bytes(&self, file_path: &RelativePath, bytes: &[u8]) {
         let abs_path = self.absolute_path_for_file_path(file_path);
-        if sandbox::exists(&self.app_config.base_dir, &abs_path)
+        if self.app_config.sandbox.exists(&self.app_config.base_dir, &abs_path)
             .expect("Failed to check for file existence before writing to it")
         {
             // Special case: If we want to write a .git/objects/... file, and there's one already
@@ -575,7 +574,7 @@ impl DocumentActor {
                 return;
             }
 
-            if let Ok(current_bytes) = sandbox::read_file(&self.app_config.base_dir, &abs_path) {
+            if let Ok(current_bytes) = self.app_config.sandbox.read_file(&self.app_config.base_dir, &abs_path) {
                 if bytes == current_bytes {
                     debug!("File content is already the desired one, not writing.");
                     return;
@@ -587,14 +586,14 @@ impl DocumentActor {
             info!("Creating file {file_path}.");
         }
 
-        sandbox::write_file(&self.app_config.base_dir, &abs_path, bytes)
+        self.app_config.sandbox.write_file(&self.app_config.base_dir, &abs_path, bytes)
             .unwrap_or_else(|err| panic!("Failed to write to file {abs_path}: {err}"));
     }
 
     fn read_current_content_from_dir(&mut self, init: bool) {
         debug!("Reading current contents from disk (init: {init}).");
-        for file_path in sandbox::enumerate_non_ignored_files(&self.app_config) {
-            match sandbox::read_file(&self.app_config.base_dir, &file_path) {
+        for file_path in self.app_config.sandbox.enumerate_non_ignored_files(&self.app_config) {
+            match self.app_config.sandbox.read_file(&self.app_config.base_dir, &file_path) {
                 Ok(bytes) => {
                     let relative_file_path =
                         RelativePath::try_from_path(&self.app_config.base_dir, &file_path)
@@ -619,7 +618,7 @@ impl DocumentActor {
 
         for relative_file_path in self.crdt_doc.files() {
             let absolute_file_path = self.absolute_path_for_file_path(&relative_file_path);
-            if !sandbox::exists(&self.app_config.base_dir, &absolute_file_path)
+            if !self.app_config.sandbox.exists(&self.app_config.base_dir, &absolute_file_path)
                 .expect(
                     "Should have been able to check for file existence while reading current directory content"
                 )
@@ -940,7 +939,7 @@ impl Daemon {
 
         // Start socket listener.
         let socket_path = socket_path.to_path_buf();
-        editor::spawn_socket_listener(&socket_path, document_handle.clone())?;
+        app_config.editor.spawn_socket_listener(&socket_path, document_handle.clone())?;
 
         // Start file watcher.
         let base_dir = app_config.base_dir.clone();
@@ -987,7 +986,7 @@ impl Daemon {
 impl Drop for Daemon {
     fn drop(&mut self) {
         debug!("Daemon dropped, removing socket");
-        sandbox::remove_file(Path::new(&self.app_config.base_dir), &self.socket_path)
+        self.app_config.sandbox.remove_file(Path::new(&self.app_config.base_dir), &self.socket_path)
             .expect("Could not remove socket");
     }
 }
@@ -1073,6 +1072,7 @@ mod tests {
     mod document_actor {
         use super::*;
         use temp_dir::TempDir;
+        use crate::sandbox;
         //use tracing_test::traced_test;
 
         impl DocumentActor {
@@ -1095,7 +1095,7 @@ mod tests {
                     ephemeral_message_tx,
                     AppConfig {
                         base_dir: directory.path().to_path_buf(),
-                        ..Default::default()
+
                     },
                     true,
                     true,
@@ -1109,15 +1109,16 @@ mod tests {
         }
 
         fn setup_filesystem_for_testing() -> TempDir {
+            let sandbox = sandbox::new();
             let dir = TempDir::new().expect("Failed to create temp directory");
             let file1 = dir.child("file1");
             let file2 = dir.child("file2");
             let subdir = dir.child("sub");
-            sandbox::create_dir(dir.path(), &subdir).unwrap();
+            sandbox.create_dir(dir.path(), &subdir).unwrap();
             let file3 = dir.child("sub/file3");
-            sandbox::write_file(dir.path(), &file1, b"content1").unwrap();
-            sandbox::write_file(dir.path(), &file2, b"content2").unwrap();
-            sandbox::write_file(dir.path(), &file3, b"content3").unwrap();
+            sandbox.write_file(dir.path(), &file1, b"content1").unwrap();
+            sandbox.write_file(dir.path(), &file2, b"content2").unwrap();
+            sandbox.write_file(dir.path(), &file3, b"content3").unwrap();
             dir
         }
 
