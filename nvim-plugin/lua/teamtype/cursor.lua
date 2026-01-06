@@ -22,7 +22,7 @@ local cursor_timeout_ms = 300 * 1000
 local following_user_id = nil
 
 local function show_cursor_information(name, cursor)
-    return name .. " @ " .. vim.uri_to_fname(cursor.uri) .. ":" .. cursor.range.start.line + 1
+    return (name or "Unknown user") .. " @ " .. vim.uri_to_fname(cursor.uri) .. ":" .. cursor.range.start.line + 1
 end
 
 -- https://www.reddit.com/r/neovim/comments/152bs5t/unable_to_render_comments_in_the_color_id_like/
