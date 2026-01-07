@@ -14,7 +14,6 @@ use crate::{
     },
     ot::OTServer,
     path::{AbsolutePath, FileUri, RelativePath},
-    sandbox,
     types::{ComponentMessage, CursorState, RevisionedEditorTextDelta},
 };
 
@@ -122,17 +121,17 @@ impl EditorConnection {
                         .map_err(anyhow_err_to_protocol_err)?;
 
                 debug!("Got an 'open' message for {relative_path}");
-                if !sandbox::exists(&self.app_config.base_dir, &absolute_path)
+                if !self.app_config.sandbox.exists(&self.app_config.base_dir, &absolute_path)
                     .map_err(anyhow_err_to_protocol_err)?
                 {
                     // Creating nonexisting files allows us to traverse this file for whether it's
                     // ignored, which is needed to even be allowed to open it.
-                    sandbox::write_file(&self.app_config.base_dir, &absolute_path, b"")
+                    self.app_config.sandbox.write_file(&self.app_config.base_dir, &absolute_path, b"")
                         .map_err(anyhow_err_to_protocol_err)?;
                 }
 
                 // We only want to process these messages for files that are not ignored.
-                if sandbox::ignored(&self.app_config, &absolute_path)
+                if self.app_config.sandbox.ignored(&self.app_config, &absolute_path)
                     .expect("Could not check ignore status of opened file")
                 {
                     return Err(EditorProtocolMessageError {
@@ -275,9 +274,8 @@ mod tests {
 
         let app_config = AppConfig {
             base_dir: dir.path().to_path_buf(),
-            ..Default::default()
+            ..AppConfig::default()
         };
-
         let mut editor_connection = EditorConnection::new("1".to_string(), app_config);
 
         let result =
@@ -297,9 +295,8 @@ mod tests {
 
         let app_config = AppConfig {
             base_dir: dir.path().to_path_buf(),
-            ..Default::default()
+            ..AppConfig::default()
         };
-
         let mut editor_connection = EditorConnection::new("1".to_string(), app_config);
 
         // Editor opens the file.

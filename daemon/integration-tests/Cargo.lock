@@ -1198,9 +1198,9 @@ dependencies = [
 
 [[package]]
 name = "dyn-clone"
-version = "1.0.19"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "ed25519"
@@ -4521,6 +4521,7 @@ dependencies = [
  "constant_time_eq",
  "derive_more 2.0.1",
  "dissimilar",
+ "dyn-clone",
  "futures 0.3.31",
  "git2",
  "ignore",
