@@ -78,9 +78,12 @@ pub fn remove_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Resul
 pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
-    fs::create_dir(&canonical_dir_path)?;
-    let permissions = fs::Permissions::from_mode(0o700);
-    fs::set_permissions(canonical_dir_path, permissions)?;
+    let has_dir = canonical_dir_path.exists() && canonical_dir_path.is_dir();
+    if !has_dir {
+        fs::create_dir(&canonical_dir_path)?;
+        let permissions = fs::Permissions::from_mode(0o700);
+        fs::set_permissions(canonical_dir_path, permissions)?;
+    }
     Ok(())
 }
 
@@ -230,10 +233,10 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use temp_dir::TempDir;
+    use tempfile::{tempdir, TempDir};
 
     fn temp_dir_setup() -> TempDir {
-        let dir = TempDir::new().expect("Failed to create temp directory");
+        let dir = tempdir().expect("Failed to create temp directory");
         let project_dir = dir.path().join("project");
         fs::create_dir(&project_dir).expect("Failed to create directory");
         fs::write(project_dir.join("a"), b"This is a file").expect("Failed to write file");
@@ -248,8 +251,8 @@ mod tests {
     #[test]
     fn does_canonicalize_symlink_dir() {
         let dir = temp_dir_setup();
-        let linked_project = dir.child("ln_project");
-        let project = dir.child("project");
+        let linked_project = dir.path().join("ln_project");
+        let project = dir.path().join("project");
         std::os::unix::fs::symlink(&project, &linked_project).unwrap();
         assert_eq!(
             absolute_and_canonicalized(&linked_project).unwrap(),
@@ -260,11 +263,11 @@ mod tests {
     #[test]
     fn does_canonicalize_symlink_file() {
         let dir = temp_dir_setup();
-        let linked_project = dir.child("ln_project");
-        let project = dir.child("project");
+        let linked_project = dir.path().join("ln_project");
+        let project = dir.path().join("project");
         std::os::unix::fs::symlink(&project, &linked_project).unwrap();
 
-        let ln_file = dir.child("ln_project/c");
+        let ln_file = linked_project.join("c");
 
         assert_eq!(
             absolute_and_canonicalized(&ln_file).unwrap().to_str(),
@@ -275,12 +278,12 @@ mod tests {
     #[test]
     fn does_canonicalize_symlink_notexisting_file() {
         let dir = temp_dir_setup();
-        let linked_project = dir.child("ln_project");
-        let project = dir.child("project");
+        let linked_project = dir.path().join("ln_project");
+        let project = dir.path().join("project");
         std::os::unix::fs::symlink(&project, &linked_project).unwrap();
 
-        let file = dir.child("project/a");
-        let ln_file = dir.child("ln_project/a");
+        let file = project.join("a");
+        let ln_file = linked_project.join("a");
 
         // tests whether it does not end on slash
         assert_eq!(

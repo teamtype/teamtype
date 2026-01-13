@@ -48,6 +48,13 @@ pub struct ShareJoinFlags {
     #[arg(long)]
     /// The name that others see next to your cursor. Defaults to your Git username.
     pub username: Option<String>,
+    /// Create a new temporary directory and use it as the shared directory.
+    /// The temporary directory is removed on exit.
+    /// The temporary directory is created in `$XDG_CACHE_DIR/teamtype/`,
+    /// or if `XDG_CACHE_DIR` is not set in `$HOME/.cache/teamtype/`,
+    /// or if `HOME` is not set in `/home/$USER/.cache/teamtype/`.
+    #[arg(short, long)]
+    pub temporary_directory: bool,
 }
 
 #[derive(Subcommand)]

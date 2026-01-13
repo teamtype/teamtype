@@ -6,6 +6,7 @@
 use self::cli::{Cli, Commands, ShareJoinFlags};
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
+use microxdg::XdgApp;
 use std::path::{Path, PathBuf};
 use teamtype::{
     cli_ask::ask,
@@ -13,6 +14,7 @@ use teamtype::{
     daemon::Daemon,
     logging, sandbox,
 };
+use tempfile::{tempdir_in, TempDir};
 use tokio::signal;
 use tracing::{debug, info, warn};
 
@@ -49,7 +51,10 @@ async fn main() -> Result<()> {
 
     logging::initialize().context("Failed to initialize logging")?;
 
-    let directory = get_directory(cli.directory).context("Failed to find .teamtype/ directory")?;
+    let temporary_directory = get_temporary_directory(&cli)?;
+    let directory = get_directory(temporary_directory.as_ref(), &cli)?;
+    setup_teamtype_directory(&directory, temporary_directory.as_ref())
+        .context("Failed to find .teamtype/ directory")?;
 
     let socket_path = directory
         .join(config::CONFIG_DIR)
@@ -79,6 +84,7 @@ async fn main() -> Result<()> {
                             magic_wormhole_relay,
                             sync_vcs,
                             username,
+                            ..
                         },
                     show_secret_address,
                     ..
@@ -108,6 +114,7 @@ async fn main() -> Result<()> {
                             magic_wormhole_relay,
                             sync_vcs,
                             username,
+                            ..
                         },
                     ..
                 } => {
@@ -158,12 +165,76 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
-    let directory = directory
-        .unwrap_or_else(|| std::env::current_dir().expect("Could not access current directory"))
-        .canonicalize()
-        .expect("Could not access given directory");
-    if has_ethersync_directory(&directory) {
+fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
+    match cli.command {
+        Commands::Share {
+            shared_flags:
+                ShareJoinFlags {
+                    temporary_directory,
+                    ..
+                },
+            ..
+        }
+        | Commands::Join {
+            shared_flags:
+                ShareJoinFlags {
+                    temporary_directory,
+                    ..
+                },
+            ..
+        } => {
+            if temporary_directory {
+                let temporary_directory_parent_directory = &get_app_cache_dir()?;
+                Ok(Some(
+                    tempdir_in(temporary_directory_parent_directory).with_context(|| {
+                        format!(
+                            "Failed to create a temporary directory in the directory {}",
+                            temporary_directory_parent_directory.display()
+                        )
+                    })?,
+                ))
+            } else {
+                Ok(None)
+            }
+        }
+        Commands::Client => Ok(None),
+    }
+}
+
+fn get_app_cache_dir() -> Result<PathBuf> {
+    let xdg = XdgApp::new("teamtype")?;
+    let app_cache_dir = xdg.app_cache()?;
+    let app_cache_dir_parent = app_cache_dir.parent().with_context(|| {
+        format!(
+            "Failed to get parent directory of the directory {}",
+            app_cache_dir.display()
+        )
+    })?;
+    // Using the sandbox method here is technically unnecessary,
+    // but we want to really run all path operations through the sandbox module.
+    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)?;
+    Ok(app_cache_dir)
+}
+
+fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<PathBuf> {
+    let directory = match temporary_directory {
+        Some(temporary_directory) => &temporary_directory.path().to_path_buf(),
+        None => match cli.directory {
+            Some(ref directory) => directory,
+            None => &get_current_directory()?,
+        },
+    };
+    let directory = directory.canonicalize().with_context(|| {
+        format!(
+            "Could not compute the absolute, canonical form of the path of directory {}",
+            directory.display(),
+        )
+    })?;
+    Ok(directory)
+}
+
+fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempDir>) -> Result<()> {
+    if has_ethersync_directory(directory) {
         let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
 
         warn!("You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.", &old_directory.display());
@@ -174,7 +245,7 @@ fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
             &config::CONFIG_DIR,
         ))? {
             let new_directory = directory.join(config::CONFIG_DIR);
-            sandbox::rename_file(&directory, &old_directory, &new_directory)?;
+            sandbox::rename_file(directory, &old_directory, &new_directory)?;
         } else {
             bail!(
                 "Aborting launch. Rename or remove the {} directory yourself to continue.",
@@ -182,25 +253,37 @@ fn get_directory(directory: Option<PathBuf>) -> Result<PathBuf> {
             );
         }
     }
-    if !has_teamtype_directory(&directory) {
+    if !has_teamtype_directory(directory) {
         let teamtype_dir = directory.join(config::CONFIG_DIR);
-
-        warn!(
-            "'{}' hasn't been used as a Teamtype directory before.",
-            &directory.display()
-        );
-
-        if ask(&format!(
-            "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
-            config::CONFIG_DIR
-        ))? {
-            sandbox::create_dir(&directory, &teamtype_dir)?;
-            info!("Created! Resuming launch.");
+        let directory_is_temporary_directory = temporary_directory.is_some();
+        if directory_is_temporary_directory {
+            info!(
+                "'{}' is the temporary directory that is used as a Teamtype directory.",
+                &directory.display()
+            );
+            sandbox::create_dir(directory, &teamtype_dir)?;
         } else {
-            bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
+            warn!(
+                "'{}' hasn't been used as a Teamtype directory before.",
+                &directory.display()
+            );
+
+            if ask(&format!(
+                "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
+                config::CONFIG_DIR
+            ))? {
+                sandbox::create_dir(directory, &teamtype_dir)?;
+                info!("Created! Resuming launch.");
+            } else {
+                bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
+            }
         }
     }
-    Ok(directory)
+    Ok(())
+}
+
+fn get_current_directory() -> Result<PathBuf> {
+    std::env::current_dir().context("Could not access current directory")
 }
 
 async fn wait_for_shutdown() {

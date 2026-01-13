@@ -11,7 +11,7 @@ use teamtype::sandbox;
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::Rng;
-use temp_dir::TempDir;
+use tempfile::{tempdir, TempDir};
 use tokio::process::ChildStdin;
 
 use std::fs;
@@ -173,14 +173,15 @@ impl Neovim {
     pub async fn new_teamtype_enabled(
         initial_content: &str,
     ) -> (Self, PathBuf, MockSocket, TempDir) {
-        let dir = TempDir::new().unwrap();
-        let teamtype_dir = dir.child(".teamtype");
-        let file_path = dir.child("test");
+        let dir = tempdir().expect("Failed to create temp directory");
+        let dir_path = dir.path();
+        let teamtype_dir = dir_path.join(".teamtype");
+        let file_path = dir_path.join("test");
         let socket_path = teamtype_dir.clone().join("socket");
 
-        sandbox::create_dir(dir.path(), &teamtype_dir).unwrap();
+        sandbox::create_dir(dir_path, &teamtype_dir).unwrap();
 
-        sandbox::write_file(dir.path(), &file_path, initial_content.as_bytes())
+        sandbox::write_file(dir_path, &file_path, initial_content.as_bytes())
             .expect("Failed to write initial file content");
 
         let canonicalized_file_path = fs::canonicalize(&file_path).expect("Could not canonicalize");

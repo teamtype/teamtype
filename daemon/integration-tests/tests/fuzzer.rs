@@ -14,6 +14,7 @@ use anyhow::Result;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::Rng;
+use tempfile::{tempdir, TempDir};
 use tokio::time::{sleep, timeout, Duration};
 use tracing::{error, info};
 
@@ -29,17 +30,16 @@ async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     }
 }
 
-fn initialize_directory() -> (temp_dir::TempDir, PathBuf, PathBuf) {
-    let dir = temp_dir::TempDir::new().expect("Failed to create temp directory");
-    let mut teamtype_dir = dir.path().to_path_buf();
-    teamtype_dir.push(".teamtype");
-    sandbox::create_dir(dir.path(), &teamtype_dir).expect("Failed to create .teamtype directory");
+fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
+    let dir = tempdir().expect("Failed to create temp directory");
+    let dir_path = dir.path();
+    let teamtype_dir = dir_path.join(".teamtype");
+    sandbox::create_dir(dir_path, &teamtype_dir).expect("Failed to create .teamtype directory");
 
-    let file = dir.child(TEST_FILE_PATH);
-    sandbox::write_file(dir.path(), &file, b"").expect("Failed to create file in temp directory");
+    let file = dir_path.join(TEST_FILE_PATH);
+    sandbox::write_file(dir_path, &file, b"").expect("Failed to create file in temp directory");
 
-    let mut socket_path = dir.child(".teamtype");
-    socket_path.push("socket");
+    let socket_path = teamtype_dir.join("socket");
 
     (dir, file, socket_path)
 }

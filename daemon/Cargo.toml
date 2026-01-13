@@ -81,6 +81,7 @@ git2 = { version = "0.20.2", default-features = false }
 ignore = "0.4.22"
 iroh = "0.35.0"
 magic-wormhole = "0.7.6"
+microxdg = "0.2.0"
 notify = { version = "8.0.0", default-features = false, features = [
     "macos_fsevent",
 ] }
@@ -92,7 +93,7 @@ ropey = "1.6.1"
 rust-ini = "0.21.1"
 serde = { version = "1.0.198", features = ["derive"] }
 serde_json = "1"
-temp-dir = "0.1.13"
+tempfile = "3.24.0"
 time = { version = "0.3.36", features = ["formatting"] }
 tokio-util = { version = "0.7.11", features = ["codec"] }
 tracing = "0.1.40"

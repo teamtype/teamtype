@@ -60,7 +60,12 @@ fn is_user_readable_only(socket_path: &Path) -> Result<()> {
         .parent()
         .context("The socket path should not be the root directory")?;
     let current_permissions = fs::metadata(parent_dir)
-        .context("Expected to have access to metadata of the socket path's parent")?
+        .with_context(|| {
+            format!(
+                "Expected to have access to metadata of the socket's parent directory: {}",
+                parent_dir.display()
+            )
+        })?
         .permissions()
         .mode();
     // Group and others should not have any permissions.

@@ -267,11 +267,11 @@ mod tests {
     use super::*;
     use crate::types::factories::*;
     use pretty_assertions::assert_eq;
-    use temp_dir::TempDir;
+    use tempfile::tempdir;
 
     #[test]
     fn opening_file_in_wrong_dir_fails() {
-        let dir = TempDir::new().expect("Failed to create temp directory");
+        let dir = tempdir().expect("Failed to create temp directory");
 
         let app_config = AppConfig {
             base_dir: dir.path().to_path_buf(),
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn edits_are_oted() {
-        let dir = TempDir::new().expect("Failed to create temp directory");
+        let dir = tempdir().expect("Failed to create temp directory");
         let file = dir.path().join("file");
         std::fs::write(&file, "hello").expect("Failed to write file");
 

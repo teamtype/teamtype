@@ -1072,7 +1072,7 @@ mod tests {
 
     mod document_actor {
         use super::*;
-        use temp_dir::TempDir;
+        use tempfile::{tempdir, TempDir};
         //use tracing_test::traced_test;
 
         impl DocumentActor {
@@ -1109,15 +1109,16 @@ mod tests {
         }
 
         fn setup_filesystem_for_testing() -> TempDir {
-            let dir = TempDir::new().expect("Failed to create temp directory");
-            let file1 = dir.child("file1");
-            let file2 = dir.child("file2");
-            let subdir = dir.child("sub");
-            sandbox::create_dir(dir.path(), &subdir).unwrap();
-            let file3 = dir.child("sub/file3");
-            sandbox::write_file(dir.path(), &file1, b"content1").unwrap();
-            sandbox::write_file(dir.path(), &file2, b"content2").unwrap();
-            sandbox::write_file(dir.path(), &file3, b"content3").unwrap();
+            let dir = tempdir().expect("Failed to create temp directory");
+            let dir_path = dir.path();
+            let file1 = dir_path.join("file1");
+            let file2 = dir_path.join("file2");
+            let subdir = dir_path.join("sub");
+            sandbox::create_dir(dir_path, &subdir).unwrap();
+            let file3 = subdir.join("file3");
+            sandbox::write_file(dir_path, &file1, b"content1").unwrap();
+            sandbox::write_file(dir_path, &file2, b"content2").unwrap();
+            sandbox::write_file(dir_path, &file3, b"content3").unwrap();
             dir
         }
 

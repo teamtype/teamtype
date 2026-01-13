@@ -269,12 +269,12 @@ impl Watcher {
 
 #[cfg(test)]
 mod tests {
-    use temp_dir::TempDir;
+    use tempfile::{tempdir, TempDir};
 
     use super::*;
 
     fn create_temp_dir_and_app_config() -> (TempDir, PathBuf, AppConfig) {
-        let dir = TempDir::new().expect("Failed to create temp directory");
+        let dir = tempdir().expect("Failed to create temp directory");
 
         // We canonicalize the path here, because on macOS, TempDir gives us paths in /var/, which
         // symlinks to /private/var/. But the paths in the file events are always in /private/var/.
