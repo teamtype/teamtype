@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
