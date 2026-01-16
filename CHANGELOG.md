@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 ## Make the username configurable
 
-Teamtype uses the configured Git username by default, to display next to the cursors other people see.
+Teamtype uses the Git username as username by default, to display next to the cursors other people see.
 
 We added a configuration value `username` which you can set in your `.teamtype/config` to override that name.
 
