@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -8,7 +9,7 @@ use crate::sandbox;
 use crate::wormhole::get_secret_address_from_wormhole;
 use anyhow::{bail, Context, Result};
 use git2::ConfigLevel;
-use ini::Ini;
+use ini::{Ini, Properties};
 use std::path::{Path, PathBuf};
 use tracing::info;
 
@@ -23,7 +24,7 @@ pub const LEGACY_CONFIG_DIR: &str = ".ethersync";
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
 // TODO: Generate a random funny name.
-const USERNAME_DEFAULT: &str = "Anonymous";
+const USERNAME_FALLBACK: &str = "Anonymous";
 
 #[derive(Clone, Debug)]
 pub enum Peer {
@@ -45,32 +46,47 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    #[must_use]
-    // Note that this reads the config and has some fallbacks, if the config value doesn't exist.
-    // These fallbacks only get used by the calling main, if there's no value with higher
-    // precedence (e.g. CLI-provided).
-    pub fn from_config_file(base_dir: &Path) -> Option<Self> {
+    #[must_use = "need to use function from_config_file_and_cli()"]
+    // Merges the app config from file with the CLI app config by taking the "superset" of them.
+    //
+    // It depends on the attribute how we're merging it:
+    // - For strings, the CLI app config attribute has precedence.
+    // - For booleans, if a value deviates from the default, it "wins".
+    // - The `base_dir` will be taken from the CLI app config.
+    pub fn from_config_file_and_cli(app_config_cli: Self) -> Self {
+        let base_dir = app_config_cli.base_dir;
         let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
-
-        if config_file.exists() {
-            let conf = Ini::load_from_file(config_file)
+        let empty_properties_section = Properties::new();
+        let conf;
+        let general_section = if config_file.exists() {
+            conf = Ini::load_from_file(config_file)
                 .expect("Could not access config file, even though it exists");
-            let general_section = conf.general_section();
-            Some(Self {
-                // TODO: extract all the other fields to its own struct, s.t. we don't have to work
-                // around the fact that base_dir won't ever be in the config file.
-                base_dir: Path::new("/does-not-exist").to_path_buf(),
-                peer: general_section
+            conf.general_section()
+        } else {
+            &empty_properties_section
+        };
+
+        // we do the computation of username before initializing the struct, because we need to
+        // reference base_dir, which gets moved during the initialization of the struct
+        let username = get_username(app_config_cli.username, &base_dir, general_section);
+        Self {
+            // TODO: extract all the other fields to its own struct, s.t. we don't have to work
+            // around the fact that base_dir won't ever be in the config file.
+            base_dir,
+            peer: app_config_cli.peer.or_else(|| {
+                general_section
                     .get("peer")
-                    .map(|p| Peer::SecretAddress(p.to_string())),
-                emit_join_code: general_section.get("emit_join_code").map_or(
-                    EMIT_JOIN_CODE_DEFAULT,
-                    |ejc| {
+                    .map(|p| Peer::SecretAddress(p.to_string()))
+            }),
+            emit_join_code: app_config_cli.emit_join_code
+                && general_section
+                    .get("emit_join_code")
+                    .map_or(EMIT_JOIN_CODE_DEFAULT, |ejc| {
                         ejc.parse()
                             .expect("Failed to parse config parameter `emit_join_code` as bool")
-                    },
-                ),
-                emit_secret_address: general_section.get("emit_secret_address").map_or(
+                    }),
+            emit_secret_address: app_config_cli.emit_secret_address
+                || general_section.get("emit_secret_address").map_or(
                     EMIT_SECRET_ADDRESS_DEFAULT,
                     |esa| {
                         esa.parse().expect(
@@ -78,18 +94,13 @@ impl AppConfig {
                         )
                     },
                 ),
-                magic_wormhole_relay: general_section
+            magic_wormhole_relay: app_config_cli.magic_wormhole_relay.or_else(|| {
+                general_section
                     .get("magic_wormhole_relay")
-                    .map(ToString::to_string),
-                sync_vcs: false,
-                username: general_section
-                    .get("username")
                     .map(ToString::to_string)
-                    .or_else(|| get_git_username(base_dir))
-                    .or_else(|| Some(USERNAME_DEFAULT.to_string())),
-            })
-        } else {
-            None
+            }),
+            sync_vcs: app_config_cli.sync_vcs,
+            username,
         }
     }
 
@@ -131,27 +142,6 @@ impl AppConfig {
     #[must_use]
     pub const fn is_host(&self) -> bool {
         self.peer.is_none()
-    }
-
-    /// Merges two configurations by taking the "superset" of them.
-    ///
-    /// It depends on the attribute how we're merging it:
-    /// - For strings, the existing (calling) attribute has precedence.
-    /// - For booleans, if a value deviates from the default, it "wins".
-    /// - The `base_dir` will be taken from the caller.
-    pub fn merge(self, other: Option<Self>) -> Self {
-        match other {
-            None => self,
-            Some(other) => Self {
-                base_dir: self.base_dir,
-                peer: self.peer.or(other.peer),
-                emit_join_code: self.emit_join_code && other.emit_join_code,
-                emit_secret_address: self.emit_secret_address || other.emit_secret_address,
-                magic_wormhole_relay: self.magic_wormhole_relay.or(other.magic_wormhole_relay),
-                sync_vcs: self.sync_vcs || other.sync_vcs,
-                username: self.username.or(other.username),
-            },
-        }
     }
 }
 
@@ -195,6 +185,52 @@ pub fn has_local_user_config(base_dir: &Path) -> Result<bool> {
         }
     }
     Ok(false)
+}
+
+fn get_username(
+    app_config_cli_username: Option<String>,
+    base_dir: &Path,
+    general_section: &Properties,
+) -> Option<String> {
+    app_config_cli_username
+        .map(get_username_from_cli)
+        .or_else(|| get_username_from_config_file(general_section))
+        .or_else(|| get_username_from_git(base_dir))
+        .or_else(|| Some(get_username_from_fallback_value()))
+}
+
+fn get_username_from_cli(username: String) -> String {
+    info!("Using the username '{username}' to display next to the cursors other people see.");
+    username
+}
+
+fn get_username_from_config_file(general_section: &Properties) -> Option<String> {
+    general_section
+        .get("username")
+        .map(ToString::to_string)
+        .map(|username| {
+            info!("Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see.");
+            username
+        })
+}
+
+fn get_username_from_git(base_dir: &Path) -> Option<String> {
+    let username = get_git_username(base_dir);
+    if let Some(ref username) = username {
+        info!("Using the Git username '{username}' as username, to display next to the cursors other people see.");
+        info!("Teamtype uses the Git username as username by default.");
+        info!("You can set the configuration value `username` in your `.teamtype/config` to override this username.");
+        info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
+    }
+    username
+}
+
+fn get_username_from_fallback_value() -> String {
+    let username = USERNAME_FALLBACK.to_string();
+    info!("Using the fallback value for username '{username}' as username, to display next to the cursors other people see.");
+    info!("You can set the configuration value `username` in your `.teamtype/config` to override this username.");
+    info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
+    username
 }
 
 #[must_use]

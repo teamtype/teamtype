@@ -92,8 +92,6 @@ async fn main() -> Result<()> {
                 } => {
                     init_doc = init;
 
-                    let app_config_from_config_file = AppConfig::from_config_file(&directory);
-
                     let app_config_cli = AppConfig {
                         base_dir: directory,
                         peer: None,
@@ -103,7 +101,7 @@ async fn main() -> Result<()> {
                         sync_vcs,
                         username,
                     };
-                    app_config = app_config_cli.merge(app_config_from_config_file);
+                    app_config = AppConfig::from_config_file_and_cli(app_config_cli);
 
                     // Because of the "share" subcommand, explicitly don't connect anywhere.
                     app_config.peer = None;
@@ -119,8 +117,6 @@ async fn main() -> Result<()> {
                         },
                     ..
                 } => {
-                    let app_config_from_config_file = AppConfig::from_config_file(&directory);
-
                     let app_config_cli = AppConfig {
                         base_dir: directory,
                         peer: join_code.map(config::Peer::JoinCode),
@@ -131,7 +127,7 @@ async fn main() -> Result<()> {
                         username,
                     };
 
-                    app_config = app_config_cli.merge(app_config_from_config_file);
+                    app_config = AppConfig::from_config_file_and_cli(app_config_cli);
 
                     app_config = app_config
                         .resolve_peer()
