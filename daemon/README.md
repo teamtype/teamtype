@@ -3,7 +3,7 @@
 To build:
 
 ```
-cargo build --bin ethersync-hedgedoc
+cargo build -r --bin ethersync-hedgedoc
 ```
 
 Configuration in the Neovim Teamtype plugin (for Lazy):
@@ -11,6 +11,10 @@ Configuration in the Neovim Teamtype plugin (for Lazy):
 ```lua
     init = function()
         local teamtype = require("teamtype")
+
+        -- Disable netrw, otherwise nvim will *download* URLs!! :O
+        vim.g.loaded_netrwPlugin = 1
+        vim.g.loaded_netrw = 1
 
         teamtype.config("hedgedoc", {
             cmd = {
