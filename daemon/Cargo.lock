@@ -4414,7 +4414,7 @@ dependencies = [
 
 [[package]]
 name = "teamtype"
-version = "0.9.1-dev"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "async-trait",
