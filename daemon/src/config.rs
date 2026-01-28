@@ -100,7 +100,7 @@ impl AppConfig {
                     .map(ToString::to_string)
             }),
             sync_vcs: app_config_cli.sync_vcs,
-            username,
+            username: Some(username),
         }
     }
 
@@ -191,12 +191,12 @@ fn get_username(
     app_config_cli_username: Option<String>,
     base_dir: &Path,
     general_section: &Properties,
-) -> Option<String> {
+) -> String {
     app_config_cli_username
         .map(get_username_from_cli)
         .or_else(|| get_username_from_config_file(general_section))
         .or_else(|| get_username_from_git(base_dir))
-        .or_else(|| Some(get_username_from_fallback_value()))
+        .unwrap_or_else(get_username_from_fallback_value)
 }
 
 fn get_username_from_cli(username: String) -> String {
