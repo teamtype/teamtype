@@ -5,11 +5,21 @@ SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-# 0.9.1 (unreleased)
+# 0.9.1 (2026-01-28)
+
+*Teamtype enables real-time collaborative editing of local text files, in an editor-agnostic way.*
+
+Our current open-source funding from the [Prototype Fund](https://www.prototypefund.de) ended in November, so we're currently more in a "maintenance" phase. We're excited to see all of your contributions!
+
+This release brings some new options and stability improvements.
+
+## Homebrew package
+
+Teamtype is now packaged for MacOS in Homebrew, thanks to @chenrui333. You can install it using `brew install teamtype`.
 
 ## Add option to use temporary directory as shared directory
 
-Add global `--temporary-directory` command-line option, which allows you to create a new temporary directory and use it as the shared directory. The temporary directory is removed on exit. The temporary directory is created in `$XDG_CACHE_DIR/teamtype/`, or if `XDG_CACHE_DIR` is not set in `$HOME/.cache/teamtype/`, or if `HOME` is not set in `/home/$USER/.cache/teamtype/`.
+Add a `--temporary-directory` command-line option, which will create a new temporary directory and use it as the shared directory. The temporary directory is removed on exit. The temporary directory is created in `$XDG_CACHE_DIR/teamtype/`, or if `XDG_CACHE_DIR` is not set in `$HOME/.cache/teamtype/`, or if `HOME` is not set in `/home/$USER/.cache/teamtype/`.
 
 Thanks to @axelmartensson for taking this on.
 
@@ -18,8 +28,18 @@ Thanks to @axelmartensson for taking this on.
 Teamtype uses the Git username as username by default, to display next to the cursors other people see.
 
 We added a configuration value `username` which you can set in your `.teamtype/config` to override that name.
+You can also use the command-line flag `--username`. If no username is provided or detected, "Anonymous" is used.
 
-You can also use the flag `--username` when using the `share`/`join` subcommands.
+Thanks to @axelmartensson for adding a message telling the user which name will be used, and how to configure it, and to @anis for fixing a bug in our Neovim plugin related to this.
+
+## Allow configuring the Magic Wormhole relay
+
+Using the new option `--magic-wormhole-relay`, you can now instruct Teamtype to use a custom relay server for Magic Wormhole. Eventually, we'd like to make all relay servers configurable, this is a first step. Thanks to @martengooz for contributing this!
+
+## Other improvements in this release
+
+- Overall we have a higher stability when edits sent by the editor don't apply correctly: The daemon should not crash anymore, and we have fixed some Neovim edge cases that caused this.
+- Opening a new file in Neovim caused a hickup between plugin and daemon, and caused a warning in Neovim that the file had been changed since it was opened. This is now fixed.
 
 # 0.9.0 (2025-10-29)
 
