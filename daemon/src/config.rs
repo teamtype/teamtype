@@ -46,7 +46,6 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    #[must_use = "need to use function from_config_file_and_cli()"]
     // Merges the app config from file with the CLI app config by taking the "superset" of them.
     //
     // It depends on the attribute how we're merging it:
