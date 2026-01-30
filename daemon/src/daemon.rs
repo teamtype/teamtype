@@ -24,8 +24,8 @@ use crate::wormhole::put_secret_address_into_wormhole;
 use anyhow::{Context, Result};
 use automerge::ChangeHash;
 use automerge::{
-    sync::{Message as AutomergeSyncMessage, State as SyncState},
     Patch,
+    sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
 use futures::SinkExt;
 use rand::Rng;
@@ -33,8 +33,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use tokio::{
     sync::{broadcast, mpsc, oneshot},
@@ -281,7 +281,9 @@ impl DocumentActor {
                                     // modifications to the editors, and these contents should be
                                     // consistent. So we don't need to do anything.
                                 } else {
-                                    info!("Peer deleted {file_path}, but you have it open in an editor. Bringing back an empty version.");
+                                    info!(
+                                        "Peer deleted {file_path}, but you have it open in an editor. Bringing back an empty version."
+                                    );
                                     self.crdt_doc.update_text("", &file_path);
                                 }
                             }
@@ -314,7 +316,9 @@ impl DocumentActor {
                 let message = self.crdt_doc.generate_sync_message(&mut peer_state);
 
                 if response_tx.send((peer_state, message)).is_err() {
-                    warn!("Failed to send peer state and sync message in response to GenerateSyncMessage.");
+                    warn!(
+                        "Failed to send peer state and sync message in response to GenerateSyncMessage."
+                    );
                 }
             }
             DocMessage::NewEditorConnection(id, editor_writer) => {
@@ -557,7 +561,9 @@ impl DocumentActor {
             let bytes = text.into_bytes();
             self.ensure_file_has_bytes(file_path, &bytes);
         } else {
-            warn!("Failed to get content of file '{file_path}' when writing to disk. Key should have existed?");
+            warn!(
+                "Failed to get content of file '{file_path}' when writing to disk. Key should have existed?"
+            );
         }
     }
 
@@ -779,11 +785,12 @@ impl DocumentActor {
         let cursor_state = new_ephemeral_message.cursor_state.clone();
 
         if let Some(existing_state) = self.ephemeral_states.get_mut(&cursor_id)
-            && new_ephemeral_message.sequence_number <= existing_state.sequence_number {
-                // We've already seen a newer ephemeral message for this cursor_id, thus ignoring
-                // this older one.
-                return;
-            }
+            && new_ephemeral_message.sequence_number <= existing_state.sequence_number
+        {
+            // We've already seen a newer ephemeral message for this cursor_id, thus ignoring
+            // this older one.
+            return;
+        }
         self.ephemeral_states
             .insert(cursor_id.clone(), new_ephemeral_message.clone());
 
@@ -958,8 +965,8 @@ impl Daemon {
 
         if app_config.emit_secret_address {
             info!(
-            "\n\n\tOthers can connect by putting the following secret address in their .teamtype/config:\n\n\t{}\n",
-            address
+                "\n\n\tOthers can connect by putting the following secret address in their .teamtype/config:\n\n\t{}\n",
+                address
             );
         }
         if app_config.emit_join_code {
@@ -1071,7 +1078,7 @@ mod tests {
 
     mod document_actor {
         use super::*;
-        use tempfile::{tempdir, TempDir};
+        use tempfile::{TempDir, tempdir};
         //use tracing_test::traced_test;
 
         impl DocumentActor {

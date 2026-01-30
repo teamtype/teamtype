@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::path::RelativePath;
-use anyhow::{bail, Context, Result};
-use automerge::{patches::TextRepresentation, ConcreteTextValue, Patch, PatchAction, TextEncoding};
+use anyhow::{Context, Result, bail};
+use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding, patches::TextRepresentation};
 use dissimilar::Chunk;
 use operational_transform::{Operation as OTOperation, OperationSeq};
 use ropey::Rope;
@@ -356,7 +356,9 @@ impl TryFrom<Patch> for PatchEffect {
                                         // In this case, the peer receiving this PutMap should
                                         // remove all existing content of this file in open
                                         // editors. So we emit a FileRemovel.
-                                        warn!("Resolved conflict for file {relative_path} by overwriting your version.");
+                                        warn!(
+                                            "Resolved conflict for file {relative_path} by overwriting your version."
+                                        );
                                         Ok(Self::FileRemoval(relative_path))
                                     } else {
                                         // We return an empty delta on the new file, so that the file is created on disk when
@@ -389,7 +391,9 @@ impl TryFrom<Patch> for PatchEffect {
                                 automerge::Prop::Map(file_name) => {
                                     // We assume that conflict resolution works the way, that the
                                     // side that gets the PatchAction is the one that "wins".
-                                    warn!("Conflict for file '{file_name}' resolved. Taking your version.");
+                                    warn!(
+                                        "Conflict for file '{file_name}' resolved. Taking your version."
+                                    );
                                     Ok(Self::NoEffect)
                                 }
                                 automerge::Prop::Seq(seq) => Err(anyhow::anyhow!(
@@ -1117,32 +1121,38 @@ mod tests {
 
         #[test]
         fn referencing_one_after_end_of_line_fails() {
-            assert!(Position {
-                line: 0,
-                character: 2,
-            }
-            .try_to_offset("a\n")
-            .is_err());
+            assert!(
+                Position {
+                    line: 0,
+                    character: 2,
+                }
+                .try_to_offset("a\n")
+                .is_err()
+            );
         }
 
         #[test]
         fn referencing_two_after_end_of_line_fails() {
-            assert!(Position {
-                line: 0,
-                character: 3,
-            }
-            .try_to_offset("ab\n")
-            .is_err());
+            assert!(
+                Position {
+                    line: 0,
+                    character: 3,
+                }
+                .try_to_offset("ab\n")
+                .is_err()
+            );
         }
 
         #[test]
         fn referencing_after_last_line_fails() {
-            assert!(Position {
-                line: 1,
-                character: 0,
-            }
-            .try_to_offset("a")
-            .is_err());
+            assert!(
+                Position {
+                    line: 1,
+                    character: 0,
+                }
+                .try_to_offset("a")
+                .is_err()
+            );
         }
 
         #[test]
@@ -1152,22 +1162,26 @@ mod tests {
 
         #[test]
         fn referencing_two_lines_after_last_line_fails() {
-            assert!(Position {
-                line: 2,
-                character: 0
-            }
-            .try_to_offset("a")
-            .is_err());
+            assert!(
+                Position {
+                    line: 2,
+                    character: 0
+                }
+                .try_to_offset("a")
+                .is_err()
+            );
         }
 
         #[test]
         fn referencing_after_last_line_with_try_to_fails() {
-            assert!(Position {
-                line: 2,
-                character: 0,
-            }
-            .try_to_offset("a\n")
-            .is_err());
+            assert!(
+                Position {
+                    line: 2,
+                    character: 0,
+                }
+                .try_to_offset("a\n")
+                .is_err()
+            );
         }
 
         #[test]
@@ -1177,12 +1191,14 @@ mod tests {
 
         #[test]
         fn line_too_short() {
-            assert!(Position {
-                line: 1,
-                character: 5,
-            }
-            .try_to_offset("h🥕llo\nwelt")
-            .is_err());
+            assert!(
+                Position {
+                    line: 1,
+                    character: 5,
+                }
+                .try_to_offset("h🥕llo\nwelt")
+                .is_err()
+            );
         }
     }
 }
