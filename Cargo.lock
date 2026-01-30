@@ -4563,6 +4563,7 @@ dependencies = [
  "clap_complete",
  "clap_mangen",
  "constant_time_eq",
+ "data-encoding",
  "derive_more 2.1.1",
  "dissimilar",
  "futures 0.3.32",

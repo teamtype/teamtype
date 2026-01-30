@@ -73,6 +73,7 @@ rust-ini = "0.21"
 serde_json.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
+data-encoding = "2.10.0"
 url = "2"
 
 [dependencies.clap]
