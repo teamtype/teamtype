@@ -76,6 +76,7 @@ tempfile = "3"
 time = { version = "0.3", features = ["formatting", "macros"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 tracing = "0.1"
+data-encoding = "2.10.0"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"ansi",
 	"fmt",
