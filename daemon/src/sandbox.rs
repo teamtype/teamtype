@@ -9,9 +9,9 @@
 //! All our file I/O should go through them.
 
 use crate::config::AppConfig;
-use anyhow::{bail, Context, Result};
-use ignore::overrides::OverrideBuilder;
+use anyhow::{Context, Result, bail};
 use ignore::WalkBuilder;
+use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -188,7 +188,9 @@ fn check_inside_base_dir_and_canonicalize(base_dir: &Path, path: &Path) -> Resul
     if !canonical_path.starts_with(&canonical_base_dir) {
         let canonical_path_str = &canonical_path.display();
         let canonical_base_dir_str = &canonical_base_dir.display();
-        bail!("File path {canonical_path_str} is not inside the base directory {canonical_base_dir_str}");
+        bail!(
+            "File path {canonical_path_str} is not inside the base directory {canonical_base_dir_str}"
+        );
     }
 
     Ok(canonical_path)
@@ -234,7 +236,7 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::{tempdir, TempDir};
+    use tempfile::{TempDir, tempdir};
 
     fn temp_dir_setup() -> TempDir {
         let dir = tempdir().expect("Failed to create temp directory");
@@ -306,11 +308,13 @@ mod tests {
         assert!(read_file(&project_dir, &project_dir.join("a")).is_ok());
         assert!(read_file(&project_dir, &project_dir.join("dir").join("b")).is_ok());
         assert!(read_file(&project_dir, &project_dir.join("dir").join("..").join("a")).is_ok());
-        assert!(read_file(
-            &project_dir,
-            &project_dir.join(".").join("dir").join(".").join("b")
-        )
-        .is_ok());
+        assert!(
+            read_file(
+                &project_dir,
+                &project_dir.join(".").join("dir").join(".").join("b")
+            )
+            .is_ok()
+        );
     }
 
     #[test]
@@ -346,14 +350,16 @@ mod tests {
         assert!(read_file(&project_dir, &project_dir.join("..").join("secret")).is_err());
 
         // It "starts" with the base dir, but it's not inside it.
-        assert!(check_inside_base_dir_and_canonicalize(
-            &project_dir,
-            Path::new(&format!(
-                "{}{}",
-                project_dir.as_path().to_str().unwrap(),
-                "2/file"
-            ))
-        )
-        .is_err());
+        assert!(
+            check_inside_base_dir_and_canonicalize(
+                &project_dir,
+                Path::new(&format!(
+                    "{}{}",
+                    project_dir.as_path().to_str().unwrap(),
+                    "2/file"
+                ))
+            )
+            .is_err()
+        );
     }
 }

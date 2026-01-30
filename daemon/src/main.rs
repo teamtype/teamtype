@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use self::cli::{Cli, Commands, ShareJoinFlags};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use teamtype::{
     daemon::Daemon,
     logging, sandbox,
 };
-use tempfile::{tempdir_in, TempDir};
+use tempfile::{TempDir, tempdir_in};
 use tokio::signal;
 use tracing::{debug, info, warn};
 
@@ -142,7 +142,9 @@ async fn main() -> Result<()> {
             if app_config.sync_vcs
                 && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v)
             {
-                warn!("You have a local user configuration in your .git/config. In --sync-vcs mode, this file will also be synchronized between peers. If your version \"wins\", all peers will have the same Git identity. As a workaround, you could use `git commit --author`.");
+                warn!(
+                    "You have a local user configuration in your .git/config. In --sync-vcs mode, this file will also be synchronized between peers. If your version \"wins\", all peers will have the same Git identity. As a workaround, you could use `git commit --author`."
+                );
             }
 
             debug!("Starting Teamtype on {}.", app_config.base_dir.display());
@@ -234,7 +236,10 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
     if has_ethersync_directory(directory) {
         let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
 
-        warn!("You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.", &old_directory.display());
+        warn!(
+            "You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.",
+            &old_directory.display()
+        );
 
         if ask(&format!(
             "Do you want to rename {}/ to {}/?",

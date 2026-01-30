@@ -7,7 +7,7 @@
 //! Data structures and helper methods around influencing the configuration of the application.
 use crate::sandbox;
 use crate::wormhole::get_secret_address_from_wormhole;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use git2::ConfigLevel;
 use ini::{Ini, Properties};
 use std::path::{Path, PathBuf};
@@ -155,9 +155,10 @@ pub fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) ->
 #[must_use]
 pub fn has_git_remote(path: &Path) -> bool {
     if let Ok(repo) = find_git_repo(path)
-        && let Ok(remotes) = repo.remotes() {
-            return !remotes.is_empty();
-        }
+        && let Ok(remotes) = repo.remotes()
+    {
+        return !remotes.is_empty();
+    }
     false
 }
 
@@ -215,9 +216,13 @@ fn get_username_from_config_file(general_section: &Properties) -> Option<String>
 fn get_username_from_git(base_dir: &Path) -> Option<String> {
     let username = get_git_username(base_dir);
     if let Some(ref username) = username {
-        info!("Using the Git username '{username}' as username, to display next to the cursors other people see.");
+        info!(
+            "Using the Git username '{username}' as username, to display next to the cursors other people see."
+        );
         info!("Teamtype uses the Git username as username by default.");
-        info!("You can set the configuration value `username` in your `.teamtype/config` to override this username.");
+        info!(
+            "You can set the configuration value `username` in your `.teamtype/config` to override this username."
+        );
         info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
     }
     username
@@ -225,8 +230,12 @@ fn get_username_from_git(base_dir: &Path) -> Option<String> {
 
 fn get_username_from_fallback_value() -> String {
     let username = USERNAME_FALLBACK.to_string();
-    info!("Using the fallback value for username '{username}' as username, to display next to the cursors other people see.");
-    info!("You can set the configuration value `username` in your `.teamtype/config` to override this username.");
+    info!(
+        "Using the fallback value for username '{username}' as username, to display next to the cursors other people see."
+    );
+    info!(
+        "You can set the configuration value `username` in your `.teamtype/config` to override this username."
+    );
     info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
     username
 }
@@ -237,8 +246,8 @@ pub fn get_git_username(base_dir: &Path) -> Option<String> {
         .or_else(|_| global_git_username())
         .ok()
         .filter(|username| !username.is_empty()) // If the username is empty, return None. This can
-                                                 // happen if Git is installed, but no username is
-                                                 // set on any level of Git configuration.
+    // happen if Git is installed, but no username is
+    // set on any level of Git configuration.
 }
 
 fn local_git_username(base_dir: &Path) -> Result<String> {

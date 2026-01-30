@@ -10,7 +10,7 @@ use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
 use crate::sandbox;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use futures::StreamExt;
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
 use tokio::{
@@ -71,7 +71,10 @@ fn is_user_readable_only(socket_path: &Path) -> Result<()> {
     // Group and others should not have any permissions.
     let allowed_permissions = 0o77700u32;
     if current_permissions | allowed_permissions != allowed_permissions {
-        bail!("For security reasons, the parent directory of the socket must only be accessible by the current user. Please run `chmod go-rwx {:?}`", parent_dir);
+        bail!(
+            "For security reasons, the parent directory of the socket must only be accessible by the current user. Please run `chmod go-rwx {:?}`",
+            parent_dir
+        );
     }
     Ok(())
 }
@@ -95,7 +98,9 @@ pub fn spawn_socket_listener(
         .expect("Failed to check existence of path")
     {
         let socket_path_display = socket_path.display();
-        let remove_socket = ask(&format!("Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"));
+        let remove_socket = ask(&format!(
+            "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
+        ));
         if remove_socket? {
             sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
         } else {

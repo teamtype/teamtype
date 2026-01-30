@@ -6,7 +6,7 @@
 use anyhow::Result;
 use time::macros::format_description;
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{fmt::time::UtcTime, EnvFilter, FmtSubscriber};
+use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::UtcTime};
 
 pub fn initialize() -> Result<()> {
     let simplified_logging = std::env::var("RUST_LOG").is_err();

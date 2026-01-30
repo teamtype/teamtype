@@ -5,8 +5,8 @@
 
 use crate::{config::AppConfig, sandbox};
 use notify::{
-    event::EventKind, RecommendedWatcher, RecursiveMode, Result as NotifyResult,
-    Watcher as NotifyWatcher,
+    RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher as NotifyWatcher,
+    event::EventKind,
 };
 use std::{
     collections::HashMap,
@@ -269,7 +269,7 @@ impl Watcher {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::{tempdir, TempDir};
+    use tempfile::{TempDir, tempdir};
 
     use super::*;
 
