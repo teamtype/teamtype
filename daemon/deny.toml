@@ -14,10 +14,7 @@ ignore = [
     "RUSTSEC-2023-0089", # unmaintained: atomic-polyfill (via iroh and postcard)
     "RUSTSEC-2024-0384", # unmaintained: instant (via iroh)
     "RUSTSEC-2024-0436", # unmaintained: paste (via iroh)
-    "RUSTSEC-2026-0049", # vulnerable: rustls-webpki (via iroh)
     "RUSTSEC-2026-0097", # unsound: rand (via iroh)
-    "RUSTSEC-2026-0098", # vulnerable: rustls-webpki (via iroh)
-    "RUSTSEC-2026-0099", # vulnerable: rustls-webpki (via iroh)
 ]
 
 # Not exhaustive, just whitelist the current dependency tree
@@ -26,6 +23,7 @@ allow = [
     "AGPL-3.0-or-later",
     "Apache-2.0",
     "BSD-3-Clause",
+    "BSD-2-Clause",
     "CC0-1.0",
     "CDLA-Permissive-2.0",
     "GPL-3.0-only",
