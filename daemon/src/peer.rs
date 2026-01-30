@@ -65,7 +65,8 @@ impl ConnectionManager {
 
         let (endpoint, my_passphrase) = Self::build_endpoint(base_dir).await?;
 
-        let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
+        let encoded_passphrase = data_encoding::HEXLOWER.encode(&my_passphrase.to_bytes());
+        let secret_address = format!("{}#{}", endpoint.node_id(), encoded_passphrase);
 
         let mut actor = EndpointActor::new(
             endpoint,
@@ -227,7 +228,7 @@ impl EndpointActor {
                     Err(err) => {
                         if let Some(response_tx) = response_tx {
                             response_tx
-                                .send(Err(err))
+                                .send(Err(err.into()))
                                 .expect("Connect receiver dropped");
                         }
                         Self::reconnect(self.message_tx.clone(), secret_address, previous_attempts)

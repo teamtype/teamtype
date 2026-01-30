@@ -331,8 +331,7 @@ impl TryFrom<Patch> for PatchEffect {
                     }
                 }
                 other_action => Err(anyhow::anyhow!(
-                    "Unsupported patch action for empty path: {}",
-                    other_action
+                    "Unsupported patch action for empty path: {other_action}"
                 )),
             };
         }
@@ -425,8 +424,7 @@ impl TryFrom<Patch> for PatchEffect {
                             )))
                         }
                         other_action => Err(anyhow::anyhow!(
-                            "Unsupported patch action for path 'files/*': {}",
-                            other_action
+                            "Unsupported patch action for path 'files/*': {other_action}"
                         )),
                     }
                 } else {
