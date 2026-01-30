@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use automerge::Prop;
 use derive_more::{AsRef, Deref, Display};
 use serde::{Deserialize, Serialize};
@@ -123,7 +123,7 @@ impl TryFrom<String> for FileUri {
                     .to_string(),
             ))
         } else {
-            bail!("File URI '{}' does not start with 'file:///'", string);
+            bail!("File URI '{string}' does not start with 'file:///'");
         }
     }
 }

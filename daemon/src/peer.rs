@@ -7,7 +7,7 @@
 
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::daemon::DocumentActorHandle;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use iroh::endpoint::{RecvStream, SendStream};
 use iroh::{NodeAddr, SecretKey};
@@ -65,7 +65,8 @@ impl ConnectionManager {
 
         let (endpoint, my_passphrase) = Self::build_endpoint(base_dir).await?;
 
-        let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
+        let encoded_passphrase = data_encoding::HEXLOWER.encode(&my_passphrase.to_bytes());
+        let secret_address = format!("{}#{}", endpoint.node_id(), encoded_passphrase);
 
         let mut actor = EndpointActor::new(
             endpoint,
@@ -126,9 +127,15 @@ impl ConnectionManager {
 
             let current_permissions = metadata.permissions().mode();
             let allowed_permissions = 0o100_600;
-            assert!(current_permissions == allowed_permissions, "For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
+            assert!(
+                current_permissions == allowed_permissions,
+                "For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600)."
+            );
 
-            assert!(metadata.len() == 64, "Your keyfile is not 64 bytes long. This is a sign that it was created by a Teamtype version older than 0.7.0, which is not compatible. Please remove .teamtype/key, and try again.");
+            assert!(
+                metadata.len() == 64,
+                "Your keyfile is not 64 bytes long. This is a sign that it was created by a Teamtype version older than 0.7.0, which is not compatible. Please remove .teamtype/key, and try again."
+            );
 
             debug!("Re-using existing keypair.");
             let mut file = File::open(keyfile).expect("Failed to open key file");
@@ -221,7 +228,7 @@ impl EndpointActor {
                     Err(err) => {
                         if let Some(response_tx) = response_tx {
                             response_tx
-                                .send(Err(err))
+                                .send(Err(err.into()))
                                 .expect("Connect receiver dropped");
                         }
                         Self::reconnect(self.message_tx.clone(), secret_address, previous_attempts)

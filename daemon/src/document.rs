@@ -7,12 +7,12 @@ use crate::{
     path::RelativePath,
     types::{EditorTextDelta, TextDelta},
 };
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use automerge::{
+    AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc, TextEncoding,
     patches::TextRepresentation,
     sync::{Message as AutomergeSyncMessage, State as SyncState, SyncDoc},
     transaction::Transactable,
-    AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc, TextEncoding,
 };
 use dissimilar::Chunk;
 use tracing::{debug, info};
@@ -251,10 +251,10 @@ impl Document {
             .expect("Failed to get files Map object");
 
         // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
-        if let Ok(current_bytes) = self.get_bytes(file_path) {
-            if current_bytes == bytes {
-                return;
-            }
+        if let Ok(current_bytes) = self.get_bytes(file_path)
+            && current_bytes == bytes
+        {
+            return;
         }
 
         // If the file was not in the document before, log this.
