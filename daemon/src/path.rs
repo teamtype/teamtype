@@ -123,7 +123,7 @@ impl TryFrom<String> for FileUri {
                     .to_string(),
             ))
         } else {
-            bail!("File URI '{}' does not start with 'file:///'", string);
+            bail!("File URI '{string}' does not start with 'file:///'");
         }
     }
 }

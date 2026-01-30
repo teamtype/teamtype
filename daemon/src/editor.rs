@@ -72,8 +72,8 @@ fn is_user_readable_only(socket_path: &Path) -> Result<()> {
     let allowed_permissions = 0o77700u32;
     if current_permissions | allowed_permissions != allowed_permissions {
         bail!(
-            "For security reasons, the parent directory of the socket must only be accessible by the current user. Please run `chmod go-rwx {:?}`",
-            parent_dir
+            "For security reasons, the parent directory of the socket must only be accessible by the current user. Please run `chmod go-rwx {}`",
+            parent_dir.display()
         );
     }
     Ok(())
