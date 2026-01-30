@@ -154,11 +154,10 @@ pub fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) ->
 
 #[must_use]
 pub fn has_git_remote(path: &Path) -> bool {
-    if let Ok(repo) = find_git_repo(path) {
-        if let Ok(remotes) = repo.remotes() {
+    if let Ok(repo) = find_git_repo(path)
+        && let Ok(remotes) = repo.remotes() {
             return !remotes.is_empty();
         }
-    }
     false
 }
 
