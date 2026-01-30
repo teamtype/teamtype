@@ -16,12 +16,13 @@ use std::time::Duration;
 use anyhow::bail;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use iroh::discovery::dns::DnsDiscovery;
-use iroh::discovery::pkarr::PkarrPublisher;
-use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream};
-use iroh::{Endpoint, NodeAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
+use iroh::address_lookup::DnsAddressLookup;
+use iroh::address_lookup::pkarr::PkarrPublisher;
+use iroh::endpoint::{
+    Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets,
+};
+use iroh::{Endpoint, EndpointAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
-use rand::rngs::OsRng;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
@@ -36,7 +37,7 @@ mod sync;
 const ALPN: &[u8] = b"/teamtype/0";
 
 struct SecretAddress {
-    node_addr: NodeAddr,
+    endpoint_addr: EndpointAddr,
     passphrase: SecretKey,
 }
 
@@ -46,14 +47,14 @@ impl FromStr for SecretAddress {
     fn from_str(s: &str) -> Result<Self> {
         let parts: Vec<&str> = s.split('#').collect();
         if parts.len() != 2 {
-            bail!("Peer string must have format <node_id>#<passphrase>");
+            bail!("Peer string must have format <endpoint_id>#<passphrase>");
         }
 
-        let node_addr = PublicKey::from_str(parts[0])?.into();
+        let endpoint_addr = PublicKey::from_str(parts[0])?.into();
         let passphrase = SecretKey::from_str(parts[1])?;
 
         Ok(Self {
-            node_addr,
+            endpoint_addr,
             passphrase,
         })
     }
@@ -79,7 +80,8 @@ impl ConnectionManager {
 
         let (endpoint, my_passphrase) = Self::build_endpoint(app_config, base_dir).await?;
 
-        let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
+        let encoded_passphrase = data_encoding::HEXLOWER.encode(&my_passphrase.to_bytes());
+        let secret_address = format!("{}#{}", endpoint.id(), encoded_passphrase);
 
         let mut actor = EndpointActor::new(
             endpoint,
@@ -125,36 +127,37 @@ impl ConnectionManager {
     ) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let mut builder = Endpoint::builder()
+        let mut builder = Endpoint::builder(presets::N0)
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()]);
 
-        if let Some(iroh_relay) = &app_config.iroh_relay {
-            let relay_url = RelayUrl::from_str(iroh_relay)?;
-            let relay_map = RelayMap::from(relay_url);
-            builder = builder.relay_mode(RelayMode::Custom(relay_map));
-        }
+        let relay_mode = match &app_config.iroh_relay {
+            Some(iroh_relay) => {
+                let relay_url = RelayUrl::from_str(iroh_relay)?;
+                let relay_map = RelayMap::from(relay_url);
+                RelayMode::Custom(relay_map)
+            }
+            _ => RelayMode::Default,
+        };
+        builder = builder.relay_mode(relay_mode);
 
-        if let Some(iroh_dns_domain) = &app_config.iroh_dns_domain {
-            let iroh_dns_domain_clone = iroh_dns_domain.clone();
-            builder =
-                builder.add_discovery(move |_| Some(DnsDiscovery::new(iroh_dns_domain_clone)));
-        } else {
-            builder = builder.add_discovery(move |_| Some(DnsDiscovery::n0_dns()));
-        }
+        let iroh_dns_lookup = app_config.iroh_dns_domain.as_ref().map_or_else(
+            DnsAddressLookup::n0_dns,
+            |iroh_dns_domain| {
+                let iroh_dns_domain_clone = iroh_dns_domain.clone();
+                DnsAddressLookup::builder(iroh_dns_domain_clone)
+            },
+        );
+        builder = builder.address_lookup(iroh_dns_lookup);
 
-        if let Some(iroh_pkarr_relay) = &app_config.iroh_pkarr_relay {
-            let iroh_pkarr_relay_url = Url::parse(iroh_pkarr_relay)?;
-            builder = builder.add_discovery(|secret_key| {
-                Some(PkarrPublisher::new(
-                    secret_key.clone(),
-                    iroh_pkarr_relay_url,
-                ))
-            });
-        } else {
-            builder = builder
-                .add_discovery(|secret_key| Some(PkarrPublisher::n0_dns(secret_key.clone())));
-        }
+        let iroh_pkarr_lookup = match &app_config.iroh_pkarr_relay {
+            Some(iroh_pkarr_relay) => {
+                let iroh_pkarr_relay_url = Url::parse(iroh_pkarr_relay)?;
+                PkarrPublisher::builder(iroh_pkarr_relay_url)
+            }
+            _ => PkarrPublisher::n0_dns(),
+        };
+        builder = builder.address_lookup(iroh_pkarr_lookup);
 
         let endpoint = builder.bind().await?;
 
@@ -196,8 +199,8 @@ impl ConnectionManager {
             )
         } else {
             debug!("Generating new keypair.");
-            let secret_key = SecretKey::generate(OsRng);
-            let passphrase = SecretKey::generate(OsRng);
+            let secret_key = SecretKey::generate();
+            let passphrase = SecretKey::generate();
 
             let mut file = OpenOptions::new()
                 .create_new(true)
@@ -263,14 +266,14 @@ impl EndpointActor {
                 response_tx,
                 previous_attempts,
             } => {
-                let node_addr = secret_address.node_addr.clone();
-                let connect_result = self.endpoint.connect(node_addr, ALPN).await;
+                let endpoint_addr = secret_address.endpoint_addr.clone();
+                let connect_result = self.endpoint.connect(endpoint_addr, ALPN).await;
                 let conn = match connect_result {
                     Ok(conn) => conn,
                     Err(err) => {
                         if let Some(response_tx) = response_tx {
                             response_tx
-                                .send(Err(err))
+                                .send(Err(err.into()))
                                 .expect("Connect receiver dropped");
                         }
                         Self::reconnect(self.message_tx.clone(), secret_address, previous_attempts)
@@ -281,11 +284,7 @@ impl EndpointActor {
                     }
                 };
 
-                info!(
-                    "Connected to peer: {}",
-                    conn.remote_node_id()
-                        .expect("Connection should have a node ID")
-                );
+                info!("Connected to peer: {}", conn.remote_id());
 
                 if let Some(response_tx) = response_tx {
                     response_tx.send(Ok(())).expect("Connect receiver dropped");
@@ -321,13 +320,13 @@ impl EndpointActor {
         if previous_attempts == 0 {
             info!(
                 "Connection to peer {} lost, will keep trying to reconnect...",
-                secret_address.node_addr.node_id
+                secret_address.endpoint_addr.id
             );
         } else {
             sleep(Duration::from_secs(10)).await;
             debug!(
                 "Making another attempt to connect to peer {}...",
-                secret_address.node_addr.node_id
+                secret_address.endpoint_addr.id
             );
         }
         // We don't need to be notified, so we don't need to use the response channel.
@@ -378,11 +377,9 @@ impl EndpointActor {
     }
 
     fn handle_incoming_connection(&self, conn: IrohEndpointConnection) {
-        let node_id = conn
-            .remote_node_id()
-            .expect("Connection should have a node ID");
+        let endpoint_id = conn.remote_id();
 
-        info!("Peer connected: {}", &node_id);
+        info!("Peer connected: {}", &endpoint_id);
 
         let my_passphrase_clone = self.my_passphrase.clone();
         let document_handle_clone = self.document_handle.clone();
@@ -397,7 +394,7 @@ impl EndpointActor {
                 warn!("Incoming connection failed: {err}");
             }
 
-            info!("Peer disconnected: {node_id}",);
+            info!("Peer disconnected: {endpoint_id}",);
         });
     }
 
