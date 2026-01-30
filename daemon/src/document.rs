@@ -251,11 +251,10 @@ impl Document {
             .expect("Failed to get files Map object");
 
         // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
-        if let Ok(current_bytes) = self.get_bytes(file_path) {
-            if current_bytes == bytes {
+        if let Ok(current_bytes) = self.get_bytes(file_path)
+            && current_bytes == bytes {
                 return;
             }
-        }
 
         // If the file was not in the document before, log this.
         if !self.file_exists(file_path) {

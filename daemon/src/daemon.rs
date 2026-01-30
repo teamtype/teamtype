@@ -778,13 +778,12 @@ impl DocumentActor {
         let cursor_id = new_ephemeral_message.cursor_id.clone();
         let cursor_state = new_ephemeral_message.cursor_state.clone();
 
-        if let Some(existing_state) = self.ephemeral_states.get_mut(&cursor_id) {
-            if new_ephemeral_message.sequence_number <= existing_state.sequence_number {
+        if let Some(existing_state) = self.ephemeral_states.get_mut(&cursor_id)
+            && new_ephemeral_message.sequence_number <= existing_state.sequence_number {
                 // We've already seen a newer ephemeral message for this cursor_id, thus ignoring
                 // this older one.
                 return;
             }
-        }
         self.ephemeral_states
             .insert(cursor_id.clone(), new_ephemeral_message.clone());
 
