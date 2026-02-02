@@ -10,7 +10,7 @@ use crate::daemon::DocumentActorHandle;
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use iroh::endpoint::{RecvStream, SendStream};
-use iroh::{NodeAddr, SecretKey};
+use iroh::{EndpointAddr, SecretKey};
 use postcard::{from_bytes, to_allocvec};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -27,7 +27,7 @@ mod sync;
 const ALPN: &[u8] = b"/teamtype/0";
 
 struct SecretAddress {
-    node_addr: NodeAddr,
+    endpoint_addr: EndpointAddr,
     passphrase: SecretKey,
 }
 
@@ -36,14 +36,14 @@ impl FromStr for SecretAddress {
     fn from_str(s: &str) -> Result<Self> {
         let parts: Vec<&str> = s.split('#').collect();
         if parts.len() != 2 {
-            bail!("Peer string must have format <node_id>#<passphrase>");
+            bail!("Peer string must have format <endpoint_id>#<passphrase>");
         }
 
-        let node_addr = iroh::PublicKey::from_str(parts[0])?.into();
+        let endpoint_addr = iroh::PublicKey::from_str(parts[0])?.into();
         let passphrase = SecretKey::from_str(parts[1])?;
 
         Ok(Self {
-            node_addr,
+            endpoint_addr,
             passphrase,
         })
     }
@@ -66,7 +66,7 @@ impl ConnectionManager {
         let (endpoint, my_passphrase) = Self::build_endpoint(base_dir).await?;
 
         let encoded_passphrase = data_encoding::HEXLOWER.encode(&my_passphrase.to_bytes());
-        let secret_address = format!("{}#{}", endpoint.node_id(), encoded_passphrase);
+        let secret_address = format!("{}#{}", endpoint.id(), encoded_passphrase);
 
         let mut actor = EndpointActor::new(
             endpoint,
@@ -112,7 +112,6 @@ impl ConnectionManager {
         let endpoint = iroh::Endpoint::builder()
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()])
-            .discovery_n0()
             .bind()
             .await?;
 
@@ -154,8 +153,8 @@ impl ConnectionManager {
             )
         } else {
             debug!("Generating new keypair.");
-            let secret_key = SecretKey::generate(rand::rngs::OsRng);
-            let passphrase = SecretKey::generate(rand::rngs::OsRng);
+            let secret_key = SecretKey::generate(&mut rand::rng());
+            let passphrase = SecretKey::generate(&mut rand::rng());
 
             let mut file = OpenOptions::new()
                 .create_new(true)
@@ -221,8 +220,8 @@ impl EndpointActor {
                 response_tx,
                 previous_attempts,
             } => {
-                let node_addr = secret_address.node_addr.clone();
-                let connect_result = self.endpoint.connect(node_addr, ALPN).await;
+                let endpoint_addr = secret_address.endpoint_addr.clone();
+                let connect_result = self.endpoint.connect(endpoint_addr, ALPN).await;
                 let conn = match connect_result {
                     Ok(conn) => conn,
                     Err(err) => {
@@ -239,11 +238,7 @@ impl EndpointActor {
                     }
                 };
 
-                info!(
-                    "Connected to peer: {}",
-                    conn.remote_node_id()
-                        .expect("Connection should have a node ID")
-                );
+                info!("Connected to peer: {}", conn.remote_id());
 
                 if let Some(response_tx) = response_tx {
                     response_tx.send(Ok(())).expect("Connect receiver dropped");
@@ -279,13 +274,13 @@ impl EndpointActor {
         if previous_attempts == 0 {
             info!(
                 "Connection to peer {} lost, will keep trying to reconnect...",
-                secret_address.node_addr.node_id
+                secret_address.endpoint_addr.id
             );
         } else {
             sleep(Duration::from_secs(10)).await;
             debug!(
                 "Making another attempt to connect to peer {}...",
-                secret_address.node_addr.node_id
+                secret_address.endpoint_addr.id
             );
         }
         // We don't need to be notified, so we don't need to use the response channel.
@@ -336,11 +331,9 @@ impl EndpointActor {
     }
 
     fn handle_incoming_connection(&self, conn: iroh::endpoint::Connection) {
-        let node_id = conn
-            .remote_node_id()
-            .expect("Connection should have a node ID");
+        let endpoint_id = conn.remote_id();
 
-        info!("Peer connected: {}", &node_id);
+        info!("Peer connected: {}", &endpoint_id);
 
         let my_passphrase_clone = self.my_passphrase.clone();
         let document_handle_clone = self.document_handle.clone();
@@ -355,7 +348,7 @@ impl EndpointActor {
                 warn!("Incoming connection failed: {err}");
             }
 
-            info!("Peer disconnected: {node_id}",);
+            info!("Peer disconnected: {endpoint_id}",);
         });
     }
 
