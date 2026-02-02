@@ -9,8 +9,7 @@ use crate::{
 };
 use anyhow::{Result, bail};
 use automerge::{
-    AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc, TextEncoding,
-    patches::TextRepresentation,
+    AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc,
     sync::{Message as AutomergeSyncMessage, State as SyncState, SyncDoc},
     transaction::Transactable,
 };
@@ -77,7 +76,7 @@ impl Document {
         message: AutomergeSyncMessage,
         peer_state: &mut SyncState,
     ) -> Vec<Patch> {
-        let mut patch_log = PatchLog::active(TextRepresentation::String(TextEncoding::default()));
+        let mut patch_log = PatchLog::active();
         self.doc
             .sync()
             .receive_sync_message_log_patches(peer_state, message, &mut patch_log)

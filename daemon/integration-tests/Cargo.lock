@@ -403,19 +403,19 @@ checksum = "0c4b4d0bd25bd0b74681c0ad21497610ce1b7c91b1022cd21c80c6fbdd9476b0"
 
 [[package]]
 name = "automerge"
-version = "1.0.0-beta.3"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba32daac7cbb4fde9baec6356645d48e8332d2fe0d68ff1a6d1810f144b27c22"
+checksum = "b4c51597d92d370bfaed45068412dfa06f3c6dc35eef987119f6e4e0da96bb3d"
 dependencies = [
  "cfg-if",
  "flate2",
- "fxhash",
- "getrandom 0.2.16",
+ "getrandom 0.3.3",
  "hex",
  "hexane",
  "itertools",
  "leb128",
- "rand 0.8.5",
+ "rand 0.9.1",
+ "rustc-hash",
  "serde",
  "sha2 0.11.0-rc.2",
  "smol_str",
@@ -1490,15 +1490,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fxhash"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
 name = "generator"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1704,9 +1695,9 @@ dependencies = [
 
 [[package]]
 name = "hexane"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "402a2f365e3200d82b0bb4874f203ad02a480400329990751c6330b1b4007354"
+checksum = "8ab946df174dbf65fc07610c1f936b3e40b9ca7cfd09c0f827f9509a62e93a39"
 dependencies = [
  "leb128",
  "thiserror 2.0.12",
@@ -3870,9 +3861,9 @@ checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "rustc-hash"
-version = "2.0.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "583034fd73374156e66797ed8e5b0d5690409c9226b22d87cb7f19821c05d152"
+checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
 name = "rustc_version"
@@ -3893,7 +3884,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4498,7 +4489,6 @@ dependencies = [
  "dissimilar",
  "futures 0.3.31",
  "git2",
- "hexane",
  "ignore",
  "iroh",
  "magic-wormhole",
@@ -4549,7 +4539,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

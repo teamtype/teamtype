@@ -5,7 +5,7 @@
 
 use crate::path::RelativePath;
 use anyhow::{Context, Result, bail};
-use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding, patches::TextRepresentation};
+use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding};
 use dissimilar::Chunk;
 use operational_transform::{Operation as OTOperation, OperationSeq};
 use ropey::Rope;
@@ -452,10 +452,7 @@ impl From<TextDelta> for Vec<PatchAction> {
                 TextOp::Insert(s) => {
                     patch_actions.push(PatchAction::SpliceText {
                         index: position,
-                        value: ConcreteTextValue::new(
-                            &s,
-                            TextRepresentation::String(TextEncoding::default()),
-                        ),
+                        value: ConcreteTextValue::new(&s, TextEncoding::UnicodeCodePoint),
                         marks: None,
                     });
                     // TODO: Can we avoid calculating this length?
