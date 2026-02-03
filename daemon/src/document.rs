@@ -18,7 +18,7 @@ use automerge::{
 use dissimilar::Chunk;
 use tracing::{debug, info};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
     String(String),
     Bytes(Vec<u8>),
@@ -111,6 +111,7 @@ impl Document {
                             file_text_delta.file_path.clone(),
                             Content::String(String::new()),
                         );
+                        // And set old_text to the empty string.
                         ""
                     };
                     // We're not in a good position here to "reject" the sync message, so let's
@@ -152,9 +153,13 @@ impl Document {
             .text_obj(file_path)
             .expect("Couldn't get automerge text object, so not able to modify it");
         let mut offset = 0isize;
-        let text = self
-            .current_file_content(file_path)
-            .expect("Should have initialized text before applying delta to it");
+
+        let Some(Content::String(text)) = self.current_file_content(file_path) else {
+            panic!("Should have initialized text before applying delta to it");
+        };
+        // Clone so that `self` is no longer borrowed.
+        let text = text.clone();
+
         // TODO: Can we avoid/handle this panic, same as the one below?
         let ed_delta = EditorTextDelta::try_from_delta(delta.clone(), &text)?;
 
@@ -184,11 +189,8 @@ impl Document {
         Ok(())
     }
 
-    pub fn current_file_content(&self, file_path: &RelativePath) -> Result<String> {
-        let Some(Content::String(text)) = self.files.get(file_path) else {
-            bail!("No string content at {file_path}")
-        };
-        Ok(text.clone())
+    pub fn current_file_content(&self, file_path: &RelativePath) -> Option<&Content> {
+        self.files.get(file_path)
     }
 
     // TODO: Refactor such that file_content_at can also return bytes (and get rid of get_bytes_at)
@@ -202,16 +204,6 @@ impl Document {
                 .text_at(to, heads)
                 .expect("Failed to get string from Automerge text object")
         })
-    }
-
-    // TODO: Get rid of this.
-    /// Used to get the contents of a binary file.
-    pub fn get_bytes(&self, file_path: &RelativePath) -> Result<Vec<u8>> {
-        let Some(Content::Bytes(bytes)) = self.files.get(file_path) else {
-            bail!("No byte content at {file_path}")
-        };
-
-        Ok(bytes.clone())
     }
 
     /// Used to get the contents of a binary file at a specific state.
@@ -271,11 +263,11 @@ impl Document {
         file_path: &RelativePath,
     ) -> Option<TextDelta> {
         if self.text_obj(file_path).is_ok() {
-            let current_text = self
-                .current_file_content(file_path)
-                .unwrap_or_else(|_| panic!("Failed to get {file_path} text object"));
+            let Some(Content::String(current_text)) = self.current_file_content(file_path) else {
+                panic!("Failed to get {file_path} text object");
+            };
 
-            let chunks = dissimilar::diff(&current_text, desired_text);
+            let chunks = dissimilar::diff(current_text, desired_text);
             if let [] | [Chunk::Equal(_)] = chunks.as_slice() {
                 return None;
             }
@@ -321,7 +313,7 @@ impl Document {
     /// Used to set or update a binary file's content.
     pub fn set_bytes(&mut self, bytes: &[u8], file_path: &RelativePath) {
         // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
-        if let Ok(current_bytes) = self.get_bytes(file_path)
+        if let Some(Content::Bytes(current_bytes)) = self.current_file_content(file_path)
             && current_bytes == bytes
         {
             return;
@@ -467,8 +459,10 @@ mod tests {
 
     impl Document {
         fn assert_file_content(&self, file_path: &RelativePath, content: &str) {
-            // unfortunately anyhow::Error doesn't implement PartialEq, so we'll rather unwrap.
-            assert_eq!(self.current_file_content(file_path).unwrap(), content);
+            assert_eq!(
+                self.current_file_content(file_path),
+                Some(Content::String(content.to_string())).as_ref()
+            );
         }
     }
 
@@ -503,9 +497,11 @@ mod tests {
     #[test]
     fn retrieve_content_file_nonexistent_errs() {
         let document = Document::default();
-        document
-            .current_file_content(&RelativePath::new("text"))
-            .expect_err("File shouldn't exist");
+        assert!(
+            document
+                .current_file_content(&RelativePath::new("text"))
+                .is_none()
+        );
     }
 
     fn apply_delta_to_doc_works(initial: &str, delta: &TextDelta, expected: &str) {
