@@ -23,6 +23,39 @@ impl fmt::Display for TextDelta {
     }
 }
 
+impl TextDelta {
+    pub fn apply_to(&self, text: &str) -> Result<String> {
+        let chars: Vec<char> = text.chars().collect();
+        let mut pos = 0;
+        let mut result = String::new();
+
+        for op in &self.0 {
+            match op {
+                TextOp::Retain(n) => {
+                    if pos + n > chars.len() {
+                        bail!("Retain past end of string");
+                    }
+                    result.extend(&chars[pos..pos + n]);
+                    pos += n;
+                }
+                TextOp::Insert(s) => {
+                    result.push_str(s);
+                }
+                TextOp::Delete(n) => {
+                    if pos + n > chars.len() {
+                        bail!("Delete past end of string");
+                    }
+                    pos += n;
+                }
+            }
+        }
+
+        // Keep remaining characters.
+        result.extend(&chars[pos..]);
+        Ok(result)
+    }
+}
+
 impl IntoIterator for TextDelta {
     type Item = TextOp;
     type IntoIter = std::vec::IntoIter<Self::Item>;
@@ -795,6 +828,28 @@ mod tests {
         ]);
 
         assert_eq!(ed_delta.unwrap(), expected_ed_delta);
+    }
+
+    mod apply_text_delta {
+        use super::factories::*;
+
+        #[test]
+        fn these_work() {
+            assert_eq!(insert(3, "ä").apply_to("äxlü").unwrap(), "äxläü");
+            assert_eq!(replace(1, 2, "ä").apply_to("äxlü").unwrap(), "ääü");
+            assert_eq!(delete(1, 2).apply_to("äxlü").unwrap(), "äü");
+            assert_eq!(delete(0, 5).apply_to("short").unwrap(), "");
+        }
+
+        #[test]
+        fn delete_too_long() {
+            assert!(delete(0, 6).apply_to("short").is_err());
+        }
+
+        #[test]
+        fn retain_too_long() {
+            assert!(replace(0, 6, "hi").apply_to("short").is_err());
+        }
     }
 
     // Test conversion from the difference crate.
