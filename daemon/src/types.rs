@@ -170,7 +170,7 @@ pub enum PatchEffect {
 }
 
 impl PatchEffect {
-    pub fn from_crdt_patches(patches: Vec<Patch>) -> Vec<Self> {
+    pub fn from_crdt_patches(patches: &[Patch]) -> Vec<Self> {
         let mut file_deltas: Vec<Self> = vec![];
 
         for patch in patches {
@@ -331,10 +331,10 @@ impl TextDelta {
 
 // TODO: This feels like it should go into another file, close to where Document handles writing to
 // the Automerge document. Both places need to know about our chosen structure.
-impl TryFrom<Patch> for PatchEffect {
+impl TryFrom<&Patch> for PatchEffect {
     type Error = anyhow::Error;
 
-    fn try_from(patch: Patch) -> Result<Self, Self::Error> {
+    fn try_from(patch: &Patch) -> Result<Self, Self::Error> {
         fn file_path_from_path_default(
             path: &[(automerge::ObjId, automerge::Prop)],
         ) -> Result<RelativePath, anyhow::Error> {
@@ -353,7 +353,7 @@ impl TryFrom<Patch> for PatchEffect {
         }
 
         if patch.path.is_empty() {
-            return match patch.action {
+            return match &patch.action {
                 PatchAction::PutMap { key, .. } => {
                     if key == "files" {
                         Ok(Self::NoEffect)
@@ -372,7 +372,7 @@ impl TryFrom<Patch> for PatchEffect {
         match &patch.path[0] {
             (_, automerge::Prop::Map(key)) if key == "files" => {
                 if patch.path.len() == 1 {
-                    match patch.action {
+                    match &patch.action {
                         PatchAction::PutMap {
                             key,
                             conflict,
@@ -380,11 +380,11 @@ impl TryFrom<Patch> for PatchEffect {
                         } => {
                             // This action happens when a new file is created.
 
-                            let relative_path = RelativePath::new(&key);
+                            let relative_path = RelativePath::new(key);
 
                             match value {
                                 (automerge::Value::Object(automerge::ObjType::Text), _) => {
-                                    if conflict {
+                                    if *conflict {
                                         // In this case, the peer receiving this PutMap should
                                         // remove all existing content of this file in open
                                         // editors. So we emit a FileRemovel.
@@ -406,7 +406,7 @@ impl TryFrom<Patch> for PatchEffect {
                                         automerge::ScalarValue::Bytes(bytes),
                                     )),
                                     _,
-                                ) => Ok(Self::FileBytes(relative_path, bytes)),
+                                ) => Ok(Self::FileBytes(relative_path, bytes.clone())),
                                 _ => {
                                     Err(anyhow::anyhow!("Unexpected value in path {relative_path}"))
                                 }
@@ -415,7 +415,7 @@ impl TryFrom<Patch> for PatchEffect {
                         PatchAction::DeleteMap { key } => {
                             // This action happens when a file is deleted.
                             debug!("Got file removal from patch: {key}");
-                            Ok(Self::FileRemoval(RelativePath::new(&key)))
+                            Ok(Self::FileRemoval(RelativePath::new(key)))
                         }
                         PatchAction::Conflict { prop } => {
                             // This can happen when both sides create the same file.
@@ -439,9 +439,9 @@ impl TryFrom<Patch> for PatchEffect {
                     }
                 } else if patch.path.len() == 2 {
                     let mut delta = TextDelta::default();
-                    match patch.action {
+                    match &patch.action {
                         PatchAction::SpliceText { index, value, .. } => {
-                            delta.retain(index);
+                            delta.retain(*index);
                             delta.insert(&value.make_string());
                             Ok(Self::FileChange(FileTextDelta::new(
                                 file_path_from_path_default(&patch.path)?,
@@ -449,8 +449,8 @@ impl TryFrom<Patch> for PatchEffect {
                             )))
                         }
                         PatchAction::DeleteSeq { index, length } => {
-                            delta.retain(index);
-                            delta.delete(length);
+                            delta.retain(*index);
+                            delta.delete(*length);
                             Ok(Self::FileChange(FileTextDelta::new(
                                 file_path_from_path_default(&patch.path)?,
                                 delta,
