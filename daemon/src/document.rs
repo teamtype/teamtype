@@ -430,18 +430,6 @@ impl Document {
     }
 
     #[must_use]
-    pub fn files_at(&self, heads: &[ChangeHash]) -> Vec<RelativePath> {
-        self.top_level_map_obj("files")
-            .map(|file_map| {
-                self.doc
-                    .keys_at(file_map, heads)
-                    .map(|k| RelativePath::new(&k))
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    #[must_use]
     pub fn file_exists(&self, file_path: &RelativePath) -> bool {
         self.files.contains_key(file_path)
     }
