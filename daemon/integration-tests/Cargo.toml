@@ -19,7 +19,7 @@ harness = false
 [dependencies]
 async-trait = "0.1.79"
 nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
-rand = "0.8.5"
+rand = "0.9.2"
 tokio = { version = "1", default-features = false, features = ["process"] }
 serde_json = "1"
 tempfile = "3.24.0"

@@ -4466,7 +4466,7 @@ dependencies = [
  "futures 0.3.31",
  "nvim-rs",
  "pretty_assertions",
- "rand 0.8.5",
+ "rand 0.9.2",
  "serde_json",
  "serial_test",
  "teamtype",

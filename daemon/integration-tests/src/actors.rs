@@ -11,7 +11,7 @@ use teamtype::sandbox;
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::Rng;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use tokio::process::ChildStdin;
 
 use std::fs;
@@ -164,7 +164,7 @@ fn rand_usize_inclusive(start: usize, end: usize) -> usize {
     if start == end {
         start
     } else {
-        rand::thread_rng().gen_range(start..=end)
+        rand::rng().random_range(start..=end)
     }
 }
 
