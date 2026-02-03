@@ -3,9 +3,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::HashMap;
+
 use crate::{
     path::RelativePath,
-    types::{EditorTextDelta, TextDelta},
+    types::{EditorTextDelta, PatchEffect, TextDelta},
 };
 use anyhow::{Result, bail};
 use automerge::{
@@ -15,6 +17,12 @@ use automerge::{
 };
 use dissimilar::Chunk;
 use tracing::{debug, info};
+
+#[derive(Debug)]
+pub enum Content {
+    String(String),
+    Bytes(Vec<u8>),
+}
 
 /// Encapsulates the Automerge `AutoCommit` and provides a generic interface,
 /// s.t. we don't need to worry about automerge internals elsewhere.
@@ -27,6 +35,7 @@ use tracing::{debug, info};
 #[derive(Debug)]
 #[must_use]
 pub struct Document {
+    files: HashMap<RelativePath, Content>,
     doc: AutoCommit,
 }
 
@@ -52,7 +61,12 @@ impl Document {
     pub fn load(bytes: &[u8]) -> Self {
         let doc =
             AutoCommit::load(bytes).expect("Failed to load Automerge document from given bytes");
-        Self { doc }
+        let mut result = Self {
+            files: HashMap::default(),
+            doc,
+        };
+        result.update_files();
+        result
     }
 
     #[must_use]
@@ -81,7 +95,43 @@ impl Document {
             .sync()
             .receive_sync_message_log_patches(peer_state, message, &mut patch_log)
             .expect("Failed to apply sync message to Automerge document");
-        self.doc.make_patches(&mut patch_log)
+        let patches = self.doc.make_patches(&mut patch_log);
+
+        // Update files cache.
+        for patch in &patches {
+            match PatchEffect::try_from(patch).expect("Should be able to convert to patch effect") {
+                PatchEffect::FileChange(file_text_delta) => {
+                    let old_text = if let Some(Content::String(old_text)) =
+                        self.files.get(&file_text_delta.file_path)
+                    {
+                        old_text
+                    } else {
+                        // File does not exist yet, create an empty one.
+                        self.files.insert(
+                            file_text_delta.file_path.clone(),
+                            Content::String(String::new()),
+                        );
+                        ""
+                    };
+                    // We're not in a good position here to "reject" the sync message, so let's
+                    // panic on errors.
+                    let new_text = file_text_delta.delta.apply_to(old_text).expect("If Automerge and our file cache work correctly, this delta should always apply");
+                    self.files
+                        .insert(file_text_delta.file_path, Content::String(new_text));
+                }
+                PatchEffect::FileRemoval(path) => {
+                    self.files.remove(&path);
+                }
+                PatchEffect::FileBytes(path, bytes) => {
+                    self.files.insert(path, Content::Bytes(bytes));
+                }
+                PatchEffect::NoEffect => {
+                    // Nothing to do.
+                }
+            }
+        }
+
+        patches
     }
 
     #[must_use]
@@ -97,6 +147,7 @@ impl Document {
         delta: &TextDelta,
         file_path: &RelativePath,
     ) -> Result<()> {
+        // Update Automerge document.
         let text_obj = self
             .text_obj(file_path)
             .expect("Couldn't get automerge text object, so not able to modify it");
@@ -121,15 +172,23 @@ impl Document {
             offset -= length as isize;
             offset += op.replacement.chars().count() as isize;
         }
+
+        // Update cached content.
+        let Some(Content::String(old_text)) = self.files.get(file_path) else {
+            panic!("Did not find text content in files cache at file_path");
+        };
+        let new_text = delta.apply_to(old_text)?;
+        self.files
+            .insert(file_path.clone(), Content::String(new_text));
+
         Ok(())
     }
 
     pub fn current_file_content(&self, file_path: &RelativePath) -> Result<String> {
-        self.text_obj(file_path).map(|to| {
-            self.doc
-                .text(to)
-                .expect("Failed to get string from Automerge text object")
-        })
+        let Some(Content::String(text)) = self.files.get(file_path) else {
+            bail!("No string content at {file_path}")
+        };
+        Ok(text.clone())
     }
 
     // TODO: Refactor such that file_content_at can also return bytes (and get rid of get_bytes_at)
@@ -145,10 +204,14 @@ impl Document {
         })
     }
 
+    // TODO: Get rid of this.
     /// Used to get the contents of a binary file.
-    pub fn get_bytes(&mut self, file_path: &RelativePath) -> Result<Vec<u8>> {
-        let heads = self.get_heads();
-        self.get_bytes_at(file_path, &heads)
+    pub fn get_bytes(&self, file_path: &RelativePath) -> Result<Vec<u8>> {
+        let Some(Content::Bytes(bytes)) = self.files.get(file_path) else {
+            bail!("No byte content at {file_path}")
+        };
+
+        Ok(bytes.clone())
     }
 
     /// Used to get the contents of a binary file at a specific state.
@@ -183,6 +246,8 @@ impl Document {
 
     pub fn initialize_text(&mut self, text: &str, file_path: &RelativePath) {
         info!("Initializing {file_path} in the Teamtype history.");
+        self.files
+            .insert(file_path.clone(), Content::String(String::from(text)));
 
         // Now it should definitely work?
         let file_map = self
@@ -219,6 +284,12 @@ impl Document {
             info!("Detected change of {file_path}. Updating.");
             debug!("Full delta of this update: {text_delta}");
             self.apply_delta_to_doc(&text_delta, file_path).expect("Failed to apply delta to document while updating text. Probably the delta doesn't fit the document content.");
+
+            self.files.insert(
+                file_path.clone(),
+                Content::String(String::from(desired_text)),
+            );
+
             Some(text_delta)
         } else {
             // The file doesn't exist in the CRDT yet, so we need to initialize it.
@@ -235,26 +306,31 @@ impl Document {
 
         info!("Removing {file_path} from the Teamtype history.");
 
+        // Remove from Automerge document.
         let file_map = self
             .top_level_map_obj("files")
             .expect("Failed to get files Map object");
         self.doc
             .delete(file_map, file_path)
             .expect("Failed to delete text object");
+
+        // Remove from files cache.
+        self.files.remove(file_path);
     }
 
     /// Used to set or update a binary file's content.
     pub fn set_bytes(&mut self, bytes: &[u8], file_path: &RelativePath) {
-        let file_map = self
-            .top_level_map_obj("files")
-            .expect("Failed to get files Map object");
-
         // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
         if let Ok(current_bytes) = self.get_bytes(file_path)
             && current_bytes == bytes
         {
             return;
         }
+
+        // Update Automerge document.
+        let file_map = self
+            .top_level_map_obj("files")
+            .expect("Failed to get files Map object");
 
         // If the file was not in the document before, log this.
         if !self.file_exists(file_path) {
@@ -264,6 +340,49 @@ impl Document {
         self.doc
             .put(file_map, file_path, bytes.to_vec())
             .expect("Failed to initialize bytes object in Automerge document");
+
+        // Update file cache.
+        self.files
+            .insert(file_path.clone(), Content::Bytes(bytes.to_vec()));
+    }
+
+    fn update_files(&mut self) {
+        if let Ok(file_map) = self.top_level_map_obj("files") {
+            for file_path in self.doc.keys(&file_map) {
+                match self.doc.get(&file_map, &file_path) {
+                    Ok(Some((automerge::Value::Object(ObjType::Text), text_obj))) => {
+                        let string = self
+                            .doc
+                            .text(&text_obj)
+                            .expect("Should be able to retreive text");
+                        self.files
+                            .insert(RelativePath::new(&file_path), Content::String(string));
+                    }
+                    Ok(Some((
+                        automerge::Value::Scalar(std::borrow::Cow::Owned(
+                            automerge::ScalarValue::Bytes(bytes),
+                        )),
+                        _,
+                    ))) => {
+                        self.files
+                            .insert(RelativePath::new(&file_path), Content::Bytes(bytes));
+                    }
+                    Ok(Some((
+                        automerge::Value::Scalar(std::borrow::Cow::Borrowed(
+                            automerge::ScalarValue::Bytes(bytes),
+                        )),
+                        _,
+                    ))) => {
+                        // TODO: Potentially memory-heavy operation. Figure out how to deal with Cows. Moo.
+                        self.files
+                            .insert(RelativePath::new(&file_path), Content::Bytes(bytes.clone()));
+                    }
+                    _ => {
+                        panic!("Found unexpected object while iterating over Automerge document");
+                    }
+                }
+            }
+        }
     }
 
     fn top_level_map_obj(&self, name: &str) -> Result<automerge::ObjId> {
@@ -315,14 +434,7 @@ impl Document {
 
     #[must_use]
     pub fn files(&self) -> Vec<RelativePath> {
-        self.top_level_map_obj("files")
-            .map(|file_map| {
-                self.doc
-                    .keys(file_map)
-                    .map(|k| RelativePath::new(&k))
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.files.keys().map(Clone::clone).collect()
     }
 
     #[must_use]
@@ -339,12 +451,7 @@ impl Document {
 
     #[must_use]
     pub fn file_exists(&self, file_path: &RelativePath) -> bool {
-        self.top_level_map_obj("files").is_ok_and(|file_map| {
-            self.doc
-                .get(file_map, file_path)
-                .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"))
-                .is_some()
-        })
+        self.files.contains_key(file_path)
     }
 
     #[must_use]
