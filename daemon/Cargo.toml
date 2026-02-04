@@ -22,7 +22,7 @@ keywords = [
 ]
 categories = ["command-line-utilities", "text-editors"]
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.89.0"
 default-run = "teamtype"
 
 [lib]
