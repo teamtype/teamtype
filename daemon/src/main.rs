@@ -149,8 +149,7 @@ async fn main() -> Result<()> {
 
             debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
-            // TODO: Derive socket_path inside the constructor.
-            let _daemon = Daemon::new(app_config, &socket_path, init_doc, persist)
+            let _daemon = Daemon::new(app_config, init_doc, persist)
                 .await
                 .context("Failed to launch the daemon")?;
             wait_for_shutdown().await;

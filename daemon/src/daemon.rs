@@ -934,18 +934,16 @@ pub struct Daemon {
 
 impl Daemon {
     // Launch the daemon. Optionally, connect to given peer.
-    pub async fn new(
-        app_config: AppConfig,
-        socket_path: &Path,
-        init: bool,
-        persist: bool,
-    ) -> Result<Self> {
+    pub async fn new(app_config: AppConfig, init: bool, persist: bool) -> Result<Self> {
         let is_host = app_config.is_host();
 
         let document_handle = DocumentActorHandle::new(&app_config, init, is_host, persist);
 
         // Start socket listener.
-        let socket_path = socket_path.to_path_buf();
+        let socket_path = app_config
+            .base_dir
+            .join(config::CONFIG_DIR)
+            .join(config::DEFAULT_SOCKET_NAME);
         editor::spawn_socket_listener(&socket_path, document_handle.clone())?;
 
         // Start file watcher.
