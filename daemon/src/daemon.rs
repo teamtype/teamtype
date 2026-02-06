@@ -481,7 +481,8 @@ impl DocumentActor {
             // TODO: Once we get back to processing file changes while editors have it
             // open, send the delta returned by update_text to editors.
         } else {
-            self.crdt_doc.set_bytes(&new_content, relative_file_path);
+            self.crdt_doc
+                .set_file(document::Content::Bytes(new_content), relative_file_path);
         }
         let _ = self.doc_changed_ping_tx.send(());
     }
@@ -613,12 +614,16 @@ impl DocumentActor {
                     if self.owns(&relative_file_path) {
                         if let Ok(text) = String::from_utf8(bytes.clone()) {
                             if init {
-                                self.crdt_doc.initialize_text(&text, &relative_file_path);
+                                self.crdt_doc.set_file(
+                                    document::Content::String(text.clone()),
+                                    &relative_file_path,
+                                );
                             } else {
                                 self.crdt_doc.update_text(&text, &relative_file_path);
                             }
                         } else {
-                            self.crdt_doc.set_bytes(&bytes, &relative_file_path);
+                            self.crdt_doc
+                                .set_file(document::Content::Bytes(bytes), &relative_file_path);
                         }
                     }
                 }
@@ -695,7 +700,8 @@ impl DocumentActor {
                     }
                 } else {
                     // The file doesn't exist yet - create it in the Automerge document.
-                    self.crdt_doc.initialize_text(content, file_path);
+                    self.crdt_doc
+                        .set_file(document::Content::String(content.clone()), file_path);
                     let _ = self.doc_changed_ping_tx.send(());
                     self.write_file(file_path);
                 }

@@ -236,25 +236,6 @@ impl Document {
         }
     }
 
-    pub fn initialize_text(&mut self, text: &str, file_path: &RelativePath) {
-        info!("Initializing {file_path} in the Teamtype history.");
-        self.files
-            .insert(file_path.clone(), Content::String(String::from(text)));
-
-        // Now it should definitely work?
-        let file_map = self
-            .top_level_map_obj("files")
-            .expect("Failed to get files Map object");
-
-        let text_obj = self
-            .doc
-            .put_object(file_map, file_path, ObjType::Text)
-            .expect("Failed to initialize text object in Automerge document");
-        self.doc
-            .splice_text(text_obj, 0, 0, text)
-            .expect("Failed to splice text into Automerge text object");
-    }
-
     // This function is used to integrate text that was changed while the daemon was offline.
     // We need to calculate the patches compared to the current CRDT content, and apply them.
     pub fn update_text(
@@ -285,7 +266,7 @@ impl Document {
             Some(text_delta)
         } else {
             // The file doesn't exist in the CRDT yet, so we need to initialize it.
-            self.initialize_text(desired_text, file_path);
+            self.set_file(Content::String(desired_text.to_string()), file_path);
             None
         }
     }
@@ -310,32 +291,51 @@ impl Document {
         self.files.remove(file_path);
     }
 
-    /// Used to set or update a binary file's content.
-    pub fn set_bytes(&mut self, bytes: &[u8], file_path: &RelativePath) {
-        // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
-        if let Some(Content::Bytes(current_bytes)) = self.current_file_content(file_path)
-            && current_bytes == bytes
-        {
-            return;
+    pub fn set_file(&mut self, content: Content, file_path: &RelativePath) {
+        match content {
+            Content::String(ref text) => {
+                info!("Initializing {file_path} in the Teamtype history.");
+                self.files
+                    .insert(file_path.clone(), Content::String(text.clone()));
+
+                // Now it should definitely work?
+                let file_map = self
+                    .top_level_map_obj("files")
+                    .expect("Failed to get files Map object");
+
+                let text_obj = self
+                    .doc
+                    .put_object(file_map, file_path, ObjType::Text)
+                    .expect("Failed to initialize text object in Automerge document");
+                self.doc
+                    .splice_text(text_obj, 0, 0, text)
+                    .expect("Failed to splice text into Automerge text object");
+            }
+            Content::Bytes(ref bytes) => {
+                // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
+                if let Some(Content::Bytes(current_bytes)) = self.current_file_content(file_path)
+                    && current_bytes == bytes
+                {
+                    return;
+                }
+
+                // Update Automerge document.
+                let file_map = self
+                    .top_level_map_obj("files")
+                    .expect("Failed to get files Map object");
+
+                // If the file was not in the document before, log this.
+                if !self.file_exists(file_path) {
+                    info!("Initializing binary {file_path} in the Teamtype history.");
+                }
+
+                self.doc
+                    .put(file_map, file_path, bytes.clone())
+                    .expect("Failed to initialize bytes object in Automerge document");
+            }
         }
-
-        // Update Automerge document.
-        let file_map = self
-            .top_level_map_obj("files")
-            .expect("Failed to get files Map object");
-
-        // If the file was not in the document before, log this.
-        if !self.file_exists(file_path) {
-            info!("Initializing binary {file_path} in the Teamtype history.");
-        }
-
-        self.doc
-            .put(file_map, file_path, bytes.to_vec())
-            .expect("Failed to initialize bytes object in Automerge document");
-
         // Update file cache.
-        self.files
-            .insert(file_path.clone(), Content::Bytes(bytes.to_vec()));
+        self.files.insert(file_path.clone(), content);
     }
 
     fn update_files(&mut self) {
@@ -460,7 +460,7 @@ mod tests {
         let text = "To be or not to be, that is the question";
         let file = RelativePath::new("text");
 
-        document.initialize_text(text, &file);
+        document.set_file(Content::String(text.to_string()), &file);
 
         document.assert_file_content(&file, text);
     }
@@ -475,8 +475,8 @@ mod tests {
         let file1 = RelativePath::new("text");
         let file2 = RelativePath::new("text2");
 
-        document.initialize_text(text, &file1);
-        document.initialize_text(text2, &file2);
+        document.set_file(Content::String(text.to_string()), &file1);
+        document.set_file(Content::String(text2.to_string()), &file2);
 
         document.assert_file_content(&file1, text);
         document.assert_file_content(&file2, text2);
@@ -496,7 +496,7 @@ mod tests {
         let mut document = Document::default();
         let file = RelativePath::new("text");
 
-        document.initialize_text(initial, &file);
+        document.set_file(Content::String(initial.to_string()), &file);
         document.apply_delta_to_doc(delta, &file).unwrap();
 
         document.assert_file_content(&file, expected);
@@ -546,8 +546,8 @@ mod tests {
         let file1 = RelativePath::new("text");
         let file2 = RelativePath::new("text2");
 
-        document.initialize_text("", &file1);
-        document.initialize_text("", &file2);
+        document.set_file(Content::String(String::new()), &file1);
+        document.set_file(Content::String(String::new()), &file2);
 
         let delta = insert(0, "foobar");
         document.apply_delta_to_doc(&delta, &file1).unwrap();
@@ -569,7 +569,7 @@ mod tests {
             // Stops for now and waits for a response
             assert!(document.generate_sync_message(&mut state).is_none());
 
-            document.initialize_text("", &RelativePath::new("text"));
+            document.set_file(Content::String(String::new()), &RelativePath::new("text"));
             // We have progressed our state, so update all peers about that.
             assert!(document.generate_sync_message(&mut state).is_some());
             // Again, stop, until peers tell us if they want more information.
