@@ -57,10 +57,6 @@ async fn main() -> Result<()> {
     setup_teamtype_directory(&directory, temporary_directory.as_ref())
         .context("Failed to find .teamtype/ directory")?;
 
-    let socket_path = directory
-        .join(config::CONFIG_DIR)
-        .join(config::DEFAULT_SOCKET_NAME);
-
     match cli.command {
         Commands::Share { .. } | Commands::Join { .. } => {
             let persist = !config::has_git_remote(&directory);
@@ -155,7 +151,7 @@ async fn main() -> Result<()> {
             wait_for_shutdown().await;
         }
         Commands::Client => {
-            jsonrpc_forwarder::connection(&socket_path)
+            jsonrpc_forwarder::connection(&directory)
                 .await
                 .context("JSON-RPC forwarder failed")?;
         }

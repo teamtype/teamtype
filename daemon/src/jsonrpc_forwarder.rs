@@ -20,8 +20,13 @@ use tokio::net::UnixStream;
 use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
-pub async fn connection(socket_path: &Path) -> anyhow::Result<()> {
+// TODO: Put these defaults to a module accessible by config.rs as well.
+pub const DEFAULT_SOCKET_NAME: &str = "socket";
+pub const CONFIG_DIR: &str = ".teamtype";
+
+pub async fn connection(base_dir: &Path) -> anyhow::Result<()> {
     // Construct socket object, which send/receive newline-delimited messages.
+    let socket_path = base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
     let stream = UnixStream::connect(socket_path).await?;
     let (socket_read, socket_write) = stream.into_split();
     let mut socket_read = FramedRead::new(socket_read, LinesCodec::new());
