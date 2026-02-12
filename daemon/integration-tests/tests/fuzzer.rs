@@ -14,8 +14,8 @@ use anyhow::Result;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::Rng;
-use tempfile::{tempdir, TempDir};
-use tokio::time::{sleep, timeout, Duration};
+use tempfile::{TempDir, tempdir};
+use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
 
 use std::collections::HashMap;
@@ -30,7 +30,7 @@ async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     }
 }
 
-fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
+fn initialize_directory() -> (TempDir, PathBuf) {
     let dir = tempdir().expect("Failed to create temp directory");
     let dir_path = dir.path();
     let teamtype_dir = dir_path.join(".teamtype");
@@ -39,9 +39,7 @@ fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
     let file = dir_path.join(TEST_FILE_PATH);
     sandbox::write_file(dir_path, &file, b"").expect("Failed to create file in temp directory");
 
-    let socket_path = teamtype_dir.join("socket");
-
-    (dir, file, socket_path)
+    (dir, file)
 }
 
 #[tokio::main]
@@ -55,13 +53,13 @@ async fn main() -> Result<()> {
     logging::initialize()?;
 
     // Set up files in shared directories.
-    let (dir, file, socket_path) = initialize_directory();
-    let (dir2, file2, socket_path2) = initialize_directory();
+    let (dir, file) = initialize_directory();
+    let (dir2, file2) = initialize_directory();
 
     // Set up the actors.
     let mut app_config = AppConfig::default();
     app_config.base_dir = dir.path().to_path_buf();
-    let daemon = Daemon::new(app_config, &socket_path, true, false).await?;
+    let daemon = Daemon::new(app_config, true, false).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
@@ -71,7 +69,7 @@ async fn main() -> Result<()> {
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2.path().to_path_buf();
     app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, &socket_path2, false, false).await?;
+    let peer = Daemon::new(app_config2, false, false).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {

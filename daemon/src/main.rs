@@ -21,6 +21,7 @@ use tracing::{debug, info, warn};
 
 mod cli;
 mod jsonrpc_forwarder;
+use crate::jsonrpc_forwarder::JSONRPCForwarder;
 
 fn has_ethersync_directory(dir: &Path) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
@@ -56,10 +57,6 @@ async fn main() -> Result<()> {
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;
     setup_teamtype_directory(&directory, temporary_directory.as_ref())
         .context("Failed to find .teamtype/ directory")?;
-
-    let socket_path = directory
-        .join(config::CONFIG_DIR)
-        .join(config::DEFAULT_SOCKET_NAME);
 
     match cli.command {
         Commands::Share { .. } | Commands::Join { .. } => {
@@ -149,14 +146,15 @@ async fn main() -> Result<()> {
 
             debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
-            // TODO: Derive socket_path inside the constructor.
-            let _daemon = Daemon::new(app_config, &socket_path, init_doc, persist)
+            let _daemon = Daemon::new(app_config, init_doc, persist)
                 .await
                 .context("Failed to launch the daemon")?;
             wait_for_shutdown().await;
         }
         Commands::Client => {
-            jsonrpc_forwarder::connection(&socket_path)
+            let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
+            jsonrpc_forwarder
+                .connection(&directory)
                 .await
                 .context("JSON-RPC forwarder failed")?;
         }
