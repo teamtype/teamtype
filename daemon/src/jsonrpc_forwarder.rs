@@ -32,32 +32,10 @@ pub trait JSONRPCForwarder<
     W: AsyncWrite + Unpin + Send + 'static,
 >
 {
-    async fn connection(&self, directory: &Path) -> anyhow::Result<()>;
     async fn connect_stream(
         &self,
         directory: &Path,
     ) -> anyhow::Result<(FramedRead<R, LinesCodec>, FramedWrite<W, LinesCodec>)>;
-}
-
-pub struct UnixJSONRPCForwarder {}
-
-#[async_trait(?Send)]
-impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
-    async fn connect_stream(
-        &self,
-        directory: &Path,
-    ) -> anyhow::Result<(
-        FramedRead<OwnedReadHalf, LinesCodec>,
-        FramedWrite<OwnedWriteHalf, LinesCodec>,
-    )> {
-        // Construct socket object, which send/receive newline-delimited messages.
-        let socket_path = directory.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
-        let stream = UnixStream::connect(socket_path).await?;
-        let (socket_read, socket_write) = stream.into_split();
-        let socket_read = FramedRead::new(socket_read, LinesCodec::new());
-        let socket_write = FramedWrite::new(socket_write, LinesCodec::new());
-        Ok((socket_read, socket_write))
-    }
 
     async fn connection(&self, base_dir: &Path) -> anyhow::Result<()> {
         let (mut socket_read, mut socket_write) = self.connect_stream(base_dir).await?;
@@ -82,6 +60,27 @@ impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
         }
         // Stdin was closed.
         std::process::exit(0);
+    }
+}
+
+pub struct UnixJSONRPCForwarder {}
+
+#[async_trait(?Send)]
+impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
+    async fn connect_stream(
+        &self,
+        directory: &Path,
+    ) -> anyhow::Result<(
+        FramedRead<OwnedReadHalf, LinesCodec>,
+        FramedWrite<OwnedWriteHalf, LinesCodec>,
+    )> {
+        // Construct socket object, which send/receive newline-delimited messages.
+        let socket_path = directory.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
+        let stream = UnixStream::connect(socket_path).await?;
+        let (socket_read, socket_write) = stream.into_split();
+        let socket_read = FramedRead::new(socket_read, LinesCodec::new());
+        let socket_write = FramedWrite::new(socket_write, LinesCodec::new());
+        Ok((socket_read, socket_write))
     }
 }
 
