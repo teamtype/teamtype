@@ -13,6 +13,7 @@
 //! - takes jsonrpc from a socket (usually a daemon) and wraps it content-length encoded data to stdout
 //! - takes content-length encoded data from stdin (as sent by an LSP client) and writes it
 //!   "unpacked" to the socket
+use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use std::path::Path;
 use tokio::io::{BufReader, BufWriter};
@@ -24,34 +25,44 @@ use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 pub const DEFAULT_SOCKET_NAME: &str = "socket";
 pub const CONFIG_DIR: &str = ".teamtype";
 
-pub async fn connection(base_dir: &Path) -> anyhow::Result<()> {
-    // Construct socket object, which send/receive newline-delimited messages.
-    let socket_path = base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
-    let stream = UnixStream::connect(socket_path).await?;
-    let (socket_read, socket_write) = stream.into_split();
-    let mut socket_read = FramedRead::new(socket_read, LinesCodec::new());
-    let mut socket_write = FramedWrite::new(socket_write, LinesCodec::new());
+#[async_trait(?Send)]
+pub trait JSONRPCForwarder {
+    async fn connection(&self, directory: &Path) -> anyhow::Result<()>;
+}
 
-    // Construct stdin/stdout objects, which send/receive messages with a Content-Length header.
-    let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
-    let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
+pub struct UnixJSONRPCForwarder {}
 
-    tokio::spawn(async move {
-        while let Some(Ok(message)) = socket_read.next().await {
-            stdout
-                .send(message)
-                .await
-                .expect("Failed to write to stdout");
+#[async_trait(?Send)]
+impl JSONRPCForwarder for UnixJSONRPCForwarder {
+    async fn connection(&self, base_dir: &Path) -> anyhow::Result<()> {
+        // Construct socket object, which send/receive newline-delimited messages.
+        let socket_path = base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
+        let stream = UnixStream::connect(socket_path).await?;
+        let (socket_read, socket_write) = stream.into_split();
+        let mut socket_read = FramedRead::new(socket_read, LinesCodec::new());
+        let mut socket_write = FramedWrite::new(socket_write, LinesCodec::new());
+
+        // Construct stdin/stdout objects, which send/receive messages with a Content-Length header.
+        let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
+        let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
+
+        tokio::spawn(async move {
+            while let Some(Ok(message)) = socket_read.next().await {
+                stdout
+                    .send(message)
+                    .await
+                    .expect("Failed to write to stdout");
+            }
+            // Socket was closed.
+            std::process::exit(0);
+        });
+
+        while let Some(Ok(message)) = stdin.next().await {
+            socket_write.send(message).await?;
         }
-        // Socket was closed.
+        // Stdin was closed.
         std::process::exit(0);
-    });
-
-    while let Some(Ok(message)) = stdin.next().await {
-        socket_write.send(message).await?;
     }
-    // Stdin was closed.
-    std::process::exit(0);
 }
 
 struct ContentLengthCodec;
