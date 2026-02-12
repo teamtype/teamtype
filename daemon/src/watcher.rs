@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{config::AppConfig, sandbox};
+use crate::{config::AppConfig};
 use notify::{
     RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher as NotifyWatcher,
     event::EventKind,
@@ -122,7 +122,7 @@ impl Watcher {
                         )) => {
                             assert!(event.paths.len() == 1);
                             let file_path = event.paths[0].clone();
-                            match sandbox::exists(&self.app_config.base_dir, &file_path) {
+                            match self.app_config.sandbox.exists(&self.app_config.base_dir, &file_path) {
                                 Ok(path_exists) => {
                                     if path_exists {
                                         self.maybe_created(&file_path);
@@ -187,7 +187,7 @@ impl Watcher {
     }
 
     fn maybe_created(&mut self, file_path: &Path) {
-        match sandbox::ignored(&self.app_config, file_path) {
+        match self.app_config.sandbox.ignored(&self.app_config, file_path) {
             Ok(is_ignored) => {
                 if is_ignored {
                     debug!("Ignoring creation of '{}'", file_path.display());
@@ -214,7 +214,7 @@ impl Watcher {
     }
 
     fn maybe_modified(&mut self, file_path: &Path) {
-        match sandbox::ignored(&self.app_config, file_path) {
+        match self.app_config.sandbox.ignored(&self.app_config, file_path) {
             Ok(is_ignored) => {
                 if is_ignored {
                     debug!("Ignoring modification of '{}'", file_path.display());
@@ -283,7 +283,7 @@ mod tests {
 
         let app_config = AppConfig {
             base_dir: dir_path.clone(),
-            ..Default::default()
+            ..AppConfig::default()
         };
 
         (dir, dir_path, app_config)
@@ -296,8 +296,8 @@ mod tests {
         let mut file = dir_path.clone();
         file.push("file");
 
-        let mut watcher = Watcher::spawn(app_config);
-        sandbox::write_file(&dir_path, &file, b"hi").unwrap();
+        let mut watcher = Watcher::spawn(app_config.clone());
+        app_config.sandbox.write_file(&dir_path, &file, b"hi").unwrap();
 
         assert_eq!(
             watcher.recv().await,
@@ -315,11 +315,11 @@ mod tests {
 
         let mut file = dir_path.clone();
         file.push("file");
-        sandbox::write_file(&dir_path, &file, b"hi").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(app_config);
+        let mut watcher = Watcher::spawn(app_config.clone());
 
-        sandbox::write_file(&dir_path, &file, b"yo").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"yo").unwrap();
 
         assert_eq!(
             watcher.recv().await,
@@ -336,11 +336,11 @@ mod tests {
 
         let mut file = dir_path.clone();
         file.push("file");
-        sandbox::write_file(&dir_path, &file, b"hi").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(app_config);
+        let mut watcher = Watcher::spawn(app_config.clone());
 
-        sandbox::remove_file(&dir_path, &file).unwrap();
+        app_config.sandbox.remove_file(&dir_path, &file).unwrap();
 
         assert_eq!(
             watcher.recv().await,
@@ -359,11 +359,11 @@ mod tests {
         file.push("file");
         let mut file_new = dir_path.clone();
         file_new.push("file2");
-        sandbox::write_file(&dir_path, &file, b"hi").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(app_config);
+        let mut watcher = Watcher::spawn(app_config.clone());
 
-        sandbox::rename_file(&dir_path, &file, &file_new).unwrap();
+        app_config.sandbox.rename_file(&dir_path, &file, &file_new).unwrap();
 
         assert_eq!(
             watcher.recv().await,
@@ -388,18 +388,18 @@ mod tests {
 
         let mut gitignore = dir_path.clone();
         gitignore.push(".ignore");
-        sandbox::write_file(&dir_path, &gitignore, b"file").unwrap();
+        app_config.sandbox.write_file(&dir_path, &gitignore, b"file").unwrap();
 
         sleep(Duration::from_millis(100)).await;
-        let mut watcher = Watcher::spawn(app_config);
+        let mut watcher = Watcher::spawn(app_config.clone());
 
         let mut file = dir_path.clone();
         file.push("file");
         let mut file2 = dir_path.clone();
         file2.push("file2");
 
-        sandbox::write_file(&dir_path, &file, b"hi").unwrap();
-        sandbox::write_file(&dir_path, &file2, b"ho").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"hi").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file2, b"ho").unwrap();
 
         assert_eq!(
             watcher.recv().await,
@@ -416,12 +416,12 @@ mod tests {
 
         let mut file = dir_path.clone();
         file.push("file");
-        sandbox::write_file(&dir_path, &file, b"hi").unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(app_config);
+        let mut watcher = Watcher::spawn(app_config.clone());
 
-        sandbox::remove_file(&dir_path, &file).unwrap();
-        sandbox::write_file(&dir_path, &file, b"i'm back").unwrap();
+        app_config.sandbox.remove_file(&dir_path, &file).unwrap();
+        app_config.sandbox.write_file(&dir_path, &file, b"i'm back").unwrap();
 
         assert_eq!(
             watcher.recv().await,

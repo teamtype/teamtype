@@ -4446,6 +4446,7 @@ dependencies = [
  "constant_time_eq",
  "derive_more 2.1.1",
  "dissimilar",
+ "dyn-clone",
  "futures 0.3.31",
  "git2",
  "ignore",
