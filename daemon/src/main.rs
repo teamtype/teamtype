@@ -21,6 +21,7 @@ use tracing::{debug, info, warn};
 
 mod cli;
 mod jsonrpc_forwarder;
+use crate::jsonrpc_forwarder::JSONRPCForwarder;
 
 fn has_ethersync_directory(dir: &Path) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
@@ -151,7 +152,9 @@ async fn main() -> Result<()> {
             wait_for_shutdown().await;
         }
         Commands::Client => {
-            jsonrpc_forwarder::connection(&directory)
+            let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
+            jsonrpc_forwarder
+                .connection(&directory)
                 .await
                 .context("JSON-RPC forwarder failed")?;
         }
