@@ -135,7 +135,7 @@ The directories are now connected, and changes will be synced instantly. You can
 
 ## 🔨 Contributing
 
-We'd love to receive your patches and other contributions! Small patches are very welcome as PRs. Before starting to implement a new big feature, please briefly [check in with us](#contact) so we can discuss how it fits in with our ideas for the project.
+We'd love to receive your patches and other contributions! Small patches are very welcome as PRs. Before starting to implement a new big feature, please briefly [check in with us](#contact) so we can discuss how it fits in with our ideas for the project. We have a [CONTRIBUTING.md](CONTRIBUTING.md) file that gives more guidance.
 
 If you're interested in building new editor plugins, read the [editor plugin development guide](https://teamtype.github.io/teamtype/editor-plugin-dev-guide).
 For more information about Teamtype's design, refer to the list of [decision records](docs/decisions/).
