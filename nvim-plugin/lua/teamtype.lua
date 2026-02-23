@@ -183,6 +183,12 @@ local function on_buffer_open()
     local buf_nr = tonumber(vim.fn.expand("<abuf>"))
     local buf_name = vim.api.nvim_buf_get_name(buf_nr)
 
+    -- Early return to avoid unnamed buffers such as diagnostics
+    -- Resolves #491
+    if buf_name == "" then
+        return
+    end
+
     for name, server in pairs(configurations) do
         if server.enabled then
             if server.cfg.root_dir then
