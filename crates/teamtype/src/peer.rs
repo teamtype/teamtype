@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module provides a [`ConnectionManager`], which can be used to connect to other daemons.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -30,6 +30,7 @@ use url::Url;
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::config::Config;
 use crate::daemon::DocumentActorHandle;
+use crate::permissions::{check_mode, create_with_mode};
 use crate::types::UserInterface;
 
 mod sync;
@@ -167,12 +168,7 @@ impl ConnectionManager {
             let metadata =
                 fs::metadata(&keyfile).expect("Expected to have access to metadata of the keyfile");
 
-            let current_permissions = metadata.permissions().mode();
-            let allowed_permissions = 0o100_600;
-            assert!(
-                current_permissions == allowed_permissions,
-                "For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600)."
-            );
+            check_mode(keyfile.as_path(), 0o100_600).expect("For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
 
             assert!(
                 metadata.len() == 64,
@@ -199,11 +195,7 @@ impl ConnectionManager {
             let secret_key = SecretKey::generate(OsRng);
             let passphrase = SecretKey::generate(OsRng);
 
-            let mut file = OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o600)
-                .open(keyfile)
+            let mut file = create_with_mode(keyfile, 0o600)
                 .expect("Should have been able to create key file that did not exist before");
 
             file.write_all(&secret_key.to_bytes())

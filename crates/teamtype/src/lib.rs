@@ -29,5 +29,6 @@ mod jsonrpc_forwarder;
 mod ot;
 mod path;
 mod peer;
+mod permissions;
 mod watcher;
 mod wormhole;
