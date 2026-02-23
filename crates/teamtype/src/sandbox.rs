@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -11,7 +12,6 @@
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::bail;
@@ -21,6 +21,7 @@ use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
 use crate::config::Config;
+use crate::permissions::set_mode;
 
 pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -86,8 +87,7 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
     let has_dir = canonical_dir_path.exists() && canonical_dir_path.is_dir();
     if !has_dir {
         fs::create_dir(&canonical_dir_path)?;
-        let permissions = fs::Permissions::from_mode(0o700);
-        fs::set_permissions(canonical_dir_path, permissions)?;
+        set_mode(canonical_dir_path, 0o700)?;
     }
     Ok(())
 }
@@ -238,6 +238,7 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
     Ok(canonical_path)
 }
 
+#[cfg(unix)]
 #[cfg(test)]
 mod tests {
     use std::os::unix::fs::symlink;

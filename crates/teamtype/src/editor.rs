@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module is all about daemon to editor communication.
 
-use std::os::unix::fs::PermissionsExt;
+use std::env;
 use std::path::{Path, PathBuf};
-use std::{env, fs};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
@@ -27,6 +27,7 @@ use crate::daemon::{DocMessage, DocumentActorHandle};
 use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
+use crate::permissions::check_mode;
 use crate::sandbox;
 use crate::types::UserInterface;
 
@@ -62,30 +63,6 @@ impl Decoder for IncomingProtocolCodec {
     }
 }
 
-fn is_user_readable_only(socket_path: &Path) -> Result<()> {
-    let parent_dir = socket_path
-        .parent()
-        .context("The socket path should not be the root directory")?;
-    let current_permissions = fs::metadata(parent_dir)
-        .with_context(|| {
-            format!(
-                "Expected to have access to metadata of the socket's parent directory: {}",
-                parent_dir.display()
-            )
-        })?
-        .permissions()
-        .mode();
-    // Group and others should not have any permissions.
-    let allowed_permissions = 0o77700u32;
-    if current_permissions | allowed_permissions != allowed_permissions {
-        bail!(
-            "For security reasons, the parent directory of the socket must only be accessible by the current user. Please run `chmod go-rwx {}`",
-            parent_dir.display()
-        );
-    }
-    Ok(())
-}
-
 pub fn strip_current_dir(path: &Path) -> PathBuf {
     let Ok(cwd) = env::current_dir() else {
         return path.to_path_buf();
@@ -102,10 +79,11 @@ pub fn spawn_socket_listener(
     document_handle: DocumentActorHandle,
     ui: &UserInterface,
 ) -> Result<()> {
+    let parent_path = socket_path
+        .parent()
+        .context("Invalid socket creation location")?;
     // Make sure the parent directory of the socket is only accessible by the current user.
-    if let Err(description) = is_user_readable_only(socket_path) {
-        bail!("{description}");
-    }
+    check_mode(parent_path, 0o77700u32)?;
 
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
@@ -133,11 +111,7 @@ pub fn spawn_socket_listener(
     // (which already changes to that location) but it will make this API usable when linked as a
     // library without changing the parent thread's location for keeps.
     let previous_cwd = env::current_dir()?;
-    env::set_current_dir(
-        socket_path
-            .parent()
-            .context("Invalid socket creation location")?,
-    )?;
+    env::set_current_dir(parent_path)?;
     let listener = UnixListener::bind(strip_current_dir(socket_path))?;
     env::set_current_dir(previous_cwd)?;
     debug!("Listening on UNIX socket: {}", socket_path.display());
