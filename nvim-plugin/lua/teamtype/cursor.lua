@@ -20,6 +20,8 @@ local cursor_namespace = vim.api.nvim_create_namespace("Teamtype")
 local offset_encoding = "utf-32"
 local cursor_timeout_ms = 300 * 1000
 local following_user_id = nil
+-- keeps track across ModeChanged events whether the last mode was visual
+local was_visual_selection = nil
 
 local function show_cursor_information(name, cursor)
     return (name or "Unknown user") .. " @ " .. vim.uri_to_fname(cursor.uri) .. ":" .. cursor.range.start.line + 1
@@ -153,11 +155,18 @@ end
 function M.track_cursor(bufnr, callback)
     vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "ModeChanged" }, {
         buffer = bufnr,
-        callback = function()
+        callback = function(ev)
             local ranges = {}
 
             -- TODO: Split this code into multiple functions.
             local visualSelection = vim.fn.mode() == "v" or vim.fn.mode() == "V" or vim.fn.mode() == ""
+
+            -- We only care about "ModeChanged" if we were in visual mode to clear the range seen by the peer.
+            if ev.event == "ModeChanged" and not was_visual_selection then
+                return
+            end
+            was_visual_selection = visualSelection
+
             if visualSelection then
                 -- This is the "active end" that the protocol talks about.
                 local end_row, end_col = unpack(vim.api.nvim_win_get_cursor(0))
