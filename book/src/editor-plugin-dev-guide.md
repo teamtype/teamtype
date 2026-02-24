@@ -106,7 +106,7 @@ These should be sent as notifications, there is no need to reply to them.
 
 ### Sending an example message to the daemon
 
-To send messages to the daemon manually, you can try the following. Assuming you can start the daemon on a playground as described in the [first steps](first-steps.md), now we add some debugging output:
+To send messages to the daemon manually, you can try the following. Assuming you can start the daemon in a testing directory as described in the [README](https://github.com/teamtype/teamtype?tab=readme-ov-file#-basic-usage), now we add some debugging output:
 ```bash
 RUST_LOG=teamtype=debug teamtype share playground
 # Note for below: You will see some output like "Listening on UNIX socket: <dir>/.teamtype/socket"
