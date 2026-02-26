@@ -287,14 +287,6 @@ fn get_current_directory() -> Result<PathBuf> {
 }
 
 async fn wait_for_shutdown() {
-    let mut signal_terminate = signal::unix::signal(signal::unix::SignalKind::terminate())
-        .expect("Should have been able to create terminate signal stream");
-    tokio::select! {
-        _ = signal::ctrl_c() => {
-            debug!("Got SIGINT (Ctrl+C), shutting down");
-        }
-        _ = signal_terminate.recv() => {
-            debug!("Got SIGTERM, shutting down");
-        }
-    }
+    signal::ctrl_c().await.expect("failed to listen for event");
+    debug!("Got SIGINT (Ctrl+C), shutting down");
 }
