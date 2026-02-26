@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::config::{self, AppConfig};
-use crate::document::Document;
+use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
 use crate::editor_protocol::{
@@ -48,7 +48,7 @@ pub const TEST_FILE_PATH: &str = "text";
 #[must_use]
 pub enum DocMessage {
     GetContent {
-        response_tx: oneshot::Sender<Result<String>>,
+        response_tx: oneshot::Sender<Option<document::Content>>,
     },
     FromEditor(EditorId, IncomingMessage),
     ToEditor(EditorId, OutgoingMessage),
@@ -176,7 +176,10 @@ impl DocumentActor {
         match message {
             DocMessage::GetContent { response_tx } => {
                 response_tx
-                    .send(self.current_file_content(&RelativePath::new(TEST_FILE_PATH)))
+                    .send(
+                        self.current_file_content(&RelativePath::new(TEST_FILE_PATH))
+                            .cloned(),
+                    )
                     .expect("Failed to send content to response channel");
             }
             DocMessage::RandomEdit => {
@@ -227,7 +230,7 @@ impl DocumentActor {
 
                 let patches = self.apply_sync_message_to_doc(message, &mut peer_state);
 
-                let patch_effects = PatchEffect::from_crdt_patches(patches);
+                let patch_effects = PatchEffect::from_crdt_patches(&patches);
 
                 let mut file_deltas = vec![];
 
@@ -478,7 +481,8 @@ impl DocumentActor {
             // TODO: Once we get back to processing file changes while editors have it
             // open, send the delta returned by update_text to editors.
         } else {
-            self.crdt_doc.set_bytes(&new_content, relative_file_path);
+            self.crdt_doc
+                .set_file(document::Content::Bytes(new_content), relative_file_path);
         }
         let _ = self.doc_changed_ping_tx.send(());
     }
@@ -503,9 +507,11 @@ impl DocumentActor {
 
     #[must_use]
     fn random_delta(&self) -> TextDelta {
-        let text = self
-            .current_file_content(&RelativePath::new(TEST_FILE_PATH))
-            .expect("Should have initialized text before performing random edit");
+        let Some(document::Content::String(text)) =
+            self.current_file_content(&RelativePath::new(TEST_FILE_PATH))
+        else {
+            panic!("Should have initialized text before performing random edit");
+        };
         let mut rng = rand::thread_rng();
         let options = ["d", "ü", "🥕", "💚", "\n"];
         let random_text: String =
@@ -557,9 +563,9 @@ impl DocumentActor {
     }
 
     fn write_file(&self, file_path: &RelativePath) {
-        if let Ok(text) = self.current_file_content(file_path) {
-            let bytes = text.into_bytes();
-            self.ensure_file_has_bytes(file_path, &bytes);
+        if let Some(document::Content::String(text)) = self.current_file_content(file_path) {
+            let bytes = text.as_bytes();
+            self.ensure_file_has_bytes(file_path, bytes);
         } else {
             warn!(
                 "Failed to get content of file '{file_path}' when writing to disk. Key should have existed?"
@@ -608,12 +614,16 @@ impl DocumentActor {
                     if self.owns(&relative_file_path) {
                         if let Ok(text) = String::from_utf8(bytes.clone()) {
                             if init {
-                                self.crdt_doc.initialize_text(&text, &relative_file_path);
+                                self.crdt_doc.set_file(
+                                    document::Content::String(text.clone()),
+                                    &relative_file_path,
+                                );
                             } else {
                                 self.crdt_doc.update_text(&text, &relative_file_path);
                             }
                         } else {
-                            self.crdt_doc.set_bytes(&bytes, &relative_file_path);
+                            self.crdt_doc
+                                .set_file(document::Content::Bytes(bytes), &relative_file_path);
                         }
                     }
                 }
@@ -640,7 +650,7 @@ impl DocumentActor {
         let _ = self.doc_changed_ping_tx.send(());
     }
 
-    fn current_file_content(&self, file_path: &RelativePath) -> Result<String> {
+    fn current_file_content(&self, file_path: &RelativePath) -> Option<&document::Content> {
         self.crdt_doc.current_file_content(file_path)
     }
 
@@ -669,10 +679,12 @@ impl DocumentActor {
 
         match message {
             ComponentMessage::Open { file_path, content } => {
-                if let Ok(crdt_content) = self.current_file_content(file_path) {
+                if let Some(document::Content::String(crdt_content)) =
+                    self.current_file_content(file_path)
+                {
                     // We want to compare the content sent along with the "open" with the content
                     // that's known to the CRDT.
-                    let chunks = dissimilar::diff(content, &crdt_content);
+                    let chunks = dissimilar::diff(content, crdt_content);
                     if let [] | [dissimilar::Chunk::Equal(_)] = chunks.as_slice() {
                         // The contents match, nothing to do.
                     } else {
@@ -688,7 +700,8 @@ impl DocumentActor {
                     }
                 } else {
                     // The file doesn't exist yet - create it in the Automerge document.
-                    self.crdt_doc.initialize_text(content, file_path);
+                    self.crdt_doc
+                        .set_file(document::Content::String(content.clone()), file_path);
                     let _ = self.doc_changed_ping_tx.send(());
                     self.write_file(file_path);
                 }
@@ -899,7 +912,7 @@ impl DocumentActorHandle {
         self.ephemeral_message_tx.subscribe()
     }
 
-    pub async fn content(&self) -> Result<String> {
+    pub async fn content(&self) -> Option<document::Content> {
         let (send, recv) = oneshot::channel();
         let message = DocMessage::GetContent { response_tx: send };
         // Ignore send errors, because recv.await will fail anyway.
@@ -1107,8 +1120,10 @@ mod tests {
                 )
             }
             fn assert_file_content(&self, file_path: &RelativePath, content: &str) {
-                // unfortunately anyhow::Error doesn't implement PartialEq, so we'll rather unwrap.
-                assert_eq!(self.current_file_content(file_path).unwrap(), content);
+                assert_eq!(
+                    self.current_file_content(file_path),
+                    Some(document::Content::String(content.to_string())).as_ref()
+                );
             }
         }
 
