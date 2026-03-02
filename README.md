@@ -84,7 +84,7 @@ Make sure to also have it in your PATH when you run the editors, or install it t
 <summary>Via Cargo</summary>
 
 ```bash
-cargo install teamtype
+cargo install --locked teamtype
 ```
 </details>
 
