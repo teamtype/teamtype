@@ -31,6 +31,8 @@ impl OutgoingMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+/// JSON-RPC 2.0 allows request ids to be either Number or String.
+/// See: https://www.jsonrpc.org/specification#request_object
 pub enum JsonRpcId {
     Number(usize),
     String(String),
@@ -138,19 +140,6 @@ mod test_serde {
     }
 
     #[test]
-    fn success() {
-        let message = OutgoingMessage::Response(JSONRPCResponse::RequestSuccess {
-            id: JsonRpcId::Number(1),
-            result: "success".to_string(),
-        });
-        let jsonrpc = message.to_jsonrpc();
-        assert_eq!(
-            jsonrpc.unwrap(),
-            r#"{"id":1,"jsonrpc":"2.0","result":"success"}"#
-        );
-    }
-
-    #[test]
     fn open_with_string_id() {
         let message = IncomingMessage::from_jsonrpc(
             r#"{"jsonrpc":"2.0","id":"1","method":"open","params":{"uri":"file:\/\/\/tmp\/file","content":"initial content"}}"#,
@@ -168,19 +157,15 @@ mod test_serde {
     }
 
     #[test]
-    fn error() {
-        let message = OutgoingMessage::Response(JSONRPCResponse::RequestError {
-            id: Some(JsonRpcId::Number(1)),
-            error: EditorProtocolMessageError {
-                code: -1,
-                message: "title".into(),
-                data: Some("content".into()),
-            },
+    fn success() {
+        let message = OutgoingMessage::Response(JSONRPCResponse::RequestSuccess {
+            id: JsonRpcId::Number(1),
+            result: "success".to_string(),
         });
         let jsonrpc = message.to_jsonrpc();
         assert_eq!(
             jsonrpc.unwrap(),
-            r#"{"error":{"code":-1,"data":"content","message":"title"},"id":1,"jsonrpc":"2.0"}"#
+            r#"{"id":1,"jsonrpc":"2.0","result":"success"}"#
         );
     }
 
@@ -194,6 +179,23 @@ mod test_serde {
         assert_eq!(
             jsonrpc.unwrap(),
             r#"{"id":"req-1","jsonrpc":"2.0","result":"success"}"#
+        );
+    }
+
+    #[test]
+    fn error() {
+        let message = OutgoingMessage::Response(JSONRPCResponse::RequestError {
+            id: Some(JsonRpcId::Number(1)),
+            error: EditorProtocolMessageError {
+                code: -1,
+                message: "title".into(),
+                data: Some("content".into()),
+            },
+        });
+        let jsonrpc = message.to_jsonrpc();
+        assert_eq!(
+            jsonrpc.unwrap(),
+            r#"{"error":{"code":-1,"data":"content","message":"title"},"id":1,"jsonrpc":"2.0"}"#
         );
     }
 }
