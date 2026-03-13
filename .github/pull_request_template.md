@@ -21,9 +21,7 @@ submitting your pull request.
 -->
 
 - [ ] I described the changes of the PR in the [CHANGELOG](https://github.com/teamtype/teamtype/blob/main/CHANGELOG.md).
-- [ ] I have tested, and self-reviewed my code.
+- [ ] I have manually tested and self-reviewed my changes.
 - [ ] I have added myself to the REUSE headers in the files where I made significant changes.
-- [ ] I have pointed out to what extent I used generative AI / LLMs when writing the code and accompanying descriptions.
 - [ ] I have used generative AI/LLMs for producing this PR. Here's which tool I used, and to which extent:
     - [ ] I have reviewed the output carefully, and I understand the resulting changes in detail. I am responsible for the changes, and I made sure that my PR represents excellent work.
-- [ ] I have manually tested my changes, if applicable.
