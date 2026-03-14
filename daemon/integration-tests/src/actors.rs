@@ -6,7 +6,7 @@
 use crate::socket::*;
 
 use teamtype::daemon::Daemon;
-use teamtype::sandbox;
+use teamtype::{document, sandbox};
 
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
@@ -75,7 +75,10 @@ impl Actor for Daemon {
     }
 
     async fn content(&self) -> String {
-        self.document_handle.content().await.unwrap()
+        let Some(document::Content::String(string)) = self.document_handle.content().await else {
+            panic!("Could not retrive a string via .content()");
+        };
+        string
     }
 }
 
