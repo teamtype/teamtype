@@ -29,11 +29,36 @@ impl OutgoingMessage {
     }
 }
 
+/// An identifier based on the [JSON-RPC spec](https://www.jsonrpc.org/specification):
+///
+/// > An identifier established by the Client that MUST contain a String, Number, or NULL value if
+/// > included. If it is not included it is assumed to be a notification. The value SHOULD normally
+/// > not be Null [1](https://www.jsonrpc.org/specification#id1) and Numbers SHOULD NOT contain
+/// > fractional parts [2](https://www.jsonrpc.org/specification#id2)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum JSONRPCId {
+    Usize(usize),
+    String(String),
+}
+
+impl From<usize> for JSONRPCId {
+    fn from(value: usize) -> Self {
+        Self::Usize(value)
+    }
+}
+
+impl From<String> for JSONRPCId {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IncomingMessage {
     Request {
-        id: usize,
+        id: JSONRPCId,
         #[serde(flatten)]
         payload: EditorProtocolMessageFromEditor,
     },
@@ -69,12 +94,12 @@ pub enum EditorProtocolMessageToEditor {
 #[serde(untagged)]
 pub enum JSONRPCResponse {
     RequestSuccess {
-        id: usize,
+        id: JSONRPCId,
         result: String,
     },
     RequestError {
         // id must be Null if there was an error detecting the id in the Request Object.
-        id: Option<usize>,
+        id: Option<JSONRPCId>,
         error: EditorProtocolMessageError,
     },
 }
@@ -121,7 +146,24 @@ mod test_serde {
         assert_eq!(
             message.unwrap(),
             IncomingMessage::Request {
-                id: 1,
+                id: 1.into(),
+                payload: EditorProtocolMessageFromEditor::Open {
+                    uri: "file:///tmp/file".into(),
+                    content: "initial content".to_string(),
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn open_with_string_id() {
+        let message = IncomingMessage::from_jsonrpc(
+            r#"{"jsonrpc":"2.0","id":"1","method":"open","params":{"uri":"file:\/\/\/tmp\/file","content":"initial content"}}"#,
+        );
+        assert_eq!(
+            message.unwrap(),
+            IncomingMessage::Request {
+                id: "1".to_string().into(),
                 payload: EditorProtocolMessageFromEditor::Open {
                     uri: "file:///tmp/file".into(),
                     content: "initial content".to_string(),
@@ -133,7 +175,7 @@ mod test_serde {
     #[test]
     fn success() {
         let message = OutgoingMessage::Response(JSONRPCResponse::RequestSuccess {
-            id: 1,
+            id: 1.into(),
             result: "success".to_string(),
         });
         let jsonrpc = message.to_jsonrpc();
@@ -144,9 +186,22 @@ mod test_serde {
     }
 
     #[test]
+    fn success_with_string_id() {
+        let message = OutgoingMessage::Response(JSONRPCResponse::RequestSuccess {
+            id: "1".to_string().into(),
+            result: "success".to_string(),
+        });
+        let jsonrpc = message.to_jsonrpc();
+        assert_eq!(
+            jsonrpc.unwrap(),
+            r#"{"id":"1","jsonrpc":"2.0","result":"success"}"#
+        );
+    }
+
+    #[test]
     fn error() {
         let message = OutgoingMessage::Response(JSONRPCResponse::RequestError {
-            id: Some(1),
+            id: Some(1.into()),
             error: EditorProtocolMessageError {
                 code: -1,
                 message: "title".into(),

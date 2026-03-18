@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
+
 # 0.9.1 (2026-01-28)
 
 *Teamtype enables real-time collaborative editing of local text files, in an editor-agnostic way.*
