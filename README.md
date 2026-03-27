@@ -125,13 +125,27 @@ The directories are now connected, and changes will be synced instantly. You can
 - Watch a [10-minute talk](https://fosdem.org/2025/schedule/event/fosdem-2025-4890-ethersync-real-time-collaboration-in-your-text-editor-/) given at FOSDEM 2025.
 - Watch a (German) [1-hour talk](https://media.ccc.de/v/2024-355-ethersync-echtzeit-kollaboration-in-deinem-texteditor-) given at MRMCD 2024.
 
-## 🚧 Community projects
+## 🏘️ Community projects
 
-(These are all work-in-progress!)
+Plugins:
 
-- @schrieveslaach's [Jetbrains plugin](https://github.com/teamtype/teamtype-jetbrains)
+- @schrieveslaach is maintaining a [plugin for Jetbrains IDEs](https://github.com/teamtype/teamtype-jetbrains)
+- [TeXstudio](https://www.texstudio.org) has a [Teamtype integration](https://texstudio-org.github.io/editing.html#collaborative-editing-pair-programming)
+
+Work-in-progress plugins:
+
 - @sohalt's [Emacs plugin](https://github.com/sohalt/ethersync.el)
+- @hvergara's [Obsidian plugin](github.com/critica-tech-lab/pasta-obsidian)
 - @winniehell's [web editor](https://github.com/teamtype/teamtype-web)
+- [Emacs plugin](https://github.com/teamtype/teamtype/tree/emacs-plugin)
+- @thwischm's [Kakoune plugin](https://github.com/thwischm/kak-ethersync)
+
+Bridges:
+
+- [Hedgedoc bridge prototype](https://github.com/teamtype/teamtype/tree/hedgedoc-prototype/daemon)
+- @dglittle's [Braid bridge](https://github.com/braid-org/braid-ethersync)
+- [LSP bridge](https://github.com/teamtype/teamtype-lsp)
+- @3timeslazy's [LSP bridge](https://github.com/nonscalable/teamtype-lsp/tree/main/crates/teamtype-lsp) (see this [discussion](https://github.com/teamtype/teamtype/discussions/440))
 
 ## 🔨 Contributing
 
