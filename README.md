@@ -33,7 +33,7 @@ We're just a bunch of people building something we want to see in the world.
 
 ## 🚦 Project status
 
-The project is under active development right now. We use it every day, but there's still some [bugs](https://github.com/teamtype/teamtype/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen+%28label%3Abug+OR+type%3ABug%29) to be aware of.
+We're currently maintaining Teamtype in our free time. We're often using it for pair programming ourselves, but there's still some [bugs](https://github.com/teamtype/teamtype/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen+%28label%3Abug+OR+type%3ABug%29) to be aware of.
 
 ## 📥 Installation
 
