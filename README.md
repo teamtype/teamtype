@@ -144,7 +144,7 @@ If you find bugs, please [open an issue](https://github.com/teamtype/teamtype/is
 
 ## ☎️ Contact
 
-Feel free to [open a discussion on Github](https://github.com/teamtype/teamtype/discussions) to ask us anything! Other good channels:
+Feel free to [join us on Zulip](https://teamtype.zulipchat.com) to ask us anything! Other good channels:
 
 - Mastodon: [@teamtype@fosstodon.org](https://fosstodon.org/@teamtype)
 - Email: <span>t<span title="ihate@spam.com&lt;/span&gt;">e</span>amtype</span>@zormit<i title="&lt;/i&gt;mailto:">.</i>de
