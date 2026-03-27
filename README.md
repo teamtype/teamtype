@@ -5,7 +5,7 @@ SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-# 🍃 Teamtype
+<img src="https://raw.githubusercontent.com/teamtype/teamtype-design/refs/heads/main/logo/regular/on-light.svg" width="250px">
 
 *Multiplayer mode for your text editor!*
 
