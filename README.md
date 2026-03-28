@@ -119,6 +119,15 @@ Connected to peer: 5e6b787fff79074735eb9b56939269100de1e37bc7f7a4d29c277cc24f7ee
 
 The directories are now connected, and changes will be synced instantly. You can open text files (using editors with a Teamtype plugin), and start collaborating in real time! :sparkles:
 
+## 🚜 Compiling
+
+Navigate to daemon and execute
+
+```
+$ cargo build --release
+
+This will create a binary called target/release/teamtype
+
 ## 🎓 Learn more
 
 - Learn more about Teamtype in [the documentation](https://teamtype.github.io/teamtype).
