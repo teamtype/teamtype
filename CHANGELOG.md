@@ -9,6 +9,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
+Add support for `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.
+
 ## Note for package maintainers: Renamed the Linux binaries
 
 We've renamed the Linux binaries

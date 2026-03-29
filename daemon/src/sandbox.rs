@@ -108,6 +108,7 @@ pub fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf> {
     }
 
     let walk = WalkBuilder::new(&app_config.base_dir)
+        .add_custom_ignore_filename(".teamtypeignore")
         .standard_filters(true)
         .hidden(false)
         .require_git(false)
@@ -339,6 +340,69 @@ mod tests {
 
         // File not exist.
         assert!(read_file(&project_dir, &project_dir.join("nonexistant")).is_err());
+    }
+
+    #[test]
+    fn obeys_teamtypeignore() {
+        // set up test scenario:
+        let dir = tempdir().expect("Failed to create temp directory");
+        let project_dir = dir.path().join("project");
+        fs::create_dir(&project_dir).expect("Failed to create directory");
+        fs::write(project_dir.join("a.txt"), b"visible file").expect("Failed to write file");
+        fs::write(project_dir.join("b.txt"), b"another visible file")
+            .expect("Failed to write file");
+        fs::write(project_dir.join("secret.txt"), b"should be ignored")
+            .expect("Failed to write file");
+
+        fs::create_dir(project_dir.join("ignored_dir")).expect("Failed to create directory");
+
+        fs::write(
+            project_dir.join("ignored_dir").join("c.txt"),
+            b"should be ignored",
+        )
+        .expect("Failed to write file");
+        fs::write(project_dir.join("debug.log"), b"should be ignored")
+            .expect("Failed to write file");
+
+        fs::write(
+            project_dir.join(".teamtypeignore"),
+            b"secret.txt\nignored_dir/\n*.log\n",
+        )
+        .expect("Failed to write .teamtypeignore");
+
+        let app_config = AppConfig {
+            base_dir: project_dir,
+            ..Default::default()
+        };
+
+        let files = enumerate_non_ignored_files(&app_config);
+        let file_names: Vec<&str> = files
+            .iter()
+            .filter_map(|p| p.file_name())
+            .filter_map(|n| n.to_str())
+            .collect();
+
+        // assertions:
+        assert!(
+            file_names.contains(&"a.txt"),
+            "a.txt should be in the list of files"
+        );
+        assert!(
+            file_names.contains(&"b.txt"),
+            "b.txt should be in the list of files"
+        );
+        assert!(
+            !file_names.contains(&"secret.txt"),
+            "secret.txt should be ignored by .teamtypeignore"
+        );
+        assert!(
+            !file_names.contains(&"ignored_dir"),
+            "ignored_dir should be ignored by .teamtypeignore"
+        );
+        assert!(
+            !file_names.contains(&"debug.log"),
+            "debug.log should be ignored by .teamtypeignore"
+        );
     }
 
     #[test]
