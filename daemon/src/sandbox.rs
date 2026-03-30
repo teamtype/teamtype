@@ -248,6 +248,19 @@ mod tests {
         fs::write(project_dir.join("dir").join("b"), b"This is b file")
             .expect("Failed to write file");
         fs::write(dir.path().join("secret"), b"This is a secret").expect("Failed to write file");
+        fs::write(project_dir.join("a.txt"), b"visible file").expect("Failed to write file");
+        fs::write(project_dir.join("b.txt"), b"another visible file")
+            .expect("Failed to write file");
+        fs::write(project_dir.join("secret.txt"), b"should be ignored")
+            .expect("Failed to write file");
+        fs::create_dir(project_dir.join("ignored_dir")).expect("Failed to create directory");
+        fs::write(
+            project_dir.join("ignored_dir").join("c.txt"),
+            b"should be ignored",
+        )
+        .expect("Failed to write file");
+        fs::write(project_dir.join("debug.log"), b"should be ignored")
+            .expect("Failed to write file");
 
         dir
     }
@@ -346,21 +359,6 @@ mod tests {
     fn obeys_teamtypeignore() {
         let dir = temp_dir_setup();
         let project_dir = dir.path().join("project");
-
-        fs::write(project_dir.join("a.txt"), b"visible file").expect("Failed to write file");
-        fs::write(project_dir.join("b.txt"), b"another visible file")
-            .expect("Failed to write file");
-        fs::write(project_dir.join("secret.txt"), b"should be ignored")
-            .expect("Failed to write file");
-
-        fs::create_dir(project_dir.join("ignored_dir")).expect("Failed to create directory");
-        fs::write(
-            project_dir.join("ignored_dir").join("c.txt"),
-            b"should be ignored",
-        )
-        .expect("Failed to write file");
-        fs::write(project_dir.join("debug.log"), b"should be ignored")
-            .expect("Failed to write file");
 
         fs::write(
             project_dir.join(".teamtypeignore"),
