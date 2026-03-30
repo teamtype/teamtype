@@ -9,6 +9,12 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
+## Note for package maintainers: Renamed the Linux binaries
+
+We've renamed the Linux binaries
+- `teamtype-x86_64-unknown-linux-musl` to `teamtype-x86_64-linux-static`
+- `teamtype-aarch64-unknown-linux-musl` to `teamtype-aarch64-linux-static`
+
 # 0.9.1 (2026-01-28)
 
 *Teamtype enables real-time collaborative editing of local text files, in an editor-agnostic way.*

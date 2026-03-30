@@ -29,8 +29,10 @@ jobs:
         include:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
+            archive: $bin-x86_64-linux-static
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
+            archive: $bin-aarch64-linux-static
           - target: universal-apple-darwin
             os: macos-latest
     runs-on: ${{ matrix.os }}
