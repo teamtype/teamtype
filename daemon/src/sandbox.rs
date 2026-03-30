@@ -344,10 +344,9 @@ mod tests {
 
     #[test]
     fn obeys_teamtypeignore() {
-        // set up test scenario:
-        let dir = tempdir().expect("Failed to create temp directory");
+        let dir = temp_dir_setup();
         let project_dir = dir.path().join("project");
-        fs::create_dir(&project_dir).expect("Failed to create directory");
+
         fs::write(project_dir.join("a.txt"), b"visible file").expect("Failed to write file");
         fs::write(project_dir.join("b.txt"), b"another visible file")
             .expect("Failed to write file");
@@ -355,7 +354,6 @@ mod tests {
             .expect("Failed to write file");
 
         fs::create_dir(project_dir.join("ignored_dir")).expect("Failed to create directory");
-
         fs::write(
             project_dir.join("ignored_dir").join("c.txt"),
             b"should be ignored",
@@ -382,7 +380,6 @@ mod tests {
             .filter_map(|n| n.to_str())
             .collect();
 
-        // assertions:
         assert!(
             file_names.contains(&"a.txt"),
             "a.txt should be in the list of files"
