@@ -135,7 +135,7 @@ Plugins:
 Work-in-progress plugins:
 
 - @sohalt's [Emacs plugin](https://github.com/sohalt/ethersync.el)
-- @hvergara's [Obsidian plugin](github.com/critica-tech-lab/pasta-obsidian)
+- @hvergara's [Obsidian plugin](https://github.com/critica-tech-lab/pasta-obsidian)
 - @winniehell's [web editor](https://github.com/teamtype/teamtype-web)
 - [Emacs plugin](https://github.com/teamtype/teamtype/tree/emacs-plugin)
 - @thwischm's [Kakoune plugin](https://github.com/thwischm/kak-ethersync)
