@@ -25,6 +25,8 @@ Teamtype enables real-time collaborative editing of local text files. You can us
 - ✒️ Local-first: You always have full access, even offline
 - 🧩 [Simple JSON-RPC protocol](https://teamtype.github.io/teamtype/editor-plugin-dev-guide.html) for writing new editor plugins
 
+We also maintain a list of [other collaborative text-editing software](https://teamtype.github.io/teamtype/related-projects.html).
+
 ## What Teamtype is not
 
 We are not a company, and don't sell anything. We don't require you to create an account. We don't have access to your data, and don't use it to train AI algorithms. We don't serve you ads, and don't track you.
