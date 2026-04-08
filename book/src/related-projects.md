@@ -7,39 +7,68 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Related Projects
 
-There have been a number of attempts of enabling collaborative text editing! If you think a project is missing, feel free to [submit an issue or a PR](https://github.com/teamtype/teamtype) to add them to the list!
+There have been a number of attempts of enabling collaborative text editing!
+If you think a project is missing, feel free to [submit an issue or a PR][teamtype] to add them to the list!
 
-| | Open-source | Actively developed[^active] | Peer-to-peer | Local-first[^local-first] | Editor-agnostic |
-|-|-|-|-|-|-|
-| [Teamtype](https://teamtype.org)                                                     | ✅ | ✅ | ✅ | ✅ | ✅ (Neovim, VS Code, JetBrains IDEs, TeXstudio) |
-| [Open Collab Tools](https://www.open-collab.tools)                                   | ✅ | ✅ | ❌ | ✅ | ✅ (VS Code, Eclipse Theia) |
-| [Reflection](https://github.com/p2panda/reflection)                                  | ✅ | ✅ | ✅ | ✅ | ❌ (Standalone) |
-| [Zed Collaboration](https://github.com/zed-industries/zed/tree/main/crates/collab)   | ✅ | ✅ | ❌ | ✅ | ❌ (Zed) |
-| [Tandem](https://github.com/typeintandem/tandem)                                     | ✅ | ❌ | ✅ | ✅ | ✅ (Sublime, Neovim, Vim) |
-| [crdt.el](https://github.com/zaeph/crdt.el)                                          | ✅ | ❌ | ✅ | ✅ | ❌ (Emacs) |
-| [instant.nvim](https://github.com/jbyuki/instant.nvim)                               | ✅ | ❌ | ✅ | ✅ | ❌ (Neovim) |
-| [Teletype](https://github.com/atom/teletype)                                         | ✅ | ❌ | ✅ | ✅ | ❌ (Atom) |
-| [Etherpad](https://etherpad.org)                                                     | ✅ | ✅ | ❌ | ❌ | ❌ (Web) |
-| [HedgeDoc](https://hedgedoc.org)                                                     | ✅ | ✅ | ❌ | ❌[^hedgedoc] | ❌ (Web) |
-| [CryptPad](https://cryptpad.org)                                                     | ✅ | ✅ | ❌ | ❌ | ❌ (Web) |
-| [Nextcloud Collectives](https://github.com/nextcloud/collectives) via [Text](https://github.com/nextcloud/text) | ✅ | ✅ | ❌ | ✅ | ❌ (Web) |
-| [Rustpad](https://github.com/ekzhang/rustpad)                                        | ✅ | ✅ | ❌ | ❌ | ❌ (Web) |
-| [Collabora Online](https://www.collaboraonline.com)                                  | ✅ | ✅ | ❌ | ❌ | ❌ (Web) |
-| [Overleaf](https://github.com/overleaf/overleaf)                                     | ✅[^open-core] | ✅ | ❌ | ❌ | ❌ (Web) |
-| [SubEthaEdit](https://en.wikipedia.org/wiki/SubEthaEdit)                             | ✅ | ✅ | ✅ | ❌ | ❌ (Standalone) |
-| [Acme](http://acme.cat-v.org/) of [Plan 9](https://github.com/9fans/plan9port/)      | ✅ | ✅ | ❌ | ❌ | ❌ (Standalone) |
-| [CoVim](https://github.com/FredKSchott/CoVim)                                        | ✅ | ❌ | ❌ | ❌ | ❌ (Vim) |
-| [togetherly.el](https://github.com/zk-phi/togetherly)                                | ✅ | ❌ | ❌ | ❌ | ❌ (Emacs) |
-| [Gobby](https://en.wikipedia.org/wiki/Gobby)                                         | ✅ | ❌ | ✅ | ❌ | ❌ (Standalone) |
-| [codemp](https://code.mp)                                                            | ❌[^server] | ✅ | ❌ | ✅ | ✅ (Neovim, VS Code, Sublime, JetBrains IDEs) |
-| [Floobits](https://github.com/Floobits)                                              | ❌[^server] | ❌ | ❌ | ❌ | ✅ (Sublime, Atom, Neovim, Vim, JetBrains IDEs, Emacs) |
-| [Duckly](https://duckly.com/)                                                        | ❌ | ❌ | ❌ | ❌ | ✅ (VS Code, JetBrains IDEs) |
-| [Google Docs](https://en.wikipedia.org/wiki/Google_Docs)                             | ❌ | ✅ | ❌ | ❌ | ❌ (Web) |
-| [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/)  | ❌ | ✅ | ❌ | ❌ | ❌ (Visual Studio, VS Code) |
-| [IntelliJ's Code With Me](https://www.jetbrains.com/help/idea/code-with-me.html)     | ❌ | ❌ | ❌ | ❌ | ❌ (JetBrains IDEs) |
+|                                                           | FOSS        | Active[^a] | P2P | CRDT   | Editor-agnostic                                        |
+|-----------------------------------------------------------|-------------|------------|-----|--------|--------------------------------------------------------|
+| [Teamtype][teamtype]                                      | ✅          | ✅         | ✅  | ✅     | ✅ (Neovim, VS Code, JetBrains IDEs, TeXstudio)        |
+| [Reflection][reflection]                                  | ✅          | ✅         | ✅  | ✅     | ❌ (Standalone)                                        |
+| [SubEthaEdit][subethaedit]                                | ✅          | ✅         | ✅  | ❌     | ❌ (Standalone)                                        |
+| [Open Collab Tools][opencollab]                           | ✅          | ✅         | ❌  | ✅     | ✅ (VS Code, Eclipse Theia)                            |
+| [Nextcloud Collectives][nccollectives] via [Text][nctext] | ✅          | ✅         | ❌  | ✅     | ❌ (Web)                                               |
+| [Zed Collaboration][zedcolab]                             | ✅          | ✅         | ❌  | ✅     | ❌ (Zed)                                               |
+| [Acme][acme] of [Plan 9][plan9]                           | ✅          | ✅         | ❌  | ❌     | ❌ (Standalone)                                        |
+| [Collabora Online][collabora]                             | ✅          | ✅         | ❌  | ❌     | ❌ (Web)                                               |
+| [CryptPad][cryptpad]                                      | ✅          | ✅         | ❌  | ❌     | ❌ (Web)                                               |
+| [Etherpad][etherpad]                                      | ✅          | ✅         | ❌  | ❌     | ❌ (Web)                                               |
+| [HedgeDoc][hedgedoc]                                      | ✅          | ✅         | ❌  | ❌[^n] | ❌ (Web)                                               |
+| [Overleaf][overleaf]                                      | ✅[^mixed]  | ✅         | ❌  | ❌     | ❌ (Web)                                               |
+| [Rustpad][rustpad]                                        | ✅          | ✅         | ❌  | ❌     | ❌ (Web)                                               |
+| [Tandem][tandem]                                          | ✅          | ❌         | ✅  | ✅     | ✅ (Sublime, Neovim, Vim)                              |
+| [Teletype][teletype]                                      | ✅          | ❌         | ✅  | ✅     | ❌ (Atom)                                              |
+| [crdt.el][crdtel]                                         | ✅          | ❌         | ✅  | ✅     | ❌ (Emacs)                                             |
+| [instant.nvim][instantnvim]                               | ✅          | ❌         | ✅  | ✅     | ❌ (Neovim)                                            |
+| [Gobby][gobby]                                            | ✅          | ❌         | ✅  | ❌     | ❌ (Standalone)                                        |
+| [CoVim][coby]                                             | ✅          | ❌         | ❌  | ❌     | ❌ (Vim)                                               |
+| [togetherly.el][togetherly]                               | ✅          | ❌         | ❌  | ❌     | ❌ (Emacs)                                             |
+| [codemp][codemp]                                          | ❌[^server] | ✅         | ❌  | ✅     | ✅ (Neovim, VS Code, Sublime, JetBrains IDEs)          |
+| [Floobits][floobits]                                      | ❌[^server] | ❌         | ❌  | ❌     | ✅ (Sublime, Atom, Neovim, Vim, JetBrains IDEs, Emacs) |
+| [Google Docs][googledocs]                                 | ❌          | ✅         | ❌  | ❌     | ❌ (Web)                                               |
+| [VS Live Share][vsliveshare]                              | ❌          | ✅         | ❌  | ❌     | ❌ (Visual Studio, VS Code)                            |
+| [Duckly][duckly]                                          | ❌          | ❌         | ❌  | ❌     | ✅ (VS Code, JetBrains IDEs)                           |
+| [Code With Me][codewithme]                                | ❌          | ❌         | ❌  | ❌     | ❌ (JetBrains IDEs)                                    |
 
-[^active]: As of April 2026
-[^local-first]: This column indicates that the software uses CRDTs, we haven't checked for good offline support
-[^hedgedoc]: Will use CRDTs starting with the (upcoming) version 2.0
+[^a]: Actively developed as of April 2026
+[^n]: Not currently released, but developed and expected in the next major release
 [^server]: Open-source plugins, proprietary server
-[^open-core]: Open-source core with limited features
+[^mixed]: Open-source core with limited features
+
+[acme]: http://acme.cat-v.org
+[coby]: https://github.com/FredKSchott/CoVim
+[codemp]: https://code.mp
+[codewithme]: https://www.jetbrains.com/help/idea/code-with-me.html
+[collabora]: https://www.collaboraonline.com
+[crdtel]: https://github.com/zaeph/crdt.el
+[cryptpad]: https://cryptpad.org
+[duckly]: https://duckly.com
+[etherpad]: https://etherpad.org
+[floobits]: https://github.com/Floobits
+[gobby]: https://en.wikipedia.org/wiki/Gobby
+[googledocs]: https://en.wikipedia.org/wiki/Google_Docs
+[hedgedoc]: https://hedgedoc.org
+[instantnvim]: https://github.com/jbyuki/instant.nvim
+[nccollectives]: https://github.com/nextcloud/collectives
+[nctext]: https://github.com/nextcloud/text
+[opencollab]: https://www.open-collab.tools
+[overleaf]: https://github.com/overleaf/overleaf
+[plan9]: https://github.com/9fans/plan9port
+[reflection]: https://github.com/p2panda/reflection
+[rustpad]: https://github.com/ekzhang/rustpad
+[subethaedit]: https://en.wikipedia.org/wiki/SubEthaEdit
+[tandem]: https://github.com/typeintandem/tandem
+[teamtype]: https://teamtype.org
+[teletype]: https://github.com/atom/teletype
+[togetherly]: https://github.com/zk-phi/togetherly
+[vsliveshare]: https://visualstudio.microsoft.com/services/live-share
+[zedcolab]: https://github.com/zed-industries/zed/tree/main/crates/collab
