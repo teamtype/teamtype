@@ -9,6 +9,10 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
+## Add option to use a custom Iroh relay server
+
+You can now specify your own self-hosted Iroh relay server using the `--iroh-relay <url>` CLI flag on `share`/`join`, or by setting `iroh_relay = <url>` in `.teamtype/config`.
+
 ## Note for package maintainers: Renamed the Linux binaries
 
 We've renamed the Linux binaries

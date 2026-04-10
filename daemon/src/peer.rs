@@ -60,10 +60,14 @@ pub struct ConnectionManager {
 }
 
 impl ConnectionManager {
-    pub async fn new(document_handle: DocumentActorHandle, base_dir: &Path) -> Result<Self> {
+    pub async fn new(
+        document_handle: DocumentActorHandle,
+        base_dir: &Path,
+        iroh_relay: Option<String>,
+    ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(base_dir).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(base_dir, iroh_relay).await?;
 
         let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
 
@@ -105,15 +109,25 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(base_dir: &Path) -> Result<(iroh::Endpoint, SecretKey)> {
+    async fn build_endpoint(
+        base_dir: &Path,
+        iroh_relay: Option<String>,
+    ) -> Result<(iroh::Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let endpoint = iroh::Endpoint::builder()
+        let mut builder = iroh::Endpoint::builder()
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()])
-            .discovery_n0()
-            .bind()
-            .await?;
+            .discovery_n0();
+
+        if let Some(url) = iroh_relay {
+            let relay_url: iroh::RelayUrl =
+                url.parse().context("Failed to parse iroh relay URL")?;
+            let relay_map = iroh::RelayMap::from(relay_url);
+            builder = builder.relay_mode(iroh::RelayMode::Custom(relay_map));
+        }
+
+        let endpoint = builder.bind().await?;
 
         Ok((endpoint, my_passphrase))
     }
