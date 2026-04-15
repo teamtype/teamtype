@@ -11,6 +11,19 @@ We're happy you want to contribute to Teamtype!
 
 Note: This document is in draft form and it's bringing up a few points that are important to us, but isn't expected to be complete yet.
 
+## Compiling the daemon from source
+
+You will need Rust's `cargo` tool.
+
+1. Clone this repository.
+2. Navigate to the `daemon/` subdirectory and run
+
+    ```bash
+    cargo build --locked --release
+    ```
+
+3. This will create a binary called `target/release/teamtype`, that needs to be added/moved to your shell's `$PATH`.
+
 ## REUSE policy
 
 We are following the [REUSE](https://reuse.software) standard for licensing our codebase.
