@@ -247,20 +247,11 @@ mod tests {
         fs::create_dir(project_dir.join("dir")).expect("Failed to create directory");
         fs::write(project_dir.join("dir").join("b"), b"This is b file")
             .expect("Failed to write file");
-        fs::write(dir.path().join("secret"), b"This is a secret").expect("Failed to write file");
-        fs::write(project_dir.join("a.txt"), b"visible file").expect("Failed to write file");
-        fs::write(project_dir.join("b.txt"), b"another visible file")
-            .expect("Failed to write file");
-        fs::write(project_dir.join("secret.txt"), b"should be ignored")
-            .expect("Failed to write file");
-        fs::create_dir(project_dir.join("ignored_dir")).expect("Failed to create directory");
         fs::write(
-            project_dir.join("ignored_dir").join("c.txt"),
-            b"should be ignored",
+            dir.path().join("file-outside-of-project"),
+            b"This is a file outside of project",
         )
         .expect("Failed to write file");
-        fs::write(project_dir.join("debug.log"), b"should be ignored")
-            .expect("Failed to write file");
 
         dir
     }
@@ -359,44 +350,29 @@ mod tests {
     fn obeys_teamtypeignore() {
         let dir = temp_dir_setup();
         let project_dir = dir.path().join("project");
+        let teamtypeignore = project_dir.join(".teamtypeignore");
 
-        fs::write(
-            project_dir.join(".teamtypeignore"),
-            b"secret.txt\nignored_dir/\n*.log\n",
-        )
-        .expect("Failed to write .teamtypeignore");
+        fs::write(&teamtypeignore, b"a\n").expect("Failed to write .teamtypeignore");
 
         let app_config = AppConfig {
-            base_dir: project_dir,
+            base_dir: project_dir.clone(),
             ..Default::default()
         };
 
-        let files = enumerate_non_ignored_files(&app_config);
-        let file_names: Vec<&str> = files
-            .iter()
-            .filter_map(|p| p.file_name())
-            .filter_map(|n| n.to_str())
-            .collect();
+        assert!(
+            ignored(&app_config, &project_dir.join("a")).unwrap(),
+            "a should be ignored"
+        );
+        assert!(
+            !ignored(&app_config, &project_dir.join("dir/b")).unwrap(),
+            "b should be not ignored"
+        );
+
+        fs::write(&teamtypeignore, b"a\ndir\n").expect("Failed to write .teamtypeignore");
 
         assert!(
-            file_names.contains(&"a.txt"),
-            "a.txt should be in the list of files"
-        );
-        assert!(
-            file_names.contains(&"b.txt"),
-            "b.txt should be in the list of files"
-        );
-        assert!(
-            !file_names.contains(&"secret.txt"),
-            "secret.txt should be ignored by .teamtypeignore"
-        );
-        assert!(
-            !file_names.contains(&"ignored_dir"),
-            "ignored_dir should be ignored by .teamtypeignore"
-        );
-        assert!(
-            !file_names.contains(&"debug.log"),
-            "debug.log should be ignored by .teamtypeignore"
+            ignored(&app_config, &project_dir.join("dir/b")).unwrap(),
+            "now b should be ignored"
         );
     }
 
@@ -406,7 +382,13 @@ mod tests {
         let project_dir = dir.path().join("project");
 
         // Not within the base dir.
-        assert!(read_file(&project_dir, &project_dir.join("..").join("secret")).is_err());
+        assert!(
+            read_file(
+                &project_dir,
+                &project_dir.join("..").join("file-outside-of-project")
+            )
+            .is_err()
+        );
 
         // It "starts" with the base dir, but it's not inside it.
         assert!(
