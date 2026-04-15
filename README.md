@@ -88,6 +88,13 @@ Make sure to also have it in your PATH when you run the editors, or install it t
 ```bash
 cargo install --locked teamtype
 ```
+
+To save some compilation time, you can use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall), which will install a precompiled binary attached to our latest release:
+
+```bash
+cargo binstall teamtype
+```
+
 </details>
 
 ### 2. Install an editor plugin
