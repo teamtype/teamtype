@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
+// SPDX-FileCopyrightText: 2026 TNG Technology Consulting GmbH <christoph.niehoff@tngtech.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -80,6 +81,8 @@ async fn main() -> Result<()> {
                     shared_flags:
                         ShareJoinFlags {
                             magic_wormhole_relay,
+                            relay,
+                            discovery,
                             sync_vcs,
                             username,
                             ..
@@ -95,6 +98,8 @@ async fn main() -> Result<()> {
                         emit_join_code: !no_join_code,
                         emit_secret_address: show_secret_address,
                         magic_wormhole_relay,
+                        relay,
+                        discovery,
                         sync_vcs,
                         username,
                     };
@@ -108,6 +113,8 @@ async fn main() -> Result<()> {
                     shared_flags:
                         ShareJoinFlags {
                             magic_wormhole_relay,
+                            relay,
+                            discovery,
                             sync_vcs,
                             username,
                             ..
@@ -120,6 +127,8 @@ async fn main() -> Result<()> {
                         emit_join_code: false,
                         emit_secret_address: false,
                         magic_wormhole_relay,
+                        relay,
+                        discovery,
                         sync_vcs,
                         username,
                     };

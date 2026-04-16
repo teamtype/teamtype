@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
+// SPDX-FileCopyrightText: 2026 TNG Technology Consulting GmbH <christoph.niehoff@tngtech.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -40,6 +41,10 @@ pub struct AppConfig {
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
     pub magic_wormhole_relay: Option<String>,
+    /// Custom iroh relay server URL. When set, replaces n0's default relay servers.
+    pub relay: Option<String>,
+    /// Custom pkarr discovery relay URL. When set, replaces n0's default discovery infrastructure.
+    pub discovery: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
     pub username: Option<String>,
@@ -97,6 +102,12 @@ impl AppConfig {
                 general_section
                     .get("magic_wormhole_relay")
                     .map(ToString::to_string)
+            }),
+            relay: app_config_cli.relay.or_else(|| {
+                general_section.get("relay").map(ToString::to_string)
+            }),
+            discovery: app_config_cli.discovery.or_else(|| {
+                general_section.get("discovery").map(ToString::to_string)
             }),
             sync_vcs: app_config_cli.sync_vcs,
             username: Some(username),
@@ -294,4 +305,169 @@ pub fn ensure_teamtype_is_ignored(directory: &Path) -> Result<()> {
         add_teamtype_to_local_gitignore(directory)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use tempfile::tempdir;
+
+    /// Write an INI-format config file into `<base_dir>/.teamtype/config`.
+    fn write_teamtype_config(base_dir: &Path, content: &str) {
+        let config_dir = base_dir.join(CONFIG_DIR);
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(config_dir.join(CONFIG_FILE), content).unwrap();
+    }
+
+    /// Build a minimal CLI AppConfig with only base_dir set, everything else defaulted.
+    fn cli_config(base_dir: &Path) -> AppConfig {
+        AppConfig {
+            base_dir: base_dir.to_path_buf(),
+            ..Default::default()
+        }
+    }
+
+    // ── relay ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn relay_absent_when_neither_cli_nor_config_file_set() {
+        let dir = tempdir().unwrap();
+        let result = AppConfig::from_config_file_and_cli(cli_config(dir.path()));
+        assert_eq!(result.relay, None);
+    }
+
+    #[test]
+    fn relay_taken_from_cli() {
+        let dir = tempdir().unwrap();
+        let mut config = cli_config(dir.path());
+        config.relay = Some("https://relay.cli.example.com".to_string());
+
+        let result = AppConfig::from_config_file_and_cli(config);
+        assert_eq!(
+            result.relay.as_deref(),
+            Some("https://relay.cli.example.com")
+        );
+    }
+
+    #[test]
+    fn relay_taken_from_config_file() {
+        let dir = tempdir().unwrap();
+        write_teamtype_config(dir.path(), "relay = https://relay.file.example.com\n");
+
+        let result = AppConfig::from_config_file_and_cli(cli_config(dir.path()));
+        assert_eq!(
+            result.relay.as_deref(),
+            Some("https://relay.file.example.com")
+        );
+    }
+
+    #[test]
+    fn relay_cli_takes_precedence_over_config_file() {
+        let dir = tempdir().unwrap();
+        write_teamtype_config(dir.path(), "relay = https://relay.file.example.com\n");
+
+        let mut config = cli_config(dir.path());
+        config.relay = Some("https://relay.cli.example.com".to_string());
+
+        let result = AppConfig::from_config_file_and_cli(config);
+        assert_eq!(
+            result.relay.as_deref(),
+            Some("https://relay.cli.example.com")
+        );
+    }
+
+    // ── discovery ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn discovery_absent_when_neither_cli_nor_config_file_set() {
+        let dir = tempdir().unwrap();
+        let result = AppConfig::from_config_file_and_cli(cli_config(dir.path()));
+        assert_eq!(result.discovery, None);
+    }
+
+    #[test]
+    fn discovery_taken_from_cli() {
+        let dir = tempdir().unwrap();
+        let mut config = cli_config(dir.path());
+        config.discovery = Some("https://discovery.cli.example.com/pkarr".to_string());
+
+        let result = AppConfig::from_config_file_and_cli(config);
+        assert_eq!(
+            result.discovery.as_deref(),
+            Some("https://discovery.cli.example.com/pkarr")
+        );
+    }
+
+    #[test]
+    fn discovery_taken_from_config_file() {
+        let dir = tempdir().unwrap();
+        write_teamtype_config(
+            dir.path(),
+            "discovery = https://discovery.file.example.com/pkarr\n",
+        );
+
+        let result = AppConfig::from_config_file_and_cli(cli_config(dir.path()));
+        assert_eq!(
+            result.discovery.as_deref(),
+            Some("https://discovery.file.example.com/pkarr")
+        );
+    }
+
+    #[test]
+    fn discovery_cli_takes_precedence_over_config_file() {
+        let dir = tempdir().unwrap();
+        write_teamtype_config(
+            dir.path(),
+            "discovery = https://discovery.file.example.com/pkarr\n",
+        );
+
+        let mut config = cli_config(dir.path());
+        config.discovery = Some("https://discovery.cli.example.com/pkarr".to_string());
+
+        let result = AppConfig::from_config_file_and_cli(config);
+        assert_eq!(
+            result.discovery.as_deref(),
+            Some("https://discovery.cli.example.com/pkarr")
+        );
+    }
+
+    // ── relay + discovery together ─────────────────────────────────────────────
+
+    #[test]
+    fn relay_and_discovery_both_taken_from_cli() {
+        let dir = tempdir().unwrap();
+        let mut config = cli_config(dir.path());
+        config.relay = Some("https://relay.cli.example.com".to_string());
+        config.discovery = Some("https://discovery.cli.example.com/pkarr".to_string());
+
+        let result = AppConfig::from_config_file_and_cli(config);
+        assert_eq!(
+            result.relay.as_deref(),
+            Some("https://relay.cli.example.com")
+        );
+        assert_eq!(
+            result.discovery.as_deref(),
+            Some("https://discovery.cli.example.com/pkarr")
+        );
+    }
+
+    #[test]
+    fn relay_and_discovery_both_taken_from_config_file() {
+        let dir = tempdir().unwrap();
+        write_teamtype_config(
+            dir.path(),
+            "relay = https://relay.file.example.com\ndiscovery = https://discovery.file.example.com/pkarr\n",
+        );
+
+        let result = AppConfig::from_config_file_and_cli(cli_config(dir.path()));
+        assert_eq!(
+            result.relay.as_deref(),
+            Some("https://relay.file.example.com")
+        );
+        assert_eq!(
+            result.discovery.as_deref(),
+            Some("https://discovery.file.example.com/pkarr")
+        );
+    }
 }

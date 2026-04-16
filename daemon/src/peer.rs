@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 TNG Technology Consulting GmbH <christoph.niehoff@tngtech.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -9,8 +10,9 @@ use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::daemon::DocumentActorHandle;
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
-use iroh::endpoint::{RecvStream, SendStream};
-use iroh::{NodeAddr, SecretKey};
+use iroh::endpoint::{RecvStream, RelayMode, SendStream};
+use iroh::{NodeAddr, RelayMap, RelayUrl, SecretKey};
+use iroh::discovery::{ConcurrentDiscovery, dns::DnsDiscovery, pkarr::{PkarrPublisher, PkarrResolver}};
 use postcard::{from_bytes, to_allocvec};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -60,10 +62,15 @@ pub struct ConnectionManager {
 }
 
 impl ConnectionManager {
-    pub async fn new(document_handle: DocumentActorHandle, base_dir: &Path) -> Result<Self> {
+    pub async fn new(
+        document_handle: DocumentActorHandle,
+        base_dir: &Path,
+        relay: Option<String>,
+        discovery: Option<String>,
+    ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(base_dir).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(base_dir, relay, discovery).await?;
 
         let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
 
@@ -105,16 +112,50 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(base_dir: &Path) -> Result<(iroh::Endpoint, SecretKey)> {
+    async fn build_endpoint(
+        base_dir: &Path,
+        relay: Option<String>,
+        discovery: Option<String>,
+    ) -> Result<(iroh::Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let endpoint = iroh::Endpoint::builder()
-            .secret_key(secret_key)
-            .alpns(vec![ALPN.to_vec()])
-            .discovery_n0()
-            .bind()
-            .await?;
+        let mut builder = iroh::Endpoint::builder()
+            .secret_key(secret_key.clone())
+            .alpns(vec![ALPN.to_vec()]);
 
+        match (&relay, &discovery) {
+            (None, None) => {
+                // Default: use n0's infrastructure (current behavior).
+                builder = builder.discovery_n0();
+            }
+            _ => {
+                // Custom: configure relay and discovery separately.
+                if let Some(relay_url) = &relay {
+                    let url: RelayUrl = relay_url.parse()?;
+                    let relay_map = RelayMap::from(url);
+                    builder = builder.relay_mode(RelayMode::Custom(relay_map));
+                    info!("Using custom iroh relay: {}", relay_url);
+                }
+
+                if let Some(discovery_url) = &discovery {
+                    let pkarr_url: url::Url = discovery_url.parse()?;
+                    let concurrent = ConcurrentDiscovery::from_services(vec![
+                        Box::new(PkarrPublisher::new(secret_key.clone(), pkarr_url.clone())),
+                        Box::new(PkarrResolver::new(pkarr_url)),
+                    ]);
+                    builder = builder.discovery(Box::new(concurrent));
+                    info!("Using custom pkarr discovery: {}", discovery_url);
+                } else {
+                    // relay is set but discovery is not: keep n0's discovery services.
+                    builder = builder
+                        .add_discovery(|sk| Some(PkarrPublisher::n0_dns(sk.clone())))
+                        .add_discovery(|_| Some(PkarrResolver::n0_dns()))
+                        .add_discovery(|_| Some(DnsDiscovery::n0_dns()));
+                }
+            }
+        }
+
+        let endpoint = builder.bind().await?;
         Ok((endpoint, my_passphrase))
     }
 
@@ -429,6 +470,113 @@ impl IrohConnection {
         let mut bytes = vec![0; byte_count as usize];
         receive.read_exact(&mut bytes).await?;
         from_bytes(&bytes).context("Failed to convert bytes to PeerMessage")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    /// Create a temp dir with the `.teamtype/` subdirectory that `get_keypair` expects.
+    fn make_temp_base_dir() -> tempfile::TempDir {
+        let dir = tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join(".teamtype")).unwrap();
+        dir
+    }
+
+    // ── URL validation ─────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn build_endpoint_invalid_relay_url_returns_error() {
+        let dir = make_temp_base_dir();
+        let result =
+            ConnectionManager::build_endpoint(dir.path(), Some("not-a-url".to_string()), None)
+                .await;
+        assert!(result.is_err(), "expected Err for invalid relay URL");
+    }
+
+    #[tokio::test]
+    async fn build_endpoint_invalid_discovery_url_returns_error() {
+        let dir = make_temp_base_dir();
+        let result =
+            ConnectionManager::build_endpoint(dir.path(), None, Some("not-a-url".to_string()))
+                .await;
+        assert!(result.is_err(), "expected Err for invalid discovery URL");
+    }
+
+    // ── successful builds ──────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn build_endpoint_default_succeeds_and_has_discovery() {
+        let dir = make_temp_base_dir();
+        let (endpoint, _passphrase) =
+            ConnectionManager::build_endpoint(dir.path(), None, None)
+                .await
+                .expect("default build_endpoint should succeed");
+
+        // n0's discovery_n0() always installs a discovery service.
+        assert!(
+            endpoint.discovery().is_some(),
+            "default endpoint should have discovery configured"
+        );
+        endpoint.close().await;
+    }
+
+    #[tokio::test]
+    async fn build_endpoint_custom_relay_succeeds_and_retains_discovery() {
+        let dir = make_temp_base_dir();
+        // Use an unreachable URL: bind() succeeds since relay connection is lazy.
+        let (endpoint, _passphrase) = ConnectionManager::build_endpoint(
+            dir.path(),
+            Some("https://relay.example.com".to_string()),
+            None,
+        )
+        .await
+        .expect("custom-relay build_endpoint should succeed");
+
+        // When only relay is custom, we manually re-add the three n0 discovery services.
+        assert!(
+            endpoint.discovery().is_some(),
+            "custom-relay endpoint should still have discovery configured"
+        );
+        endpoint.close().await;
+    }
+
+    #[tokio::test]
+    async fn build_endpoint_custom_discovery_succeeds_and_has_discovery() {
+        let dir = make_temp_base_dir();
+        let (endpoint, _passphrase) = ConnectionManager::build_endpoint(
+            dir.path(),
+            None,
+            Some("https://discovery.example.com/pkarr".to_string()),
+        )
+        .await
+        .expect("custom-discovery build_endpoint should succeed");
+
+        assert!(
+            endpoint.discovery().is_some(),
+            "custom-discovery endpoint should have discovery configured"
+        );
+        endpoint.close().await;
+    }
+
+    #[tokio::test]
+    async fn build_endpoint_both_custom_succeeds_and_has_discovery() {
+        let dir = make_temp_base_dir();
+        let (endpoint, _passphrase) = ConnectionManager::build_endpoint(
+            dir.path(),
+            Some("https://relay.example.com".to_string()),
+            Some("https://discovery.example.com/pkarr".to_string()),
+        )
+        .await
+        .expect("fully-custom build_endpoint should succeed");
+
+        assert!(
+            endpoint.discovery().is_some(),
+            "fully-custom endpoint should have discovery configured"
+        );
+        endpoint.close().await;
     }
 }
 

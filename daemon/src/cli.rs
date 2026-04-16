@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
+// SPDX-FileCopyrightText: 2026 TNG Technology Consulting GmbH <christoph.niehoff@tngtech.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -46,6 +47,14 @@ pub struct ShareJoinFlags {
     /// Use an alternative Magic Wormhole mailbox server relay url
     #[arg(long)]
     pub magic_wormhole_relay: Option<String>,
+    /// Use an alternative iroh relay server URL for peer-to-peer connections.
+    /// When set, replaces n0's default relay servers. Format: https://relay.example.com
+    #[arg(long)]
+    pub relay: Option<String>,
+    /// Use an alternative pkarr discovery relay URL for node address publishing and resolving.
+    /// When set, replaces n0's default discovery infrastructure. Format: https://discovery.example.com/pkarr
+    #[arg(long)]
+    pub discovery: Option<String>,
     #[arg(long)]
     /// The name that others see next to your cursor. Defaults to your Git username.
     pub username: Option<String>,

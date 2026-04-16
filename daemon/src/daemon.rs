@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 TNG Technology Consulting GmbH <christoph.niehoff@tngtech.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -969,9 +970,14 @@ impl Daemon {
         }
 
         // Start connection manager.
-        let connection_manager = peer::ConnectionManager::new(document_handle.clone(), &base_dir)
-            .await
-            .expect("Failed to start connection manager");
+        let connection_manager = peer::ConnectionManager::new(
+            document_handle.clone(),
+            &base_dir,
+            app_config.relay.clone(),
+            app_config.discovery.clone(),
+        )
+        .await
+        .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {
