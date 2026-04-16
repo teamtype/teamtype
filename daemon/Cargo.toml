@@ -67,7 +67,7 @@ too_many_lines = "allow"
 [build-dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
-clap_mangen = "0.2"
+clap_mangen = "0.3"
 
 [dependencies]
 anyhow = "1"
