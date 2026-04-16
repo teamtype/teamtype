@@ -58,7 +58,7 @@ dissimilar = "1"
 futures = { version = "0.3", default-features = false }
 git2 = { version = "0.20", default-features = false }
 ignore = "0.4"
-iroh = "0.96"
+iroh = "0.97"
 magic-wormhole = "0.8"
 microxdg = "0.2"
 notify = { version = "8", default-features = false, features = [

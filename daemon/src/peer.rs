@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -16,7 +17,7 @@ use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use iroh::address_lookup::DnsAddressLookup;
 use iroh::address_lookup::pkarr::PkarrPublisher;
-use iroh::endpoint::{RecvStream, SendStream};
+use iroh::endpoint::{RecvStream, SendStream, presets};
 use iroh::{EndpointAddr, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
@@ -123,7 +124,7 @@ impl ConnectionManager {
     ) -> Result<(iroh::Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let mut builder = iroh::Endpoint::builder()
+        let mut builder = iroh::Endpoint::builder(presets::N0)
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()]);
 
