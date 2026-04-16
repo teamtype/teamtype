@@ -67,7 +67,7 @@ ignore = "0.4"
 # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
 iroh = "0.35"
 # We cannot bump to 0.8 because Iroh 0.35's netwatcher usage causes mismatched types on macOS.
-magic-wormhole = "0.7"
+magic-wormhole = "0.8"
 microxdg = "0.2"
 operational-transform = "0.6"
 path-clean = "1"

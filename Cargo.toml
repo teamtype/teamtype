@@ -21,7 +21,7 @@ homepage = "https://teamtype.github.io/teamtype/"
 repository = "https://github.com/teamtype/teamtype"
 license = "AGPL-3.0-or-later"
 edition = "2024"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 
 [workspace.dependencies]
 anyhow = "1"
