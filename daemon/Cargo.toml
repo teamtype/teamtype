@@ -16,15 +16,15 @@ include = ["*.rs", "*.toml", "src/initial_automerge_doc.bin"]
 documentation = "https://teamtype.github.io"
 repository = "https://github.com/teamtype/teamtype"
 keywords = [
-    "collaboration",
-    "local-first",
-    "synchronization",
-    "crdt",
-    "peer-to-peer",
+	"collaboration",
+	"local-first",
+	"synchronization",
+	"crdt",
+	"peer-to-peer",
 ]
 categories = ["command-line-utilities", "text-editors"]
 edition = "2024"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 default-run = "teamtype"
 
 [[bin]]
@@ -59,10 +59,10 @@ futures = { version = "0.3", default-features = false }
 git2 = { version = "0.20", default-features = false }
 ignore = "0.4"
 iroh = "0.35" # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
-magic-wormhole = "0.7" # 0.8 fails on macos due to a bad interaction with iroh's netwatcher usage
+magic-wormhole = "0.8"
 microxdg = "0.2"
 notify = { version = "8", default-features = false, features = [
-    "macos_fsevent",
+	"macos_fsevent",
 ] }
 operational-transform = "0.6"
 path-clean = "1"
@@ -77,10 +77,10 @@ time = { version = "0.3", features = ["formatting", "macros"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "ansi",
-    "fmt",
-    "time",
-    "env-filter",
+	"ansi",
+	"fmt",
+	"time",
+	"env-filter",
 ] }
 url = "2"
 
