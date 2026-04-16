@@ -18,7 +18,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use iroh::address_lookup::DnsAddressLookup;
 use iroh::address_lookup::pkarr::PkarrPublisher;
-use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream};
+use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets};
 use iroh::{Endpoint, EndpointAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
 use rand::rngs::OsRng;
@@ -126,7 +126,7 @@ impl ConnectionManager {
     ) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let mut builder = Endpoint::builder()
+        let mut builder = Endpoint::builder(presets::N0)
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()]);
 
