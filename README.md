@@ -1,6 +1,7 @@
 <!--
 SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
@@ -12,34 +13,34 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 For complete end-user documentation see the [Teamtype Documentation][docs] site.
 
 > [!NOTE]
-> This project used to be called "Ethersync" until October 2025.
-> See [this PR][formerly] for our motivation.
+> Until October 2025, this project was known as "Ethersync".
+> The motivation for the rename was explained in [this PR][formerly].
 
-Teamtype enables real-time collaborative editing of local text files.
-You can use it for pair programming or note-taking, for example.
-It's the missing real-time complement to Git!
+Teamtype enables real-time peer-to-peer collaborative editing of local files using your own text editor or other tools.
+For example, you can use it for pair programming sessions, brainstorming, or note-taking.
+It's the missing real-time complement Git and other snapshot based version control systems!
 
 ![Demo video for how to make a connection and of collaborating in Neovim][demo-video]
 
 ## Features
 
-- 👥 Edit files at the same time, across different text editors
-- 📍 See your peers' cursors and selections
-- 🗃️ Work on entire projects, the way you're used to
-- 🔒 Encrypted peer-to-peer connections, no need for a server
-- ✒️ Local-first: You always have full access, even offline
-- 🧩 [Simple JSON-RPC protocol][dev-guide] for writing new editor plugins
+- 👥 Edit files concurrently by multiple users using different text editors
+- 📍 See your peers' cursors, selections, and edits in real time
+- 🗃️ Collaborate on entire directories, not just single files
+- 🔒 Rest easy with encrypted peer-to-peer connections, no need for a server
+- ✒️ Maintain full access with a local-first model that retains all content on disk even if you go offline
+- 🧩 Write new editor plugins using a [simple JSON-RPC protocol]][dev-guide]
 
 We also maintain a list of [other collaborative text-editing software][related-projects].
 
-## What Teamtype is not
+## What Teamtype is *not*
 
-We are not a company, and don't sell anything.
-We don't require you to create an account.
-We don't have access to your data, and don't use it to train AI algorithms.
-We don't serve you ads, and don't track you.
+We are not a company and do not have anything to sell.
+We do not require you to create an account.
+We do not have access to your data, and do not use it to train AI algorithms.
+We do not serve you ads or track you in any way.
 
-We're just a bunch of people building something we want to see in the world.
+We are just a bunch of people building something we want to use ourselves.
 
 ## 🚦 Project status
 
