@@ -13,7 +13,8 @@ For the workflows below, we assume that you already have an established Git repo
 
 Teamtype tracks changes that you make to files in editors with a Teamtype plugin, and with [external tools](file-events.md).
 
-However, any change to the `.git` directory and the staging area (which is in fact also tracked in the `.git` repository) is *ignored* by Teamtype by default. This means that in this mode, Teamtype does not sync
+However, any change to the `.git` directory and the staging area (which is in fact also tracked in the `.git` repository) is *ignored* by Teamtype by default.
+This means that in this mode, Teamtype does not sync
 - commits you create,
 - files that you stage or unstage, or
 - changes you're making to the HEAD.
@@ -30,15 +31,18 @@ These commands will not modify files, so you can run them without affecting conn
 
 ### Git commands that modify files
 
-These commands might change file contents (without going through an editor). The file watcher should pick them up, but currently, they might trigger a deletion and re-creation of the affected files.
-This is problematic if it happens in parallel to changes from other peers, or if they have them open in editors. We hope to build a smoother experience someday.
+These commands might change file contents (without going through an editor).
+The file watcher should pick them up, but currently, they might trigger a deletion and re-creation of the affected files.
+This is problematic if it happens in parallel to changes from other peers, or if they have them open in editors.
+We hope to build a smoother experience someday.
 
 - Synchronizing with a remote repository with `git push` and `git fetch`.
 - Use `git switch`/`git checkout` to switch to a different branch or get a specific file state from history.
 - Use `git reset --soft` or `git reset --mixed` to modify the staging area and the HEAD "manually".
 - Use `git restore`/`git checkout -- <pathspec>`/`git reset --hard HEAD` to undo your changes or get a different content of a file from the Git history.
 
-If you notice any discrepancies between directory content of connected peers, you can turn off the daemon, and restart it. The daemon will then pick up changes, as described in the section about [offline support](offline-support.md).
+If you notice any discrepancies between directory content of connected peers, you can turn off the daemon, and restart it.
+The daemon will then pick up changes, as described in the section about [offline support](offline-support.md).
 
 ## Recommended pair-programming workflow
 
@@ -56,13 +60,15 @@ git push
 
 ### Other peers
 
-1. Any other peer can then fetch the changes without applying them. Note: The changes *are* already applied to their working tree, through Teamtype.
+1. Any other peer can then fetch the changes without applying them.
+    Note: The changes *are* already applied to their working tree, through Teamtype.
 
     ```bash
     git fetch
     ```
 
-2. Now each peer can update the HEAD. The easiest option is to run:
+2. Now each peer can update the HEAD.
+    The easiest option is to run:
 
     ```bash
     git reset @{u}
@@ -70,8 +76,10 @@ git push
 
     What does this command do?
 
-    - `git reset` will move your current branch to the given commit, and also set your index to the content of that commit. Notably, it does *not* touch the working directory (because it already contains exactly the content we want).
-    - `@{u}` is an abbreviation for the upstream branch which the current branch is tracking. For example, it could mean `origin/main` (but it always refers to the correct upstream branch).
+    - `git reset` will move your current branch to the given commit, and also set your index to the content of that commit.
+      Notably, it does *not* touch the working directory (because it already contains exactly the content we want).
+    - `@{u}` is an abbreviation for the upstream branch which the current branch is tracking.
+      For example, it could mean `origin/main` (but it always refers to the correct upstream branch).
 
     As an effect, this command brings you to the same Git state like the committer.
 
@@ -79,10 +87,12 @@ All peers can then use `git status`/`git diff` to double check that they have th
 
 ## Recommended note-taking workflow
 
-In the note taking use case, you can use Git for keeping your own local backup copy of the note's contents. You can then use it, to track which parts have been changed by others, for example while you were offline.
+In the note taking use case, you can use Git for keeping your own local backup copy of the note's contents.
+You can then use it, to track which parts have been changed by others, for example while you were offline.
 
 Let's say you have initially added and committed all notes.
 - Whenever you are reconnecting to the cloud peer and are getting some changes, you can revise them by looking at the git diff.
 - Then you can add and commit them with an unimportant commit message to set a "savepoint" for next time
 
-It's also a nice little back-up in case anything goes wrong with the sync. Which might happen given that this is very new and bleeding edge software, be it through bugs or misunderstandings.
+It's also a nice little back-up in case anything goes wrong with the sync.
+Which might happen given that this is very new and bleeding edge software, be it through bugs or misunderstandings.

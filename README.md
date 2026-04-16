@@ -12,9 +12,12 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 For complete end-user documentation see the [Teamtype Documentation][docs] site.
 
 > [!NOTE]
-> This project used to be called "Ethersync" until October 2025. See [this PR](https://github.com/teamtype/teamtype/pull/436) for our motivation.
+> This project used to be called "Ethersync" until October 2025.
+> See [this PR](https://github.com/teamtype/teamtype/pull/436) for our motivation.
 
-Teamtype enables real-time collaborative editing of local text files. You can use it for pair programming or note-taking, for example. It's the missing real-time complement to Git!
+Teamtype enables real-time collaborative editing of local text files.
+You can use it for pair programming or note-taking, for example.
+It's the missing real-time complement to Git!
 
 ![Demo video for how to make a connection and of collaborating in Neovim](https://files.blinry.org/teamtype-share-join-demo.gif)
 
@@ -31,13 +34,17 @@ We also maintain a list of [other collaborative text-editing software](https://t
 
 ## What Teamtype is not
 
-We are not a company, and don't sell anything. We don't require you to create an account. We don't have access to your data, and don't use it to train AI algorithms. We don't serve you ads, and don't track you.
+We are not a company, and don't sell anything.
+We don't require you to create an account.
+We don't have access to your data, and don't use it to train AI algorithms.
+We don't serve you ads, and don't track you.
 
 We're just a bunch of people building something we want to see in the world.
 
 ## 🚦 Project status
 
-We're currently maintaining Teamtype in our free time. We're often using it for pair programming ourselves, but there's still some [bugs](https://github.com/teamtype/teamtype/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen+%28label%3Abug+OR+type%3ABug%29) to be aware of.
+We're currently maintaining Teamtype in our free time.
+We're often using it for pair programming ourselves, but there's still some [bugs](https://github.com/teamtype/teamtype/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen+%28label%3Abug+OR+type%3ABug%29) to be aware of.
 
 ## 📥 Installation
 
@@ -48,7 +55,8 @@ Teamtype works on Linux, macOS, Android, and on the Windows Subsystem for Linux.
 <details>
 <summary>Binary releases</summary>
 
-The [releases on GitHub](https://github.com/teamtype/teamtype/releases/latest) come with precompiled static binaries. Download one and put it somewhere in your shell's [`PATH`](https://en.wikipedia.org/wiki/PATH_(variable)):
+The [releases on GitHub](https://github.com/teamtype/teamtype/releases/latest) come with precompiled static binaries.
+Download one and put it somewhere in your shell's [`PATH`](https://en.wikipedia.org/wiki/PATH_(variable)):
 
 - `x86_64-unknown-linux-musl` for Linux
 - `universal-apple-darwin` for macOS
@@ -128,7 +136,8 @@ Storing peer's address in .teamtype/config.
 Connected to peer: 5e6b787fff79074735eb9b56939269100de1e37bc7f7a4d29c277cc24f7ee53d
 ```
 
-The directories are now connected, and changes will be synced instantly. You can open text files (using editors with a Teamtype plugin), and start collaborating in real time! :sparkles:
+The directories are now connected, and changes will be synced instantly.
+You can open text files (using editors with a Teamtype plugin), and start collaborating in real time! :sparkles:
 
 ## 🎓 Learn more
 
@@ -160,7 +169,11 @@ Bridges:
 
 ## 🔨 Contributing
 
-We'd love to receive your patches and other contributions! Small patches are very welcome as PRs. Before starting to implement a new big feature, please briefly [check in with us](#contact) so we can discuss how it fits in with our ideas for the project. We have a [CONTRIBUTING.md](CONTRIBUTING.md) file that gives more guidance. Please take note of our [**strict no-LLM policy**](CONTRIBUTING.md).
+We'd love to receive your patches and other contributions!
+Small patches are very welcome as PRs.
+Before starting to implement a new big feature, please briefly [check in with us](#contact) so we can discuss how it fits in with our ideas for the project.
+We have a [CONTRIBUTING.md](CONTRIBUTING.md) file that gives more guidance.
+Please take note of our [**strict no-LLM policy**](CONTRIBUTING.md).
 
 If you're interested in building new editor plugins, read the [editor plugin development guide](https://teamtype.github.io/teamtype/editor-plugin-dev-guide).
 For more information about Teamtype's design, refer to the list of [decision records](docs/decisions/).
@@ -169,7 +182,8 @@ If you find bugs, please [open an issue](https://github.com/teamtype/teamtype/is
 
 ## ☎️ Contact
 
-Feel free to [join us on Zulip](https://teamtype.zulipchat.com) to ask us anything! Other good channels:
+Feel free to [join us on Zulip](https://teamtype.zulipchat.com) to ask us anything!
+Other good channels:
 
 - Mastodon: [@teamtype@fosstodon.org](https://fosstodon.org/@teamtype)
 - Email: <span>t<span title="ihate@spam.com&lt;/span&gt;">e</span>amtype</span>@zormit<i title="&lt;/i&gt;mailto:">.</i>de

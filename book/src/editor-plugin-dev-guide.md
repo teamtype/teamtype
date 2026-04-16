@@ -7,21 +7,27 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Editor plugin development guide
 
-This document describes the protocol between the Teamtype daemon and the text editors. It should contain everything you need to implement a plugin for a new editor!
+This document describes the protocol between the Teamtype daemon and the text editors.
+It should contain everything you need to implement a plugin for a new editor!
 
 ## How to connect to the daemon
 
 Teamtype consists of two parts: The daemon and editor plugins.
 
-The daemon takes care of synchronization with other peers. An editor, on the other hand, has to communicate with the daemon to send it changes made to the file by the user, as well as changes of cursor positions. The daemon will send other people's changes and cursor positions back to the editor.
+The daemon takes care of synchronization with other peers.
+An editor, on the other hand, has to communicate with the daemon to send it changes made to the file by the user, as well as changes of cursor positions.
+The daemon will send other people's changes and cursor positions back to the editor.
 
-To make this as easy as possible for your plugin, we're using the same protocol as the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/overviews/lsp/overview/): [JSON-RPC](https://www.jsonrpc.org/specification). So if your editor plugin system allows connecting to an LSP, you'll hopefully can re-use the component opening a JSON-RPC connection.
+To make this as easy as possible for your plugin, we're using the same protocol as the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/overviews/lsp/overview/): [JSON-RPC](https://www.jsonrpc.org/specification).
+So if your editor plugin system allows connecting to an LSP, you'll hopefully can re-use the component opening a JSON-RPC connection.
 
-The editor plugin will need to spawn the command `teamtype client` (which is our helper tool to connect to a running Teamtype daemon), and speak JSON-RPC (with Content-Length headers) with the standard input/output of that process. Think of `teamtype client` as the LSP Server when looking at it from the editor's perspective.
+The editor plugin will need to spawn the command `teamtype client` (which is our helper tool to connect to a running Teamtype daemon), and speak JSON-RPC (with Content-Length headers) with the standard input/output of that process.
+Think of `teamtype client` as the LSP Server when looking at it from the editor's perspective.
 
 ## File ownership
 
-Teamtype has the concept of file ownership. By default, the daemon has ownership, which means that, as external tools make changes to files, the daemon will pick up those changes.
+Teamtype has the concept of file ownership.
+By default, the daemon has ownership, which means that, as external tools make changes to files, the daemon will pick up those changes.
 
 But when an editor sends an "open" message, it takes ownership; changes by external tools will be ignored.
 
@@ -31,12 +37,15 @@ When the last editor gives up ownership by sending a "close" message, the daemon
 
 For each open file, editors store two integers:
 
-- The *editor revision* describes how many changes the user has made to the file. It needs to be incremented after each edit made by the user.
-- The *daemon revision* describes how many changes the editor received from the daemon. It needs to be incremented after receiving an edit from the daemon.
+- The *editor revision* describes how many changes the user has made to the file.
+  It needs to be incremented after each edit made by the user.
+- The *daemon revision* describes how many changes the editor received from the daemon.
+  It needs to be incremented after receiving an edit from the daemon.
 
 ## How the editor recognizes Teamtype-enabled directories
 
-Similar how Git repositories have a `.git` directory at the top level, Teamtype-enabled directories have an `.teamtype` directory at the top level. The editor must only send messages for files inside Teamtype-enabled directories.
+Similar how Git repositories have a `.git` directory at the top level, Teamtype-enabled directories have an `.teamtype` directory at the top level.
+The editor must only send messages for files inside Teamtype-enabled directories.
 
 ## The daemon-editor protocol
 
@@ -52,15 +61,18 @@ The protocol uses a couple of basic data types (we're using the same syntax to s
 
 - `Position: {line: number, character: number}`
 
-    A position inside a text document. Characters are counted in **Unicode characters** (as opposed to UTF-8 or UTF-16 byte counts).
+  A position inside a text document.
+  Characters are counted in **Unicode characters** (as opposed to UTF-8 or UTF-16 byte counts).
 
 - `Range: {start: Position, end: Position}`
 
-    A range inside a text document. For cursor selections, the *end* is the part of the selection where the active/movable end of the selection is.
+  A range inside a text document.
+  For cursor selections, the *end* is the part of the selection where the active/movable end of the selection is.
 
 - `Delta: {range: Range, replacement: string}[]`
 
-    A complex text manipulation, similar to LSP's [`TextEdit[]`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textEditArray). Like in LSP, **all ranges refer to the starting content**, and must never overlap, see the linked LSP documentation.
+  A complex text manipulation, similar to LSP's [`TextEdit[]`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textEditArray).
+  Like in LSP, **all ranges refer to the starting content**, and must never overlap, see the linked LSP documentation.
 
 ### Messages sent by the editor to the daemon
 
@@ -68,25 +80,31 @@ These should be sent as JSON-RPC requests, so that the daemon can send back erro
 
 #### `"open" {uri: DocumentUri, content: String}`
 
-- Sent when the editor opens a document. The daemon will respond either with a success, or with an error describing why the file could not be opened (for example, because it is an ignored file, or if it's not part of the daemons shared project).
+- Sent when the editor opens a document.
+  The daemon will respond either with a success, or with an error describing why the file could not be opened (for example, because it is an ignored file, or if it's not part of the daemons shared project).
 - When an open succeeds, the editor gets ownership of the file, and the daemon will start sending updates for it as they come in.
-- The `content` parameter should be the editor's buffer content. If that content diverges from what the daemon thinks the content should be, it will send edits back.
+- The `content` parameter should be the editor's buffer content.
+  If that content diverges from what the daemon thinks the content should be, it will send edits back.
 - The editor has to initialize its editor revision and daemon revision for that document to 0.
 
 #### `"close" {uri: DocumentUri}`
 
-- Sent when the editor closes the file. It is no longer interested in receiving updates.
+- Sent when the editor closes the file.
+  It is no longer interested in receiving updates.
 
 #### `"edit" {uri: DocumentUri, revision: number, delta: Delta}`
 
 - Sent when the user edits an open document, or when the text editor makes a change to a text buffer content for any reason.
-- **Pitfall:** Make sure to not send these messages when you incorporate a remote edit into the buffer content. You have to find a way to filter out the edits you cause as a plugin, for example, by setting a temporary ignore flag while the edit is being made, or by remembering which edits you perform, and checking against them when the editor notifies you of a buffer change.
-- The `revision` is the last revision seen from the daemon. This means that this edit is *intended for* that daemon revision.
+- **Pitfall:** Make sure to not send these messages when you incorporate a remote edit into the buffer content.
+  You have to find a way to filter out the edits you cause as a plugin, for example, by setting a temporary ignore flag while the edit is being made, or by remembering which edits you perform, and checking against them when the editor notifies you of a buffer change.
+- The `revision` is the last revision seen from the daemon.
+  This means that this edit is *intended for* that daemon revision.
 - After each user edit, the editor must increase its editor revision.
 
 #### `"cursor" {uri: DocumentUri, ranges: Range[]}`
 
-- Sends current cursor position/selection(s). Replaces the previous cursor ranges.
+- Sends current cursor position/selection(s).
+  Replaces the previous cursor ranges.
 
 ### Messages sent by the daemon to the editor
 
@@ -95,18 +113,21 @@ These should be sent as notifications, there is no need to reply to them.
 #### `"edit" {uri: DocumentUri, revision: number, delta: Delta}`
 
 - `revision` is the last revision the daemon has seen from the editor.
-- If this is not the editor revision stored in the editor, the editor must ignore the edit. The daemon will send an updated version later.
+- If this is not the editor revision stored in the editor, the editor must ignore the edit.
+  The daemon will send an updated version later.
 - After applying the received edit, the editor must increase its daemon revision.
 
 #### `"cursor" {userid: string, name?: string, uri: DocumentUri, ranges: Range[]}`
 
-- The daemon sends this message when user's cursor positions or selections change, regardless of whether the file has been opened in the editor. The editor can use this information to display in which files other people work.
+- The daemon sends this message when user's cursor positions or selections change, regardless of whether the file has been opened in the editor.
+  The editor can use this information to display in which files other people work.
 
 ## Tools to help you develop and debug a new plugin
 
 ### Sending an example message to the daemon
 
-To send messages to the daemon manually, you can try the following. Assuming you can start the daemon in a testing directory as described in the [README](https://github.com/teamtype/teamtype?tab=readme-ov-file#-basic-usage), now we add some debugging output:
+To send messages to the daemon manually, you can try the following.
+Assuming you can start the daemon in a testing directory as described in the [README](https://github.com/teamtype/teamtype?tab=readme-ov-file#-basic-usage), now we add some debugging output:
 ```bash
 RUST_LOG=teamtype=debug teamtype share playground
 # Note for below: You will see some output like "Listening on UNIX socket: <dir>/.teamtype/socket"
@@ -119,7 +140,8 @@ This will already produce an output in the daemon which indicates that an Editor
 This happens because the client connects to the daemon's socket.
 Killing it shows the opposite: "Editor disconnected".
 
-Next, you could manually send some JSON-RPC. We included a Python script to help you create messages in the correct format: Run it to see what an open message could look like:
+Next, you could manually send some JSON-RPC.
+We included a Python script to help you create messages in the correct format: Run it to see what an open message could look like:
 
 ```bash
 python tools/dummy-jsonrpc.py playground/file
