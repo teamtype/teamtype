@@ -72,7 +72,7 @@ clap_mangen = "0.3"
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-automerge = "0.7"
+automerge = "0.8"
 clap = { version = "4.5", features = ["derive", "env"], optional = true }
 constant_time_eq = "0.4"
 derive_more = { version = "2", features = ["as_ref", "deref", "display"] }
