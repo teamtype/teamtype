@@ -12,7 +12,8 @@ Teamtype tries to sync not only file changes done by supported editors, but also
 > ⚠️ **Warning:**
 >
 > When one peer edits a file from an editor, and another peer changes it with an external tool at the same time, the latter change might get lost.
-> This is a restriction that seems hard to avoid. If you want to make sure changes by external tools are recorded correctly, do them while the daemon is not running, and make use of Teamtype's [offline support](offline-support.md).
+> This is a restriction that seems hard to avoid.
+> If you want to make sure changes by external tools are recorded correctly, do them while the daemon is not running, and make use of Teamtype's [offline support](offline-support.md).
 
 ## Creating files
 
@@ -34,7 +35,8 @@ Teamtype tries to sync not only file changes done by supported editors, but also
 
     Example: `nvim existing_file`
 
-- Changing files with external tools. Examples:
+- Changing files with external tools.
+  Examples:
 
     - `echo new stuff >> file`
     - `sort -o file file` (sorting a file in place)

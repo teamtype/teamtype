@@ -48,8 +48,7 @@ When collaborating with your peers, we assume that you are working on a set of f
 We call this directory the *project*.
 You can compare it, if you're familiar with that, with a git repository.
 
-The tracking of, and communication about changes happens only inside the realm of that directory
-and whatever it contains recursively (which means it includes sub-directories and the files therein).
+The tracking of, and communication about changes happens only inside the realm of that directory and whatever it contains recursively (which means it includes sub-directories and the files therein).
 Most files are synchronized, except for [ignored files](ignored-files.md).
 
 Currently, you will need to start one daemon *per project*.

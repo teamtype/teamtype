@@ -8,9 +8,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 # Neovim plugin for 🍃 [Teamtype](https://github.com/teamtype/teamtype)-compatible collaborative software
 
 This plugin adds real-time collaborative editing functionality to Neovim.
-You can use it for pair programming or note-taking, for example. It is mainly
-meant to be used with Teamtype, but can also be configured to work with other
-collaborative software speaking the same protocol.
+You can use it for pair programming or note-taking, for example.
+It is mainly meant to be used with Teamtype, but can also be configured to work with other collaborative software speaking the same protocol.
 
 > [!IMPORTANT]
 >
@@ -28,7 +27,8 @@ git clone https://github.com/teamtype/teamtype-nvim $HOME/.local/share/nvim/site
 
 ### Plugin managers
 
-Usually, you will add the string `"teamtype/teamtype-nvim"` to your plugin manager. Here's some example configuration blocks:
+Usually, you will add the string `"teamtype/teamtype-nvim"` to your plugin manager.
+Here's some example configuration blocks:
 
 #### Lazy
 
@@ -57,7 +57,8 @@ Usually, you will add the string `"teamtype/teamtype-nvim"` to your plugin manag
 
 ## Confirm the installation
 
-To confirm that the plugin is installed, try running the `:TeamtypeInfo` command in Neovim. It should show the message "Not connected to Teamtype daemon."
+To confirm that the plugin is installed, try running the `:TeamtypeInfo` command in Neovim.
+It should show the message "Not connected to Teamtype daemon."
 
 ## Tips
 

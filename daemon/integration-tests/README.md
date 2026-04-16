@@ -6,7 +6,8 @@ SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-This directory contains integration tests for Teamtype. They assume that your `PATH` contains:
+This directory contains integration tests for Teamtype.
+They assume that your `PATH` contains:
 
 - An `nvim` with installed Teamtype plugin, and
 - a `teamtype` binary (for connecting via `teamtype client`).
