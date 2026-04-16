@@ -80,8 +80,8 @@ dissimilar = "1"
 futures = { version = "0.3", default-features = false }
 git2 = { version = "0.20", default-features = false }
 ignore = "0.4"
-iroh = "0.35"
-magic-wormhole = "0.7"
+iroh = "0.35" # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
+magic-wormhole = "0.7" # 0.8 fails on macos due to a bad interaction with iroh's netwatcher usage
 microxdg = "0.2"
 notify = { version = "8", default-features = false, features = [
     "macos_fsevent",
@@ -89,7 +89,7 @@ notify = { version = "8", default-features = false, features = [
 operational-transform = "0.6"
 path-clean = "1"
 postcard = { version = "1", features = ["alloc"] }
-rand = "0.8"
+rand = "0.8" # must match types used in iroh 0.35
 ropey = "1"
 rust-ini = "0.21"
 serde = { version = "1", features = ["derive"] }
