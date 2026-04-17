@@ -10,9 +10,13 @@ use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::daemon::DocumentActorHandle;
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
+use iroh::discovery::{
+    ConcurrentDiscovery,
+    dns::DnsDiscovery,
+    pkarr::{PkarrPublisher, PkarrResolver},
+};
 use iroh::endpoint::{RecvStream, RelayMode, SendStream};
 use iroh::{NodeAddr, RelayMap, RelayUrl, SecretKey};
-use iroh::discovery::{ConcurrentDiscovery, dns::DnsDiscovery, pkarr::{PkarrPublisher, PkarrResolver}};
 use postcard::{from_bytes, to_allocvec};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -510,10 +514,9 @@ mod tests {
     #[tokio::test]
     async fn build_endpoint_default_succeeds_and_has_discovery() {
         let dir = make_temp_base_dir();
-        let (endpoint, _passphrase) =
-            ConnectionManager::build_endpoint(dir.path(), None, None)
-                .await
-                .expect("default build_endpoint should succeed");
+        let (endpoint, _passphrase) = ConnectionManager::build_endpoint(dir.path(), None, None)
+            .await
+            .expect("default build_endpoint should succeed");
 
         // n0's discovery_n0() always installs a discovery service.
         assert!(

@@ -103,12 +103,12 @@ impl AppConfig {
                     .get("magic_wormhole_relay")
                     .map(ToString::to_string)
             }),
-            relay: app_config_cli.relay.or_else(|| {
-                general_section.get("relay").map(ToString::to_string)
-            }),
-            discovery: app_config_cli.discovery.or_else(|| {
-                general_section.get("discovery").map(ToString::to_string)
-            }),
+            relay: app_config_cli
+                .relay
+                .or_else(|| general_section.get("relay").map(ToString::to_string)),
+            discovery: app_config_cli
+                .discovery
+                .or_else(|| general_section.get("discovery").map(ToString::to_string)),
             sync_vcs: app_config_cli.sync_vcs,
             username: Some(username),
         }
