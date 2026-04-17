@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Danny McClanahan <dmcC2@hypnicjerk.ai>
 # SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 # SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+# SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -17,23 +18,23 @@ name = "fuzzer"
 harness = false
 
 [dependencies]
-async-trait = "0.1.79"
-nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
-rand = "0.9.2"
-tokio = { version = "1", default-features = false, features = ["process"] }
+async-trait = "0.1"
+nvim-rs = { version = "0.9", features = ["use_tokio"] }
+rand = "0.9"
 serde_json = "1"
-tempfile = "3.24.0"
+tempfile = "3"
+tokio = { version = "1", default-features = false, features = ["process"] }
 
 [dependencies.teamtype]
 path = ".."
 default-features = false
 
 [dev-dependencies]
-futures = { version = "0.3.30", default-features = false }
-pretty_assertions = "1.4.0"
-serial_test = "3.1.1"
-tracing = "0.1.40"
-anyhow = "1.0.81"
+anyhow = "1"
+futures = { version = "0.3", default-features = false }
+pretty_assertions = "1"
+serial_test = "3"
+tracing = "0.1"
 
 # This crate needs to define specific optimization settings, so we can't put it in the
 # same workspace.
