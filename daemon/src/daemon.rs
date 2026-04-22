@@ -972,9 +972,10 @@ impl Daemon {
         }
 
         // Start connection manager.
-        let connection_manager = peer::ConnectionManager::new(document_handle.clone(), &base_dir)
-            .await
-            .expect("Failed to start connection manager");
+        let connection_manager =
+            peer::ConnectionManager::new(&app_config, document_handle.clone(), &base_dir)
+                .await
+                .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {

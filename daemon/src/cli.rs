@@ -46,6 +46,9 @@ pub struct ShareJoinFlags {
     /// Use an alternative Magic Wormhole mailbox server relay url
     #[arg(long)]
     pub magic_wormhole_relay: Option<String>,
+    /// Use an alternative Iroh relay url
+    #[arg(long)]
+    pub iroh_relay: Option<String>,
     #[arg(long)]
     /// The name that others see next to your cursor. Defaults to your Git username.
     pub username: Option<String>,

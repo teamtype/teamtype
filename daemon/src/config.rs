@@ -43,6 +43,7 @@ pub struct AppConfig {
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
     pub magic_wormhole_relay: Option<String>,
+    pub iroh_relay: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
     pub username: Option<String>,
@@ -101,6 +102,9 @@ impl AppConfig {
                     .get("magic_wormhole_relay")
                     .map(ToString::to_string)
             }),
+            iroh_relay: app_config_cli
+                .iroh_relay
+                .or_else(|| general_section.get("iroh_relay").map(ToString::to_string)),
             sync_vcs: app_config_cli.sync_vcs,
             username: Some(username),
         }

@@ -15,13 +15,14 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use iroh::endpoint::{RecvStream, SendStream};
-use iroh::{NodeAddr, SecretKey};
+use iroh::{NodeAddr, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use self::sync::{Connection, PeerMessage, SyncActor};
+use crate::config::AppConfig;
 use crate::daemon::DocumentActorHandle;
 
 mod sync;
@@ -63,10 +64,14 @@ pub struct ConnectionManager {
 }
 
 impl ConnectionManager {
-    pub async fn new(document_handle: DocumentActorHandle, base_dir: &Path) -> Result<Self> {
+    pub async fn new(
+        app_config: &AppConfig,
+        document_handle: DocumentActorHandle,
+        base_dir: &Path,
+    ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(base_dir).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(app_config, base_dir).await?;
 
         let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
 
@@ -108,15 +113,24 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(base_dir: &Path) -> Result<(iroh::Endpoint, SecretKey)> {
+    async fn build_endpoint(
+        app_config: &AppConfig,
+        base_dir: &Path,
+    ) -> Result<(iroh::Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let endpoint = iroh::Endpoint::builder()
+        let mut builder = iroh::Endpoint::builder()
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()])
-            .discovery_n0()
-            .bind()
-            .await?;
+            .discovery_n0();
+
+        if let Some(iroh_relay) = &app_config.iroh_relay {
+            let relay_url = RelayUrl::from_str(iroh_relay)?;
+            let relay_map = RelayMap::from(relay_url);
+            builder = builder.relay_mode(iroh::endpoint::RelayMode::Custom(relay_map));
+        }
+
+        let endpoint = builder.bind().await?;
 
         Ok((endpoint, my_passphrase))
     }
