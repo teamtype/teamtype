@@ -16,6 +16,7 @@ ignore = [
     "RUSTSEC-2026-0058", # unmaintained: tokio-io (via futures)
     "RUSTSEC-2026-0118", # unbounded loop: hickory-proto (via iroh)
     "RUSTSEC-2026-0119", # cpu exhaustion: hickory-proto (via iroh)
+    "RUSTSEC-2026-0120", # vulnerable: hickory-proto (via iroh)
 ]
 
 # This is not an exhaustive list of licenses we could accept, it is just

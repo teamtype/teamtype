@@ -60,7 +60,7 @@ futures.workspace = true
 ignore = "0.4"
 # Iroh is currently held back to the 0.3x series while 0.9x are canary releases:
 # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
-iroh = "0.97"
+iroh = "0.98"
 # We cannot bump to 0.8 because Iroh 0.35's netwatcher usage causes mismatched types on macOS.
 magic-wormhole = "0.8"
 microxdg = "0.2"

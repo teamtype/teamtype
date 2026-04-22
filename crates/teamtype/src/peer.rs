@@ -18,10 +18,11 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use iroh::address_lookup::DnsAddressLookup;
 use iroh::address_lookup::pkarr::PkarrPublisher;
-use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets};
+use iroh::endpoint::{
+    Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets,
+};
 use iroh::{Endpoint, EndpointAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
-use rand::rngs::OsRng;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
@@ -198,8 +199,8 @@ impl ConnectionManager {
             )
         } else {
             debug!("Generating new keypair.");
-            let secret_key = SecretKey::generate(OsRng);
-            let passphrase = SecretKey::generate(OsRng);
+            let secret_key = SecretKey::generate();
+            let passphrase = SecretKey::generate();
 
             let mut file = OpenOptions::new()
                 .create_new(true)
