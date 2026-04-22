@@ -20,7 +20,7 @@ use automerge::{
     sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
 use futures::SinkExt;
-use rand::Rng;
+use rand::RngExt;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::{
     sync::{broadcast, mpsc, oneshot},
