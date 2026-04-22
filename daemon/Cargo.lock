@@ -4349,7 +4349,7 @@ dependencies = [
  "path-clean",
  "postcard",
  "pretty_assertions",
- "rand 0.9.4",
+ "rand 0.10.1",
  "ropey",
  "rust-ini",
  "serde",
