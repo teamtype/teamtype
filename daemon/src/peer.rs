@@ -196,8 +196,8 @@ impl ConnectionManager {
             )
         } else {
             debug!("Generating new keypair.");
-            let secret_key = SecretKey::generate(&mut rand::rng());
-            let passphrase = SecretKey::generate(&mut rand::rng());
+            let secret_key = SecretKey::generate();
+            let passphrase = SecretKey::generate();
 
             let mut file = OpenOptions::new()
                 .create_new(true)
