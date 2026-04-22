@@ -4328,7 +4328,7 @@ dependencies = [
  "path-clean",
  "postcard",
  "pretty_assertions",
- "rand 0.9.5",
+ "rand 0.10.2",
  "regex",
  "ropey",
  "rust-ini",

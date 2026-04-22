@@ -72,7 +72,7 @@ microxdg = "0.2"
 operational-transform = "0.6"
 path-clean = "1"
 # We have to match types exposed by Iroh 0.3x.
-rand = "0.9" # must match types used in iroh
+rand = "0.10"
 ropey = "1"
 rust-ini = "0.21"
 serde_json.workspace = true
