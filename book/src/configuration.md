@@ -20,6 +20,7 @@ magic_wormhole_relay = <magic_wormhole_mailbox_relay_url>
 iroh_relay = <iroh_relay_url>
 iroh_dns_domain = <iroh_dns_domain>
 iroh_pkarr_relay = <iroh_pkarr_relay>
+local_discovery = <true/false>
 ```
 
 After a successful `teamtype join`, the peer's secret address is automatically stored in your `.teamtype/config`.

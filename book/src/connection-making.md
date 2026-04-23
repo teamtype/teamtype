@@ -27,6 +27,9 @@ After using a join code, the secret address is stored in your `.teamtype/config`
 You can directly connect across different local networks, even when each of you is behind a router.
 This way of connecting is more "ad hoc" and useful if you want to collaborate over a short period of time (as described in more detail in the [pair programming scenario](pair-programming.md)).
 
+Teamtype also uses supports "local discovery" mechanism based on mDNS using the `--local-discovery` command line flag, which allows peers in the same local network to find each other.
+Transferring the secret address via Magic Wormhole using the join code mechanism doesn't work locally yet, though.
+
 ## Cloud peer
 
 When you want to have an "always online" host, such that every user can connect to it at the time of their liking, let's say you're collaborating in a group on [taking notes](shared-notes.md).
