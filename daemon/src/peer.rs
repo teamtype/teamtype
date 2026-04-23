@@ -14,12 +14,15 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
+use iroh::discovery::dns::DnsDiscovery;
+use iroh::discovery::pkarr::PkarrPublisher;
 use iroh::endpoint::{RecvStream, SendStream};
 use iroh::{NodeAddr, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
+use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::config::AppConfig;
@@ -121,13 +124,33 @@ impl ConnectionManager {
 
         let mut builder = iroh::Endpoint::builder()
             .secret_key(secret_key)
-            .alpns(vec![ALPN.to_vec()])
-            .discovery_n0();
+            .alpns(vec![ALPN.to_vec()]);
 
         if let Some(iroh_relay) = &app_config.iroh_relay {
             let relay_url = RelayUrl::from_str(iroh_relay)?;
             let relay_map = RelayMap::from(relay_url);
             builder = builder.relay_mode(iroh::endpoint::RelayMode::Custom(relay_map));
+        }
+
+        if let Some(iroh_dns_domain) = &app_config.iroh_dns_domain {
+            let iroh_dns_domain_clone = iroh_dns_domain.clone();
+            builder =
+                builder.add_discovery(move |_| Some(DnsDiscovery::new(iroh_dns_domain_clone)));
+        } else {
+            builder = builder.add_discovery(move |_| Some(DnsDiscovery::n0_dns()));
+        }
+
+        if let Some(iroh_pkarr_relay) = &app_config.iroh_pkarr_relay {
+            let iroh_pkarr_relay_url = Url::parse(iroh_pkarr_relay)?;
+            builder = builder.add_discovery(|secret_key| {
+                Some(PkarrPublisher::new(
+                    secret_key.clone(),
+                    iroh_pkarr_relay_url,
+                ))
+            });
+        } else {
+            builder = builder
+                .add_discovery(|secret_key| Some(PkarrPublisher::n0_dns(secret_key.clone())));
         }
 
         let endpoint = builder.bind().await?;

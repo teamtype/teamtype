@@ -11,7 +11,7 @@ Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specif
 
 Add support for `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.
 
-Add support for custom Iroh relay servers, using the `--iroh-relay` flag.
+Add support for custom Iroh relay servers, using the `--iroh-relay` flag, and for custom Iroh DNS discovery servers, using `--iroh-dns-domain` and `--iroh-pkarr-relay`. See the "Running your own relays" page in the documentation for how to run all these relays yourself!
 
 ## Note for package maintainers: Renamed the Linux binaries
 

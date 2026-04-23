@@ -49,6 +49,12 @@ pub struct ShareJoinFlags {
     /// Use an alternative Iroh relay url
     #[arg(long)]
     pub iroh_relay: Option<String>,
+    /// Use an alternative Iroh DNS origin domain.
+    #[arg(long)]
+    pub iroh_dns_domain: Option<String>,
+    /// Use an alternative Iroh Pkarr relay server.
+    #[arg(long)]
+    pub iroh_pkarr_relay: Option<String>,
     #[arg(long)]
     /// The name that others see next to your cursor. Defaults to your Git username.
     pub username: Option<String>,

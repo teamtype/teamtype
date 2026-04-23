@@ -83,6 +83,8 @@ async fn main() -> Result<()> {
                         ShareJoinFlags {
                             magic_wormhole_relay,
                             iroh_relay,
+                            iroh_dns_domain,
+                            iroh_pkarr_relay,
                             sync_vcs,
                             username,
                             ..
@@ -99,6 +101,8 @@ async fn main() -> Result<()> {
                         emit_secret_address: show_secret_address,
                         magic_wormhole_relay,
                         iroh_relay,
+                        iroh_dns_domain,
+                        iroh_pkarr_relay,
                         sync_vcs,
                         username,
                     };
@@ -113,6 +117,8 @@ async fn main() -> Result<()> {
                         ShareJoinFlags {
                             magic_wormhole_relay,
                             iroh_relay,
+                            iroh_dns_domain,
+                            iroh_pkarr_relay,
                             sync_vcs,
                             username,
                             ..
@@ -126,6 +132,8 @@ async fn main() -> Result<()> {
                         emit_secret_address: false,
                         magic_wormhole_relay,
                         iroh_relay,
+                        iroh_dns_domain,
+                        iroh_pkarr_relay,
                         sync_vcs,
                         username,
                     };

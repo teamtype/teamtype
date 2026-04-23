@@ -44,6 +44,8 @@ pub struct AppConfig {
     pub emit_secret_address: bool,
     pub magic_wormhole_relay: Option<String>,
     pub iroh_relay: Option<String>,
+    pub iroh_dns_domain: Option<String>,
+    pub iroh_pkarr_relay: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
     pub username: Option<String>,
@@ -105,6 +107,16 @@ impl AppConfig {
             iroh_relay: app_config_cli
                 .iroh_relay
                 .or_else(|| general_section.get("iroh_relay").map(ToString::to_string)),
+            iroh_dns_domain: app_config_cli.iroh_dns_domain.or_else(|| {
+                general_section
+                    .get("iroh_dns_domain")
+                    .map(ToString::to_string)
+            }),
+            iroh_pkarr_relay: app_config_cli.iroh_pkarr_relay.or_else(|| {
+                general_section
+                    .get("iroh_pkarr_relay")
+                    .map(ToString::to_string)
+            }),
             sync_vcs: app_config_cli.sync_vcs,
             username: Some(username),
         }
