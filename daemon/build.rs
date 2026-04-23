@@ -5,10 +5,10 @@
 
 use std::env::var_os;
 use std::fs::{create_dir_all, read, remove_dir_all, write};
-use std::io::Result;
 use std::path::Path;
 use std::process::Command;
 
+use anyhow::Result;
 use automerge::{AutoCommit, ObjType, transaction::Transactable};
 use clap::{CommandFactory as _, ValueEnum as _};
 use clap_complete::Shell;
@@ -39,10 +39,8 @@ fn instantiate_initial_automerge_doc() -> Result<()> {
     // env var can be used to force a regeneration.
     if !initial_automerge_doc_path.exists() || force_generate {
         let mut automerge_doc = AutoCommit::new();
-        automerge_doc.put_object(automerge::ROOT, "files", ObjType::Map)
-            .expect("Failed to initialize files Map object");
-        automerge_doc.put_object(automerge::ROOT, "states", ObjType::Map)
-            .expect("Failed to initialize states Map object");
+        automerge_doc.put_object(automerge::ROOT, "files", ObjType::Map)?;
+        automerge_doc.put_object(automerge::ROOT, "states", ObjType::Map)?;
         let bytes = automerge_doc.save();
         write(&initial_automerge_doc_path, &bytes)?;
     }
@@ -76,7 +74,7 @@ fn output_manpages() -> Result<()> {
     let man_dir = &target_dir.join("manpages");
     _ = remove_dir_all(man_dir);
     create_dir_all(man_dir)?;
-    generate_manpages_to(Cli::command(), man_dir)
+    Ok(generate_manpages_to(Cli::command(), man_dir)?)
 }
 
 fn pass_on_git_version_details() {
