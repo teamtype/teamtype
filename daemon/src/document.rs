@@ -32,7 +32,7 @@ pub enum Content {
 /// - synchronization with other CRDTs through sync messages
 /// - applying a delta (coming from an editor) directly
 ///
-/// Furthermore there's a way to retrieve and initialize the content.
+/// Furthermore, there's a way to retrieve and initialize the content.
 #[derive(Debug)]
 #[must_use]
 pub struct Document {
