@@ -22,6 +22,7 @@ use iroh::endpoint::{
     Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets,
 };
 use iroh::{Endpoint, EndpointAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
+use iroh_mdns_address_lookup::MdnsAddressLookup;
 use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
@@ -129,7 +130,8 @@ impl ConnectionManager {
 
         let mut builder = Endpoint::builder(presets::N0)
             .secret_key(secret_key)
-            .alpns(vec![ALPN.to_vec()]);
+            .alpns(vec![ALPN.to_vec()])
+            .address_lookup(MdnsAddressLookup::builder());
 
         let relay_mode = match &config.iroh_relay {
             Some(iroh_relay) => {
