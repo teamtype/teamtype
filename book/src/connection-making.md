@@ -11,11 +11,6 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 When you run `teamtype share`, you will get a short "join code" like `3-exhausted-bananas`. Another person can use it to connect to you! The code only works once. You can learn about the security properties in the [Magic Wormhole documentation](https://magic-wormhole.readthedocs.io/en/latest/welcome.html#safely).
 
-You can make Teamtype use a custom [relay server](https://github.com/magic-wormhole/magic-wormhole-mailbox-server) with the optional `--magic-wormhole-relay` parameter or by adding it to your [configuration file](configuration.md).
-```bash
-teamtype share --magic-wormhole-relay ws://example.com:4000/v1
-```
-
 ## Secret addresses
 
 Since version 0.7.0 Teamtype uses iroh for making a connection. To connect to another daemon, we're using a combination of the iroh [Node Identifier](https://www.iroh.computer/docs/concepts/endpoint#node-identifiers) and a secret key which, smashed together, which looks like `429e94...0e9819#32374e...4a6789`. We call this the node's *secret address*. Treat it like a password. After using a join code, the secret address is stored in your `.teamtype/config`.

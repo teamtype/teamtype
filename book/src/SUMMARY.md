@@ -29,6 +29,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
     - [Working with Git](git-integration.md)
         - [Manual](git-integration-manual.md)
         - [Synchronized](git-integration-synchronized.md)
+    - [Running your own relays](relays.md)
 - [Related projects](related-projects.md)
 
 # Developer documentation
