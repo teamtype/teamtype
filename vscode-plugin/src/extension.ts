@@ -263,7 +263,7 @@ async function processEditFromDaemon(client: Client, edit: Edit) {
                         // The user made an edit that resulted in the same content, we (wrongly) ignored it, and didn't
                         // send it to the daemon.
                         // We're going to accept this edge-case, but should increase the daemon revision, to simulate
-                        // a successfull application of the remote edit.
+                        // a successful application of the remote edit.
                         // TODO: We could even try to send out the edit again now!
                         debug("the case")
                         revision.daemon += 1
@@ -424,7 +424,7 @@ function processUserEdit(event: vscode.TextDocumentChangeEvent) {
             .runExclusive(() => {
                 let document = event.document
 
-                // For some reason we get multipe events per edit caused by us.
+                // For some reason we get multiple events per edit caused by us.
                 // Let's actively skip the empty ones to make debugging output below less noisy.
                 if (event.contentChanges.length == 0) {
                     if (document.isDirty == false) {

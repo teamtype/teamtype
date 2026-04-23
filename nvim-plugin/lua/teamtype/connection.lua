@@ -5,7 +5,7 @@
 
 local M = {}
 
--- A Connection represents an ative JSON-RPC connection.
+-- A Connection represents an active JSON-RPC connection.
 local Connection = {}
 
 function Connection:is_connected()

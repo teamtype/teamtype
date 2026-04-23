@@ -35,7 +35,7 @@ pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_rela
                 warn!("Failed to share secret address. Did your peer mistype the join code?");
             }
 
-            // Print a new join code in the next iteration of the foor loop, to allow more people
+            // Print a new join code in the next iteration of the for loop, to allow more people
             // to join.
             sleep(Duration::from_millis(500)).await;
         }
