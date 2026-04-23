@@ -47,6 +47,9 @@ pub struct ShareJoinFlags {
     #[arg(long)]
     pub iroh_pkarr_relay: Option<String>,
     #[arg(long)]
+    /// Use local mDNS discovery to find Iroh endpoints.
+    pub local_discovery: bool,
+    #[arg(long)]
     /// The name that others see next to your cursor. Defaults to your Git username.
     pub username: Option<String>,
     /// Create a new temporary directory and use it as the shared directory.
