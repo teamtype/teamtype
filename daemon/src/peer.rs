@@ -124,7 +124,8 @@ impl ConnectionManager {
 
         let mut builder = iroh::Endpoint::builder()
             .secret_key(secret_key)
-            .alpns(vec![ALPN.to_vec()]);
+            .alpns(vec![ALPN.to_vec()])
+            .discovery_local_network();
 
         if let Some(iroh_relay) = &app_config.iroh_relay {
             let relay_url = RelayUrl::from_str(iroh_relay)?;
