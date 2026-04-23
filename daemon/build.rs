@@ -3,11 +3,13 @@
 //
 // SPDX-License-Identifier: CC0-1.0
 
-use std::fs::{create_dir_all, remove_dir_all};
+use std::env::var_os;
+use std::fs::{create_dir_all, read, remove_dir_all, write};
 use std::io::Result;
 use std::path::Path;
 use std::process::Command;
 
+use automerge::{AutoCommit, ObjType, transaction::Transactable};
 use clap::{CommandFactory as _, ValueEnum as _};
 use clap_complete::Shell;
 use clap_complete::generate_to as generate_completions_to;
@@ -16,9 +18,42 @@ use clap_mangen::generate_to as generate_manpages_to;
 include!("src/cli.rs");
 
 fn main() -> Result<()> {
+    instantiate_initial_automerge_doc()?;
     pass_on_git_version_details();
     output_completions()?;
     output_manpages()?;
+    Ok(())
+}
+
+fn instantiate_initial_automerge_doc() -> Result<()> {
+    let initial_automerge_doc_path = Path::new("src").join("initial_automerge_doc.bin");
+    println!(
+        "cargo:rerun-if-changed={}",
+        &initial_automerge_doc_path.display()
+    );
+    let force_generate = var_os("TEAMTYPE_GENERATE_NEW_INITIAL_AUTOMERGE_DOC").is_some();
+    // The initial Automerge document state is hard coded and changing it would imply a breaking
+    // Teamtype release incompatible with old clients. Hence, the document generated here is tracked
+    // in our VCS so we can see if it ever needs to be bumped, e.g. to use a new breaking version of
+    // Automerge. Most people will never need to regenerate it, but removing the file or setting an
+    // env var can be used to force a regeneration.
+    if !initial_automerge_doc_path.exists() || force_generate {
+        let mut automerge_doc = AutoCommit::new();
+        automerge_doc.put_object(automerge::ROOT, "files", ObjType::Map)
+            .expect("Failed to initialize files Map object");
+        automerge_doc.put_object(automerge::ROOT, "states", ObjType::Map)
+            .expect("Failed to initialize states Map object");
+        let bytes = automerge_doc.save();
+        write(&initial_automerge_doc_path, &bytes)?;
+    }
+    let automerge_doc_bytes = read(initial_automerge_doc_path)?;
+    let mut initial_automerge_doc = AutoCommit::load(&automerge_doc_bytes)?;
+    let doc_heads = initial_automerge_doc.get_heads();
+    assert_eq!(
+        doc_heads.len(),
+        1,
+        "Change root not found in initial Automerge document"
+    );
     Ok(())
 }
 

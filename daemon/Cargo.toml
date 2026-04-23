@@ -12,6 +12,7 @@ version = "0.9.2-dev"
 authors = ["Moritz Neeb <nt4u@kpvn.de>", "blinry <mail@blinry.org>"]
 license = "AGPL-3.0-or-later"
 readme = "../README.md"
+include = ["*.rs", "*.toml", "src/initial_automerge_doc.bin"]
 documentation = "https://teamtype.github.io"
 repository = "https://github.com/teamtype/teamtype"
 keywords = [
@@ -65,6 +66,7 @@ should_panic_without_expect = "allow"
 too_many_lines = "allow"
 
 [build-dependencies]
+automerge = "0.8"
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 clap_mangen = "0.3"

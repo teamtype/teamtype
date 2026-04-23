@@ -41,18 +41,13 @@ pub struct Document {
 
 impl Default for Document {
     fn default() -> Self {
-        // We hard-code the initial change here to make documents that were created by independent peers.
+        // We're baking a single static initial state into the binary rather than generating new documents
+        // from a random seed in each client so that documents created by independent peers can be merged.
+        // See build.rs for how to force a rebuild of this initial state, but be aware updating the initial
+        // state is a breaking change that will make Teamtype peers incompatible with each other.
         // See https://automerge.org/docs/cookbook/modeling-data/#setting-up-an-initial-document-structure
-        let initial_doc = [
-            133, 111, 74, 131, 61, 157, 231, 85, 0, 118, 1, 16, 120, 107, 104, 47, 215, 9, 76, 32,
-            132, 136, 60, 124, 152, 120, 144, 182, 1, 143, 164, 31, 13, 102, 61, 139, 125, 246,
-            189, 135, 97, 16, 167, 63, 30, 215, 249, 60, 227, 113, 111, 61, 55, 138, 234, 94, 30,
-            142, 166, 78, 250, 6, 1, 2, 3, 2, 19, 2, 35, 2, 64, 2, 86, 2, 7, 21, 14, 33, 2, 35, 2,
-            52, 1, 66, 2, 86, 2, 128, 1, 2, 127, 0, 127, 1, 127, 2, 127, 0, 127, 0, 127, 7, 126, 5,
-            102, 105, 108, 101, 115, 6, 115, 116, 97, 116, 101, 115, 2, 0, 2, 1, 2, 2, 0, 2, 0, 2,
-            0, 0,
-        ];
-        Self::load(&initial_doc)
+        let initial_automerge_doc_bytes = include_bytes!("initial_automerge_doc.bin");
+        Self::load(initial_automerge_doc_bytes)
     }
 }
 
