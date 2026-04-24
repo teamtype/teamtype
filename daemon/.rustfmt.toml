@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: NONE
+#
+# SPDX-License-Identifier: CC0-1.0
+
+edition = "2024"
+style_edition = "2024"
+unstable_features = true
+
+# https://teamtype.zulipchat.com/#narrow/channel/562985-daemon/topic/Ordering.20of.20imports
+group_imports = "StdExternalCrate"
