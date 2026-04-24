@@ -3,8 +3,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::{Result, bail};
 use std::io::Write;
+
+use anyhow::{Result, bail};
 
 pub fn ask(question: &str) -> Result<bool> {
     print!("{question} (y/N): ");

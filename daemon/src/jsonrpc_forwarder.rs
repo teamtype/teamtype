@@ -13,9 +13,10 @@
 //! - takes jsonrpc from a socket (usually a daemon) and wraps it content-length encoded data to stdout
 //! - takes content-length encoded data from stdin (as sent by an LSP client) and writes it
 //!   "unpacked" to the socket
+use std::path::Path;
+
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
-use std::path::Path;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader, BufWriter};
 use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};

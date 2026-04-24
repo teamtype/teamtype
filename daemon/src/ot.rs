@@ -5,10 +5,11 @@
 
 #![allow(dead_code)]
 
-use crate::types::{EditorTextDelta, RevisionedEditorTextDelta, RevisionedTextDelta, TextDelta};
 use anyhow::{Context, Result};
 use operational_transform::OperationSeq;
 use tracing::{debug, warn};
+
+use crate::types::{EditorTextDelta, RevisionedEditorTextDelta, RevisionedTextDelta, TextDelta};
 
 ///    `OTServer` receives operations from both the CRDT world, and one editor and makes sure that
 ///    the editor operations (which might be based on an older document) are applicable to the
@@ -268,9 +269,10 @@ fn transform_through_operations(
 
 #[cfg(test)]
 mod tests {
+    use tracing_test::traced_test;
+
     use super::*;
     use crate::types::factories::*;
-    use tracing_test::traced_test;
 
     fn compose(delta1: TextDelta, delta2: TextDelta) -> TextDelta {
         operational_transform_internals::ot_compose(delta1.into(), delta2.into()).into()
@@ -498,8 +500,9 @@ mod tests {
     }
 
     mod operational_transform_internals {
-        use super::*;
         use operational_transform::Operation as OTOperation;
+
+        use super::*;
 
         fn ot_insert(at: usize, s: &str) -> OperationSeq {
             let mut op_seq = OperationSeq::default();

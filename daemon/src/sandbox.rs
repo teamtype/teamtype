@@ -8,15 +8,17 @@
 //! The functions in this module are supposed to prevent file I/O outside the base directory.
 //! All our file I/O should go through them.
 
-use crate::config::AppConfig;
-use anyhow::{Context, Result, bail};
-use ignore::WalkBuilder;
-use ignore::overrides::OverrideBuilder;
-use path_clean::PathClean;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result, bail};
+use ignore::WalkBuilder;
+use ignore::overrides::OverrideBuilder;
+use path_clean::PathClean;
+
+use crate::config::AppConfig;
 
 pub fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -236,8 +238,9 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::{TempDir, tempdir};
+
+    use super::*;
 
     fn temp_dir_setup() -> TempDir {
         let dir = tempdir().expect("Failed to create temp directory");

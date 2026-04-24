@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use teamtype_integration_tests::actors::*;
-
+use pretty_assertions::assert_eq;
+use serial_test::serial;
 use teamtype::{
     editor_protocol::{
         EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, IncomingMessage,
@@ -12,9 +12,7 @@ use teamtype::{
     },
     types::{EditorTextDelta, EditorTextOp, factories::*},
 };
-
-use pretty_assertions::assert_eq;
-use serial_test::serial;
+use teamtype_integration_tests::actors::*;
 use tokio::time::{Duration, timeout};
 
 #[tokio::test]

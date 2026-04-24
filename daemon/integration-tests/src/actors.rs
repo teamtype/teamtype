@@ -3,19 +3,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::socket::*;
-
-use teamtype::daemon::Daemon;
-use teamtype::{document, sandbox};
+use std::fs;
+use std::path::PathBuf;
 
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::Rng;
+use teamtype::daemon::Daemon;
+use teamtype::{document, sandbox};
 use tempfile::{TempDir, tempdir};
 use tokio::process::ChildStdin;
 
-use std::fs;
-use std::path::PathBuf;
+use crate::socket::*;
 
 // TODO: Consider renaming this, to avoid confusion with tokio "actors".
 #[async_trait]

@@ -4,15 +4,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module is all about daemon to editor communication.
-use crate::cli_ask::ask;
-use crate::daemon::{DocMessage, DocumentActorHandle};
-use crate::editor_protocol::{
-    EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
-};
-use crate::sandbox;
+use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
-use std::{fs, os::unix::fs::PermissionsExt, path::Path};
 use tokio::{
     io::WriteHalf,
     net::{UnixListener, UnixStream},
@@ -22,6 +17,13 @@ use tokio_util::{
     codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec},
 };
 use tracing::{debug, error, info};
+
+use crate::cli_ask::ask;
+use crate::daemon::{DocMessage, DocumentActorHandle};
+use crate::editor_protocol::{
+    EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
+};
+use crate::sandbox;
 
 pub type EditorId = usize;
 

@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-use crate::types::{CursorId, EditorTextDelta, Range};
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
+
+use crate::types::{CursorId, EditorTextDelta, Range};
 
 type DocumentUri = String;
 
@@ -135,8 +136,9 @@ pub enum EditorProtocolMessageFromEditor {
 #[cfg(test)]
 mod test_serde {
 
-    use super::*;
     use pretty_assertions::assert_eq;
+
+    use super::*;
 
     #[test]
     fn open() {

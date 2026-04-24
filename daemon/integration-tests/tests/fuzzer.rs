@@ -3,23 +3,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use teamtype_integration_tests::actors::{Actor, Neovim};
-
-use teamtype::config::{self, AppConfig};
-use teamtype::daemon::{Daemon, TEST_FILE_PATH};
-use teamtype::logging;
-use teamtype::sandbox;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::Rng;
+use teamtype::config::{self, AppConfig};
+use teamtype::daemon::{Daemon, TEST_FILE_PATH};
+use teamtype::logging;
+use teamtype::sandbox;
+use teamtype_integration_tests::actors::{Actor, Neovim};
 use tempfile::{TempDir, tempdir};
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
-
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     for _ in 1..500 {

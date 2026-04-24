@@ -3,6 +3,28 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::path::{Path, PathBuf};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+
+use anyhow::{Context, Result};
+use automerge::ChangeHash;
+use automerge::{
+    Patch,
+    sync::{Message as AutomergeSyncMessage, State as SyncState},
+};
+use futures::SinkExt;
+use rand::Rng;
+use tokio::{
+    sync::{broadcast, mpsc, oneshot},
+    time::Duration,
+};
+use tracing::{debug, error, info, warn};
+
 use crate::config::{self, AppConfig};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
@@ -21,26 +43,6 @@ use crate::types::{
 use crate::watcher::WatcherEvent;
 use crate::watcher::{Watcher, WatcherEventType};
 use crate::wormhole::put_secret_address_into_wormhole;
-use anyhow::{Context, Result};
-use automerge::ChangeHash;
-use automerge::{
-    Patch,
-    sync::{Message as AutomergeSyncMessage, State as SyncState},
-};
-use futures::SinkExt;
-use rand::Rng;
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::path::{Path, PathBuf};
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
-};
-use tokio::{
-    sync::{broadcast, mpsc, oneshot},
-    time::Duration,
-};
-use tracing::{debug, error, info, warn};
 
 pub const TEST_FILE_PATH: &str = "text";
 
@@ -1088,8 +1090,9 @@ mod tests {
     //use crate::types::factories::*;
 
     mod document_actor {
-        use super::*;
         use tempfile::{TempDir, tempdir};
+
+        use super::*;
         //use tracing_test::traced_test;
 
         impl DocumentActor {

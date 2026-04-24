@@ -264,10 +264,11 @@ impl EditorConnection {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::types::factories::*;
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
+
+    use super::*;
+    use crate::types::factories::*;
 
     #[test]
     fn opening_file_in_wrong_dir_fails() {

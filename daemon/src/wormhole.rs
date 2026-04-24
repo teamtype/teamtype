@@ -3,9 +3,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::{borrow::Cow, str::FromStr, time::Duration};
+
 use anyhow::Result;
 use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transfer};
-use std::{borrow::Cow, str::FromStr, time::Duration};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 

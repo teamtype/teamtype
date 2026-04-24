@@ -5,13 +5,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Data structures and helper methods around influencing the configuration of the application.
-use crate::sandbox;
-use crate::wormhole::get_secret_address_from_wormhole;
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result, bail};
 use git2::ConfigLevel;
 use ini::{Ini, Properties};
-use std::path::{Path, PathBuf};
 use tracing::info;
+
+use crate::sandbox;
+use crate::wormhole::get_secret_address_from_wormhole;
 
 pub const DOC_FILE: &str = "doc";
 pub const DEFAULT_SOCKET_NAME: &str = "socket";

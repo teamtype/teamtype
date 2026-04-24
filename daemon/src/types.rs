@@ -3,15 +3,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::path::RelativePath;
+use std::fmt;
+
 use anyhow::{Context, Result, bail};
 use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding};
 use dissimilar::Chunk;
 use operational_transform::{Operation as OTOperation, OperationSeq};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use tracing::{debug, warn};
+
+use crate::path::RelativePath;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);
@@ -711,9 +713,10 @@ pub mod factories {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use super::factories::*;
     use super::*;
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn compose_with_empty() {
@@ -854,8 +857,9 @@ mod tests {
 
     // Test conversion from the difference crate.
     mod dissimilar {
-        use super::TextDelta;
         use dissimilar::diff;
+
+        use super::TextDelta;
 
         #[test]
         fn same() {

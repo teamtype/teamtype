@@ -3,11 +3,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::path::{self, Path, PathBuf};
+
 use anyhow::{Context, bail};
 use automerge::Prop;
 use derive_more::{AsRef, Deref, Display};
 use serde::{Deserialize, Serialize};
-use std::path::{self, Path, PathBuf};
 use url::Url;
 
 /// Paths like these are guaranteed to be absolute.

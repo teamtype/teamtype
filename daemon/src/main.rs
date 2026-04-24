@@ -4,11 +4,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use self::cli::{Cli, Commands, ShareJoinFlags};
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Result, bail};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
-use std::path::{Path, PathBuf};
 use teamtype::{
     cli_ask::ask,
     config::{self, AppConfig},
@@ -18,6 +18,8 @@ use teamtype::{
 use tempfile::{TempDir, tempdir_in};
 use tokio::signal;
 use tracing::{debug, info, warn};
+
+use self::cli::{Cli, Commands, ShareJoinFlags};
 
 mod cli;
 mod jsonrpc_forwarder;

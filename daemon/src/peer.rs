@@ -5,22 +5,24 @@
 
 //! This module provides a [`ConnectionManager`], which can be used to connect to other daemons.
 
-use self::sync::{Connection, PeerMessage, SyncActor};
-use crate::daemon::DocumentActorHandle;
-use anyhow::{Context, Result, bail};
-use async_trait::async_trait;
-use iroh::endpoint::{RecvStream, SendStream};
-use iroh::{NodeAddr, SecretKey};
-use postcard::{from_bytes, to_allocvec};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
+
+use anyhow::{Context, Result, bail};
+use async_trait::async_trait;
+use iroh::endpoint::{RecvStream, SendStream};
+use iroh::{NodeAddr, SecretKey};
+use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
+
+use self::sync::{Connection, PeerMessage, SyncActor};
+use crate::daemon::DocumentActorHandle;
 
 mod sync;
 

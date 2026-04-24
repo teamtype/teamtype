@@ -3,21 +3,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::{config::AppConfig, sandbox};
-use notify::{
-    RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher as NotifyWatcher,
-    event::EventKind,
-};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
+};
+
+use notify::{
+    RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher as NotifyWatcher,
+    event::EventKind,
 };
 use tokio::{
     sync::mpsc::{self, Receiver, Sender},
     time::sleep,
 };
 use tracing::debug;
+
+use crate::{config::AppConfig, sandbox};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct WatcherEvent {

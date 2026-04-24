@@ -5,10 +5,6 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    path::RelativePath,
-    types::{EditorTextDelta, PatchEffect, TextDelta},
-};
 use anyhow::{Result, bail};
 use automerge::{
     AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc,
@@ -17,6 +13,11 @@ use automerge::{
 };
 use dissimilar::Chunk;
 use tracing::{debug, info};
+
+use crate::{
+    path::RelativePath,
+    types::{EditorTextDelta, PatchEffect, TextDelta},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {

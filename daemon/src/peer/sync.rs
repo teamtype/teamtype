@@ -3,15 +3,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::daemon::{DocMessage, DocumentActorHandle};
-use crate::types::EphemeralMessage;
+use std::mem;
+
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use automerge::sync::{Message as AutomergeSyncMessage, State as SyncState};
 use serde::{Deserialize, Serialize};
-use std::mem;
 use tokio::sync::{broadcast, oneshot};
 use tracing::debug;
+
+use crate::daemon::{DocMessage, DocumentActorHandle};
+use crate::types::EphemeralMessage;
 
 #[derive(Deserialize, Serialize)]
 /// The `PeerMessage` is used for peer to peer data exchange.
