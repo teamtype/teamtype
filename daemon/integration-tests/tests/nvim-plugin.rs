@@ -10,12 +10,12 @@ use teamtype::{
         EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, IncomingMessage,
         OutgoingMessage,
     },
-    types::{factories::*, EditorTextDelta, EditorTextOp},
+    types::{EditorTextDelta, EditorTextOp, factories::*},
 };
 
 use pretty_assertions::assert_eq;
 use serial_test::serial;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 #[tokio::test]
 async fn plugin_loaded() {
@@ -78,14 +78,10 @@ async fn assert_nvim_deltas_yield_content(
 
     let actual_content = nvim.content().await;
     assert_eq!(
-                expected_content,
-                actual_content,
-                "Different content when we start with content '{:?}' and apply deltas '{:?}'. Expected '{:?}', actual '{:?}'.",
-                initial_content,
-                deltas,
-                expected_content,
-                actual_content
-            );
+        expected_content, actual_content,
+        "Different content when we start with content '{:?}' and apply deltas '{:?}'. Expected '{:?}', actual '{:?}'.",
+        initial_content, deltas, expected_content, actual_content
+    );
 }
 
 #[tokio::test]

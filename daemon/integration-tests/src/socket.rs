@@ -7,7 +7,7 @@ use serde_json::Value as JSONValue;
 use std::path::Path;
 use teamtype::sandbox;
 use tokio::{
-    io::{split, AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, split},
     net::UnixListener,
     sync::mpsc,
     time::Duration,
