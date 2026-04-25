@@ -326,14 +326,11 @@ mod tests {
             file_path: RelativePath::new("file"),
             delta,
         });
-        assert_eq!(
-            result,
-            vec![EditorProtocolMessageToEditor::Edit {
-                uri: format!("file://{}", file.display()),
-                revision: 0,
-                delta: ed_delta_single((0, 1), (0, 1), "x")
-            }]
-        );
+        assert_eq!(result, vec![EditorProtocolMessageToEditor::Edit {
+            uri: format!("file://{}", file.display()),
+            revision: 0,
+            delta: ed_delta_single((0, 1), (0, 1), "x")
+        }]);
 
         // Editor sends an edit.
         let result =
@@ -344,21 +341,17 @@ mod tests {
             });
         let (inside_message, messages_to_editor) = result.unwrap();
         let delta = insert(4, "y"); // Position gets transformed!
-        assert_eq!(
-            inside_message,
-            ComponentMessage::Edit {
-                file_path: RelativePath::new("file"),
-                delta
-            }
-        );
-        assert_eq!(
-            messages_to_editor,
-            vec![EditorProtocolMessageToEditor::Edit {
+        assert_eq!(inside_message, ComponentMessage::Edit {
+            file_path: RelativePath::new("file"),
+            delta
+        });
+        assert_eq!(messages_to_editor, vec![
+            EditorProtocolMessageToEditor::Edit {
                 uri: format!("file://{}", file.display()),
                 revision: 1,
                 delta: ed_delta_single((0, 1), (0, 1), "x") // Delta is still the
                                                             // same.
-            }]
-        );
+            }
+        ]);
     }
 }

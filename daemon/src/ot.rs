@@ -297,10 +297,10 @@ mod tests {
             let expected = EditorTextDelta::try_from_delta(insert(1, "x"), "heyllo");
             assert_eq!(to_editor, vec![rev_ed_delta(1, expected.unwrap())]);
 
-            assert_eq!(
-                ot_server.operations,
-                vec![insert(1, "x").into(), insert(3, "y").into()]
-            );
+            assert_eq!(ot_server.operations, vec![
+                insert(1, "x").into(),
+                insert(3, "y").into()
+            ]);
             assert_eq!(ot_server.current_content(), "hxeyllo");
 
             let to_editor = ot_server.apply_crdt_change(&insert(3, "z"));
@@ -318,15 +318,12 @@ mod tests {
             assert_eq!(to_editor, vec![rev_ed_delta(2, expected.unwrap())]);
 
             assert_eq!(ot_server.current_content(), "hzlo");
-            assert_eq!(
-                ot_server.operations,
-                vec![
-                    insert(1, "x").into(),
-                    insert(3, "y").into(),
-                    insert(3, "z").into(),
-                    compose(delete(1, 2), delete(2, 2)).into()
-                ]
-            );
+            assert_eq!(ot_server.operations, vec![
+                insert(1, "x").into(),
+                insert(3, "y").into(),
+                insert(3, "z").into(),
+                compose(delete(1, 2), delete(2, 2)).into()
+            ]);
 
             assert_eq!(ot_server.editor_queue, vec![insert(1, "z").into(),]);
             assert_eq!(ot_server.last_confirmed_editor_content, "hlo");
@@ -560,10 +557,10 @@ mod tests {
             let (op_prime, queue_prime) =
                 transform_through_operations(editor_op, &unacknowledged_ops);
             assert_eq!(op_prime, ot_insert(1, "x"));
-            assert_eq!(
-                queue_prime,
-                vec![ot_compose(ot_delete(1, 1), ot_delete(2, 2))]
-            );
+            assert_eq!(queue_prime, vec![ot_compose(
+                ot_delete(1, 1),
+                ot_delete(2, 2)
+            )]);
         }
 
         #[test]
@@ -587,19 +584,16 @@ mod tests {
             let (a_prime, b_prime) = a
                 .transform(&b)
                 .expect("Transform failed. Do the lengths fit?");
-            assert_eq!(
-                a_prime.ops(),
-                vec![OTOperation::Retain(1), OTOperation::Insert("x".to_string())]
-            );
-            assert_eq!(
-                b_prime.ops(),
-                vec![
-                    OTOperation::Retain(1),
-                    OTOperation::Delete(1),
-                    OTOperation::Retain(1),
-                    OTOperation::Delete(1)
-                ]
-            );
+            assert_eq!(a_prime.ops(), vec![
+                OTOperation::Retain(1),
+                OTOperation::Insert("x".to_string())
+            ]);
+            assert_eq!(b_prime.ops(), vec![
+                OTOperation::Retain(1),
+                OTOperation::Delete(1),
+                OTOperation::Retain(1),
+                OTOperation::Delete(1)
+            ]);
 
             // With inserts at the same position,
             // the operation that is transformed is applied "after" the other one.
@@ -607,22 +601,16 @@ mod tests {
             let (a_prime, c_prime) = a
                 .transform(&c)
                 .expect("Transform failed. Do the lengths fit?");
-            assert_eq!(
-                a_prime.ops(),
-                vec![
-                    OTOperation::Retain(2),
-                    OTOperation::Insert("x".to_string()),
-                    OTOperation::Retain(2)
-                ]
-            );
-            assert_eq!(
-                c_prime.ops(),
-                vec![
-                    OTOperation::Retain(3),
-                    OTOperation::Insert("y".to_string()),
-                    OTOperation::Retain(1)
-                ]
-            );
+            assert_eq!(a_prime.ops(), vec![
+                OTOperation::Retain(2),
+                OTOperation::Insert("x".to_string()),
+                OTOperation::Retain(2)
+            ]);
+            assert_eq!(c_prime.ops(), vec![
+                OTOperation::Retain(3),
+                OTOperation::Insert("y".to_string()),
+                OTOperation::Retain(1)
+            ]);
         }
     }
 }

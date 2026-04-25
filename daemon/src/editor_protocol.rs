@@ -145,16 +145,13 @@ mod test_serde {
         let message = IncomingMessage::from_jsonrpc(
             r#"{"jsonrpc":"2.0","id":1,"method":"open","params":{"uri":"file:\/\/\/tmp\/file","content":"initial content"}}"#,
         );
-        assert_eq!(
-            message.unwrap(),
-            IncomingMessage::Request {
-                id: 1.into(),
-                payload: EditorProtocolMessageFromEditor::Open {
-                    uri: "file:///tmp/file".into(),
-                    content: "initial content".to_string(),
-                }
+        assert_eq!(message.unwrap(), IncomingMessage::Request {
+            id: 1.into(),
+            payload: EditorProtocolMessageFromEditor::Open {
+                uri: "file:///tmp/file".into(),
+                content: "initial content".to_string(),
             }
-        );
+        });
     }
 
     #[test]
@@ -162,16 +159,13 @@ mod test_serde {
         let message = IncomingMessage::from_jsonrpc(
             r#"{"jsonrpc":"2.0","id":"1","method":"open","params":{"uri":"file:\/\/\/tmp\/file","content":"initial content"}}"#,
         );
-        assert_eq!(
-            message.unwrap(),
-            IncomingMessage::Request {
-                id: "1".to_string().into(),
-                payload: EditorProtocolMessageFromEditor::Open {
-                    uri: "file:///tmp/file".into(),
-                    content: "initial content".to_string(),
-                }
+        assert_eq!(message.unwrap(), IncomingMessage::Request {
+            id: "1".to_string().into(),
+            payload: EditorProtocolMessageFromEditor::Open {
+                uri: "file:///tmp/file".into(),
+                content: "initial content".to_string(),
             }
-        );
+        });
     }
 
     #[test]

@@ -813,13 +813,10 @@ impl DocumentActor {
         let _ = self.ephemeral_message_tx.send(new_ephemeral_message);
 
         // Broadcast to editors.
-        self.broadcast_to_editors(
-            None,
-            &ComponentMessage::Cursor {
-                cursor_id,
-                cursor_state,
-            },
-        )
+        self.broadcast_to_editors(None, &ComponentMessage::Cursor {
+            cursor_id,
+            cursor_state,
+        })
         .await;
     }
 

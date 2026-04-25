@@ -186,11 +186,11 @@ async fn nvim_sends_correct_delta() {
     // Edits involving multiple lines.
     assert_nvim_input_yields_replacements("a\n", "O", vec![replace_ed((0, 0), (0, 0), "\n")]).await;
     // Indentation matters.
-    assert_nvim_input_yields_replacements(
-        "    a\n",
-        "O",
-        vec![replace_ed((0, 0), (0, 0), "    \n")],
-    )
+    assert_nvim_input_yields_replacements("    a\n", "O", vec![replace_ed(
+        (0, 0),
+        (0, 0),
+        "    \n",
+    )])
     .await;
     assert_nvim_input_yields_replacements("a\nb\n", "dd", vec![replace_ed((0, 0), (1, 0), "")])
         .await;
@@ -205,100 +205,68 @@ async fn nvim_sends_correct_delta() {
     assert_nvim_input_yields_replacements("a", "dd", vec![replace_ed((0, 0), (0, 1), "")]).await;
     // Test what happens when we start with empty buffer:
     // The eol option can be "true" unexpectedly.
-    assert_nvim_input_yields_replacements(
-        "",
-        "ia<Esc>dd",
-        vec![
-            replace_ed((0, 0), (0, 0), "a"),
-            replace_ed((0, 0), (0, 1), ""),
-        ],
-    )
+    assert_nvim_input_yields_replacements("", "ia<Esc>dd", vec![
+        replace_ed((0, 0), (0, 0), "a"),
+        replace_ed((0, 0), (0, 1), ""),
+    ])
     .await;
 
     assert_nvim_input_yields_replacements("", "i<CR>", vec![replace_ed((0, 0), (0, 0), "\n")])
         .await;
-    assert_nvim_input_yields_replacements(
-        "",
-        "i<CR>i",
-        vec![
-            replace_ed((0, 0), (0, 0), "\n"),
-            replace_ed((1, 0), (1, 0), "i"),
-        ],
-    )
+    assert_nvim_input_yields_replacements("", "i<CR>i", vec![
+        replace_ed((0, 0), (0, 0), "\n"),
+        replace_ed((1, 0), (1, 0), "i"),
+    ])
     .await;
-    assert_nvim_input_yields_replacements(
-        "",
-        "ia<CR>a",
-        vec![
-            replace_ed((0, 0), (0, 0), "a"),
-            replace_ed((0, 1), (0, 1), "\n"),
-            replace_ed((1, 0), (1, 0), "a"),
-        ],
-    )
+    assert_nvim_input_yields_replacements("", "ia<CR>a", vec![
+        replace_ed((0, 0), (0, 0), "a"),
+        replace_ed((0, 1), (0, 1), "\n"),
+        replace_ed((1, 0), (1, 0), "a"),
+    ])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "a\n",
-        ":s/a/b<CR>",
-        vec![replace_ed((0, 0), (0, 1), "b")],
-    )
+    assert_nvim_input_yields_replacements("a\n", ":s/a/b<CR>", vec![replace_ed(
+        (0, 0),
+        (0, 1),
+        "b",
+    )])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "",
-        "i<CR><BS>",
-        vec![
-            replace_ed((0, 0), (0, 0), "\n"),
-            replace_ed((0, 0), (1, 0), ""),
-        ],
-    )
+    assert_nvim_input_yields_replacements("", "i<CR><BS>", vec![
+        replace_ed((0, 0), (0, 0), "\n"),
+        replace_ed((0, 0), (1, 0), ""),
+    ])
     .await;
 
     assert_nvim_input_yields_replacements("a\nbcd", "ggdG", vec![replace_ed((0, 0), (1, 3), "")])
         .await;
 
-    assert_nvim_input_yields_replacements(
-        "a\n",
-        "ddix<CR><BS>",
-        vec![
-            replace_ed((0, 0), (0, 1), ""),
-            replace_ed((0, 0), (0, 0), "x"),  // d: "x\n"
-            replace_ed((1, 0), (1, 0), "\n"), // d: "x\n\n"
-            replace_ed((1, 0), (2, 0), ""),
-        ],
-    )
+    assert_nvim_input_yields_replacements("a\n", "ddix<CR><BS>", vec![
+        replace_ed((0, 0), (0, 1), ""),
+        replace_ed((0, 0), (0, 0), "x"),  // d: "x\n"
+        replace_ed((1, 0), (1, 0), "\n"), // d: "x\n\n"
+        replace_ed((1, 0), (2, 0), ""),
+    ])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "hello\nworld\n",
-        "llvjd",
-        vec![
-            replace_ed((0, 2), (0, 5), ""), // d: llo
-            replace_ed((1, 0), (1, 3), ""), // d: wor
-            replace_ed((0, 2), (0, 2), "ld"),
-            replace_ed((1, 0), (2, 0), ""), // d: ld\n
-        ],
-    )
+    assert_nvim_input_yields_replacements("hello\nworld\n", "llvjd", vec![
+        replace_ed((0, 2), (0, 5), ""), // d: llo
+        replace_ed((1, 0), (1, 3), ""), // d: wor
+        replace_ed((0, 2), (0, 2), "ld"),
+        replace_ed((1, 0), (2, 0), ""), // d: ld\n
+    ])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "",
-        "ox",
-        vec![
-            replace_ed((0, 0), (0, 0), "\n"),
-            replace_ed((1, 0), (1, 0), "x"),
-        ],
-    )
+    assert_nvim_input_yields_replacements("", "ox", vec![
+        replace_ed((0, 0), (0, 0), "\n"),
+        replace_ed((1, 0), (1, 0), "x"),
+    ])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "a\n",
-        "ddo",
-        vec![
-            replace_ed((0, 0), (0, 1), ""), // 'eol' is still on, so we keep the newline.
-            replace_ed((1, 0), (1, 0), "\n"),
-        ],
-    )
+    assert_nvim_input_yields_replacements("a\n", "ddo", vec![
+        replace_ed((0, 0), (0, 1), ""), // 'eol' is still on, so we keep the newline.
+        replace_ed((1, 0), (1, 0), "\n"),
+    ])
     .await;
 
     assert_nvim_input_yields_replacements("a\n", "o", vec![replace_ed((1, 0), (1, 0), "\n")]).await;
@@ -306,77 +274,77 @@ async fn nvim_sends_correct_delta() {
     // Unicode tests
     assert_nvim_input_yields_replacements("ä\nü\n", "dd", vec![replace_ed((0, 0), (1, 0), "")])
         .await;
-    assert_nvim_input_yields_replacements("ä💚🥕", "vlld", vec![replace_ed((0, 0), (0, 3), "")])
-        .await;
+    assert_nvim_input_yields_replacements("ä💚🥕", "vlld", vec![replace_ed(
+        (0, 0),
+        (0, 3),
+        "",
+    )])
+    .await;
     assert_nvim_input_yields_replacements("ä", "dd", vec![replace_ed((0, 0), (0, 1), "")]).await;
 
     assert_nvim_input_yields_replacements("a\n", "yyp", vec![replace_ed((1, 0), (1, 0), "a\n")])
         .await;
-    assert_nvim_input_yields_replacements("🥕\n", "yyp", vec![replace_ed((1, 0), (1, 0), "🥕\n")])
-        .await;
+    assert_nvim_input_yields_replacements("🥕\n", "yyp", vec![replace_ed(
+        (1, 0),
+        (1, 0),
+        "🥕\n",
+    )])
+    .await;
     assert_nvim_input_yields_replacements("a", "yyp", vec![replace_ed((0, 1), (0, 1), "\na")])
         .await;
 
-    assert_nvim_input_yields_replacements(
-        "a\n🥕\n",
-        "jyyp",
-        vec![replace_ed((2, 0), (2, 0), "🥕\n")],
-    )
+    assert_nvim_input_yields_replacements("a\n🥕\n", "jyyp", vec![replace_ed(
+        (2, 0),
+        (2, 0),
+        "🥕\n",
+    )])
     .await;
 
     assert_nvim_input_yields_replacements("a", "o", vec![replace_ed((0, 1), (0, 1), "\n")]).await;
 
-    assert_nvim_input_yields_replacements(
-        "eins\ntwo\n",
-        "jo",
-        vec![replace_ed((2, 0), (2, 0), "\n")],
-    )
+    assert_nvim_input_yields_replacements("eins\ntwo\n", "jo", vec![replace_ed(
+        (2, 0),
+        (2, 0),
+        "\n",
+    )])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "eins\ntwo",
-        "jo",
-        vec![replace_ed((1, 3), (1, 3), "\n")],
-    )
+    assert_nvim_input_yields_replacements("eins\ntwo", "jo", vec![replace_ed(
+        (1, 3),
+        (1, 3),
+        "\n",
+    )])
     .await;
 
     // Tests where Neovim behaves a bit weirdly.
 
     // A direct replace_ed((0, 1), (1, 0), " ") would be nicer.
-    assert_nvim_input_yields_replacements(
-        "a\nb\n",
-        "J",
-        vec![
-            replace_ed((0, 1), (0, 1), " b"),
-            replace_ed((1, 0), (2, 0), ""),
-        ],
-    )
+    assert_nvim_input_yields_replacements("a\nb\n", "J", vec![
+        replace_ed((0, 1), (0, 1), " b"),
+        replace_ed((1, 0), (2, 0), ""),
+    ])
     .await;
 
-    assert_nvim_input_yields_replacements(
-        "a\nb",
-        "J",
-        vec![
-            replace_ed((0, 1), (0, 1), " b"),
-            replace_ed((0, 3), (1, 1), ""),
-        ],
-    )
+    assert_nvim_input_yields_replacements("a\nb", "J", vec![
+        replace_ed((0, 1), (0, 1), " b"),
+        replace_ed((0, 3), (1, 1), ""),
+    ])
     .await;
 
     // Visual on multiple lines.
-    assert_nvim_input_yields_replacements(
-        "abc\nde\nf\n",
-        "jVjd",
-        vec![replace_ed((1, 0), (3, 0), "")],
-    )
+    assert_nvim_input_yields_replacements("abc\nde\nf\n", "jVjd", vec![replace_ed(
+        (1, 0),
+        (3, 0),
+        "",
+    )])
     .await;
 
     // Same test without eol.
-    assert_nvim_input_yields_replacements(
-        "abc\nde\nf",
-        "jVjd",
-        vec![replace_ed((0, 3), (2, 1), "")],
-    )
+    assert_nvim_input_yields_replacements("abc\nde\nf", "jVjd", vec![replace_ed(
+        (0, 3),
+        (2, 1),
+        "",
+    )])
     .await;
 
     // Delete stuff down to a single line when 'eol' is on.
@@ -386,14 +354,10 @@ async fn nvim_sends_correct_delta() {
         .await;
 
     // Insert after last line when 'eol' is off.
-    assert_nvim_input_yields_replacements(
-        "",
-        "ix<CR><Esc>ggyyjp",
-        vec![
-            replace_ed((0, 0), (0, 0), "x"),
-            replace_ed((0, 1), (0, 1), "\n"),
-            replace_ed((1, 0), (1, 0), "\nx"),
-        ],
-    )
+    assert_nvim_input_yields_replacements("", "ix<CR><Esc>ggyyjp", vec![
+        replace_ed((0, 0), (0, 0), "x"),
+        replace_ed((0, 1), (0, 1), "\n"),
+        replace_ed((1, 0), (1, 0), "\nx"),
+    ])
     .await;
 }

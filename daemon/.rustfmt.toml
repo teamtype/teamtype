@@ -9,3 +9,6 @@ unstable_features = true
 # https://teamtype.zulipchat.com/#narrow/channel/562985-daemon/topic/Ordering.20of.20imports
 group_imports = "StdExternalCrate"
 reorder_impl_items = true
+
+# https://teamtype.zulipchat.com/#narrow/channel/562985-daemon/topic/Ordering.20of.20imports/near/590798722.2E01
+overflow_delimited_expr = true

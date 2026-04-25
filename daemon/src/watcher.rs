@@ -259,13 +259,10 @@ impl Watcher {
         }
 
         let timestamp = SystemTime::now() + Duration::from_millis(100);
-        self.pending_events.insert(
-            file_path.into(),
-            PendingEvent {
-                event_type,
-                timestamp,
-            },
-        );
+        self.pending_events.insert(file_path.into(), PendingEvent {
+            event_type,
+            timestamp,
+        });
     }
 }
 
