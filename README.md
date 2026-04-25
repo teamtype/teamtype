@@ -57,7 +57,7 @@ The [releases on GitHub](https://github.com/teamtype/teamtype/releases/latest) c
 <details>
 <summary>Arch Linux</summary>
 
-```
+```bash
 sudo pacman -S teamtype
 ```
 </details>
@@ -65,7 +65,7 @@ sudo pacman -S teamtype
 <details>
 <summary>Homebrew</summary>
 
-```
+```bash
 brew install teamtype
 ```
 </details>
@@ -75,7 +75,7 @@ brew install teamtype
 
 To put `teamtype` in your PATH temporarily, run:
 
-```
+```bash
 nix shell nixpkgs#teamtype
 ```
 
@@ -106,7 +106,7 @@ cargo binstall teamtype
 
 In the directory you want to share:
 
-```
+```console
 $ teamtype share
 
     To connect to you, another person can run:
@@ -118,7 +118,7 @@ Peer connected: adfa90edd932732ddf242f24dc2dcd6156779e69966d432fcb3b9fe3ae9831ab
 
 Another person, in a separate directory (also works on the same computer):
 
-```
+```console
 $ teamtype join 5-hamburger-endorse
 
 Derived peer from join code. Storing in config (overwriting previous config).
