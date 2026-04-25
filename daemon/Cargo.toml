@@ -27,9 +27,6 @@ edition = "2024"
 rust-version = "1.89.0"
 default-run = "teamtype"
 
-[lib]
-name = "teamtype"
-
 [[bin]]
 name = "teamtype"
 test = false
@@ -37,33 +34,12 @@ bench = false
 doc = false
 required-features = ["executable-deps"]
 
+[lib]
+name = "teamtype"
+
 [features]
 default = ["executable-deps"]
 executable-deps = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
-
-[lints.rust]
-unsafe_code = "forbid"
-unused_qualifications = "warn"
-[lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
-allow_attributes = "warn"
-map_with_unused_argument_over_ranges = "warn"
-
-too_long_first_doc_paragraph = "allow"
-
-# TODO: add 'expect' to the places where casts are happening and enable the lints
-cast_possible_truncation = "allow"
-cast_possible_wrap = "allow"
-cast_sign_loss = "allow"
-
-cognitive_complexity = "allow"
-missing_const_for_fn = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-must_use_candidate = "allow"
-should_panic_without_expect = "allow"
-too_many_lines = "allow"
 
 [build-dependencies]
 anyhow = "1"
@@ -138,3 +114,25 @@ inherits = "release"
 lto = true
 codegen-units = 1
 opt-level = "s"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+allow_attributes = "warn"
+# TODO: add 'expect' to the places where casts are happening and enable the lints
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cognitive_complexity = "allow"
+map_with_unused_argument_over_ranges = "warn"
+missing_const_for_fn = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+should_panic_without_expect = "allow"
+too_long_first_doc_paragraph = "allow"
+too_many_lines = "allow"
