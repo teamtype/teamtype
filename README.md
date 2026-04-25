@@ -9,6 +9,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 *Multiplayer mode for your text editor!*
 
+For complete end-user documentation see the [Teamtype Documentation][docs] site.
+
 > [!NOTE]
 > This project used to be called "Ethersync" until October 2025. See [this PR](https://github.com/teamtype/teamtype/pull/436) for our motivation.
 
@@ -23,7 +25,7 @@ Teamtype enables real-time collaborative editing of local text files. You can us
 - 🗃️ Work on entire projects, the way you're used to
 - 🔒 Encrypted peer-to-peer connections, no need for a server
 - ✒️ Local-first: You always have full access, even offline
-- 🧩 [Simple JSON-RPC protocol](https://teamtype.github.io/teamtype/editor-plugin-dev-guide.html) for writing new editor plugins
+- 🧩 [Simple JSON-RPC protocol][editor-plugin-dev-guide] for writing new editor plugins
 
 We also maintain a list of [other collaborative text-editing software](https://teamtype.github.io/teamtype/related-projects.html).
 
@@ -130,7 +132,7 @@ The directories are now connected, and changes will be synced instantly. You can
 
 ## 🎓 Learn more
 
-- Learn more about Teamtype in [the documentation](https://teamtype.github.io/teamtype).
+- Learn more about Teamtype in [the documentation][docs].
 - Watch a [10-minute talk](https://fosdem.org/2025/schedule/event/fosdem-2025-4890-ethersync-real-time-collaboration-in-your-text-editor-/) given at FOSDEM 2025.
 - Watch a (German) [1-hour talk](https://media.ccc.de/v/2024-355-ethersync-echtzeit-kollaboration-in-deinem-texteditor-) given at MRMCD 2024.
 
@@ -195,3 +197,6 @@ And finally, thanks to everyone who helped us beta-test, or reported issues!
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
 This project is [REUSE](https://reuse.software) compliant, see the headers of each file for licensing information.
+
+[docs]: https://teamtype.github.io/teamtype
+[editor-plugin-dev-guide]: https://teamtype.github.io/teamtype/editor-plugin-dev-guide.html
