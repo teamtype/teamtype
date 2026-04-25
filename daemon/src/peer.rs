@@ -35,6 +35,7 @@ struct SecretAddress {
 
 impl FromStr for SecretAddress {
     type Err = anyhow::Error;
+
     fn from_str(s: &str) -> Result<Self> {
         let parts: Vec<&str> = s.split('#').collect();
         if parts.len() != 2 {

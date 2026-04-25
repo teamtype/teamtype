@@ -896,6 +896,7 @@ impl DocumentActorHandle {
             next_id: Arc::default(),
         }
     }
+
     /// The TCP and socket connections will send messages through this when they receive something.
     pub async fn send_message(&self, message: DocMessage) {
         self.doc_message_tx
@@ -1122,6 +1123,7 @@ mod tests {
                     false,
                 )
             }
+
             fn assert_file_content(&self, file_path: &RelativePath, content: &str) {
                 assert_eq!(
                     self.current_file_content(file_path),

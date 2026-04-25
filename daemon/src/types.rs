@@ -59,8 +59,8 @@ impl TextDelta {
 }
 
 impl IntoIterator for TextDelta {
-    type Item = TextOp;
     type IntoIter = std::vec::IntoIter<Self::Item>;
+    type Item = TextOp;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -88,8 +88,8 @@ impl fmt::Display for TextOp {
 pub struct EditorTextDelta(pub Vec<EditorTextOp>);
 
 impl IntoIterator for EditorTextDelta {
-    type Item = EditorTextOp;
     type IntoIter = std::vec::IntoIter<Self::Item>;
+    type Item = EditorTextOp;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -298,11 +298,13 @@ impl TextDelta {
             self.0.push(TextOp::Retain(n));
         }
     }
+
     pub fn insert(&mut self, s: &str) {
         if !s.is_empty() {
             self.0.push(TextOp::Insert(s.to_string()));
         }
     }
+
     pub fn delete(&mut self, n: usize) {
         if n != 0 {
             self.0.push(TextOp::Delete(n));

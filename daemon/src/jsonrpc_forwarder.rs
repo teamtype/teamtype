@@ -99,8 +99,8 @@ impl Encoder<String> for ContentLengthCodec {
 }
 
 impl Decoder for ContentLengthCodec {
-    type Item = String;
     type Error = anyhow::Error;
+    type Item = String;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         // Find the position of the Content-Length header.

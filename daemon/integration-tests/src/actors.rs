@@ -126,6 +126,7 @@ impl Actor for Neovim {
             .await
             .expect("Failed to send input to Neovim");
     }
+
     async fn content(&self) -> String {
         let mut content = self
             .buffer

@@ -46,8 +46,8 @@ impl Encoder<OutgoingMessage> for OutgoingProtocolCodec {
 pub struct IncomingProtocolCodec;
 
 impl Decoder for IncomingProtocolCodec {
-    type Item = IncomingMessage;
     type Error = anyhow::Error;
+    type Item = IncomingMessage;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         LinesCodec::new()
