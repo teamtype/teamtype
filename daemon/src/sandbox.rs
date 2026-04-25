@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -11,7 +12,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use ignore::WalkBuilder;
@@ -214,7 +215,7 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
             break;
         }
         prefix_path.pop();
-        if let std::path::Component::Normal(os_str) = component {
+        if let Component::Normal(os_str) = component {
             suffix_path = if suffix_path.components().count() != 0 {
                 Path::new(os_str).join(&suffix_path)
             } else {
@@ -238,6 +239,8 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use std::os::unix::fs::symlink;
+
     use tempfile::{TempDir, tempdir};
 
     use super::*;
@@ -264,7 +267,7 @@ mod tests {
         let dir = temp_dir_setup();
         let linked_project = dir.path().join("ln_project");
         let project = dir.path().join("project");
-        std::os::unix::fs::symlink(&project, &linked_project).unwrap();
+        symlink(&project, &linked_project).unwrap();
         assert_eq!(
             absolute_and_canonicalized(&linked_project).unwrap(),
             project.canonicalize().unwrap()
@@ -276,7 +279,7 @@ mod tests {
         let dir = temp_dir_setup();
         let linked_project = dir.path().join("ln_project");
         let project = dir.path().join("project");
-        std::os::unix::fs::symlink(&project, &linked_project).unwrap();
+        symlink(&project, &linked_project).unwrap();
 
         let ln_file = linked_project.join("c");
 
@@ -291,7 +294,7 @@ mod tests {
         let dir = temp_dir_setup();
         let linked_project = dir.path().join("ln_project");
         let project = dir.path().join("project");
-        std::os::unix::fs::symlink(&project, &linked_project).unwrap();
+        symlink(&project, &linked_project).unwrap();
 
         let file = project.join("a");
         let ln_file = linked_project.join("a");

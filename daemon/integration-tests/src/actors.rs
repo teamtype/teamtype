@@ -13,7 +13,7 @@ use rand::Rng;
 use teamtype::daemon::Daemon;
 use teamtype::{document, sandbox};
 use tempfile::{TempDir, tempdir};
-use tokio::process::ChildStdin;
+use tokio::process::{ChildStdin, Command};
 
 use crate::socket::*;
 
@@ -37,7 +37,7 @@ impl Neovim {
     /// Will panic if Neovim cannot be started or if the file cannot be opened.
     pub async fn new(file_path: PathBuf) -> Self {
         let handler = Dummy::new();
-        let mut cmd = tokio::process::Command::new("nvim");
+        let mut cmd = Command::new("nvim");
         cmd.arg("--headless").arg("--embed");
         // Disable loading user RC files, to prevent unrelated local test failures
         cmd.arg("-u").arg("NORC");

@@ -1,17 +1,20 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::future::pending;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 
+use futures::executor;
 use notify::{
-    RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher as NotifyWatcher,
-    event::EventKind,
+    Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher as NotifyWatcher,
+    event::{CreateKind, EventKind, ModifyKind, RemoveKind, RenameMode},
 };
 use tokio::{
     sync::mpsc::{self, Receiver, Sender},
@@ -44,7 +47,7 @@ struct PendingEvent {
 pub struct Watcher {
     _inner: RecommendedWatcher,
     app_config: AppConfig,
-    notify_receiver: Receiver<NotifyResult<notify::Event>>,
+    notify_receiver: Receiver<NotifyResult<Event>>,
     event_tx: Sender<WatcherEvent>,
     pending_events: HashMap<PathBuf, PendingEvent>,
 }
@@ -54,8 +57,8 @@ impl Watcher {
         let (event_tx, event_rx) = mpsc::channel(1);
 
         let (tx, rx) = mpsc::channel(1);
-        let mut watcher = notify::recommended_watcher(move |res: NotifyResult<notify::Event>| {
-            futures::executor::block_on(async {
+        let mut watcher = notify::recommended_watcher(move |res: NotifyResult<Event>| {
+            executor::block_on(async {
                 tx.send(res).await.unwrap();
             });
         })
@@ -98,20 +101,20 @@ impl Watcher {
                     // TODO: Better errors?
                     let event = event.unwrap().unwrap();
                     match event.kind {
-                        EventKind::Create(notify::event::CreateKind::File) => {
+                        EventKind::Create(CreateKind::File) => {
                             assert!(event.paths.len() == 1);
                             self.maybe_created(&event.paths[0]);
                         }
-                        EventKind::Remove(notify::event::RemoveKind::File) => {
+                        EventKind::Remove(RemoveKind::File) => {
                             assert!(event.paths.len() == 1);
                             self.maybe_removed(&event.paths[0]);
                         }
-                        EventKind::Modify(notify::event::ModifyKind::Data(_)) => {
+                        EventKind::Modify(ModifyKind::Data(_)) => {
                             assert!(event.paths.len() == 1);
                             self.maybe_modified(&event.paths[0]);
                         }
-                        EventKind::Modify(notify::event::ModifyKind::Name(
-                            notify::event::RenameMode::Both,
+                        EventKind::Modify(ModifyKind::Name(
+                            RenameMode::Both,
                         )) => {
                             assert!(event.paths.len() == 2);
                             self.maybe_removed(&event.paths[0]);
@@ -119,8 +122,8 @@ impl Watcher {
                         }
                         // MacOS doesn't give us details on moving a file, so we need to infer what
                         // happened.
-                        EventKind::Modify(notify::event::ModifyKind::Name(
-                            notify::event::RenameMode::Any,
+                        EventKind::Modify(ModifyKind::Name(
+                            RenameMode::Any,
                         )) => {
                             assert!(event.paths.len() == 1);
                             let file_path = event.paths[0].clone();
@@ -184,7 +187,7 @@ impl Watcher {
             event
         } else {
             // Await forever.
-            std::future::pending::<WatcherEvent>().await
+            pending::<WatcherEvent>().await
         }
     }
 

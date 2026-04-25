@@ -4,13 +4,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use automerge::{
-    AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc,
-    sync::{Message, State, SyncDoc},
+    AutoCommit, ChangeHash, ObjId, ObjType, Patch, PatchLog, ReadDoc, ScalarValue, Value,
+    sync::{Message as AutomergeSyncMessage, State as AutomergeSyncState, SyncDoc},
     transaction::Transactable,
 };
 use dissimilar::Chunk;
@@ -213,18 +214,8 @@ impl Document {
         // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
 
         match self.doc.get_at(&file_map, file_path, heads) {
-            Ok(Some((
-                automerge::Value::Scalar(std::borrow::Cow::Owned(automerge::ScalarValue::Bytes(
-                    bytes,
-                ))),
-                _,
-            ))) => Ok(bytes),
-            Ok(Some((
-                automerge::Value::Scalar(std::borrow::Cow::Borrowed(
-                    automerge::ScalarValue::Bytes(bytes),
-                )),
-                _,
-            ))) => {
+            Ok(Some((Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _))) => Ok(bytes),
+            Ok(Some((Value::Scalar(Cow::Borrowed(ScalarValue::Bytes(bytes))), _))) => {
                 // TODO: Potentially memory-heavy operation. Figure out how to deal with Cows. Moo.
                 Ok(bytes.clone())
             }
@@ -340,7 +331,7 @@ impl Document {
         if let Ok(file_map) = self.top_level_map_obj("files") {
             for file_path in self.doc.keys(&file_map) {
                 match self.doc.get(&file_map, &file_path) {
-                    Ok(Some((automerge::Value::Object(ObjType::Text), text_obj))) => {
+                    Ok(Some((Value::Object(ObjType::Text), text_obj))) => {
                         let string = self
                             .doc
                             .text(&text_obj)
@@ -348,21 +339,11 @@ impl Document {
                         self.files
                             .insert(RelativePath::new(&file_path), Content::String(string));
                     }
-                    Ok(Some((
-                        automerge::Value::Scalar(std::borrow::Cow::Owned(
-                            automerge::ScalarValue::Bytes(bytes),
-                        )),
-                        _,
-                    ))) => {
+                    Ok(Some((Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _))) => {
                         self.files
                             .insert(RelativePath::new(&file_path), Content::Bytes(bytes));
                     }
-                    Ok(Some((
-                        automerge::Value::Scalar(std::borrow::Cow::Borrowed(
-                            automerge::ScalarValue::Bytes(bytes),
-                        )),
-                        _,
-                    ))) => {
+                    Ok(Some((Value::Scalar(Cow::Borrowed(ScalarValue::Bytes(bytes))), _))) => {
                         // TODO: Potentially memory-heavy operation. Figure out how to deal with Cows. Moo.
                         self.files
                             .insert(RelativePath::new(&file_path), Content::Bytes(bytes.clone()));
@@ -375,9 +356,9 @@ impl Document {
         }
     }
 
-    fn top_level_map_obj(&self, name: &str) -> Result<automerge::ObjId> {
+    fn top_level_map_obj(&self, name: &str) -> Result<ObjId> {
         let file_map = self.doc.get(automerge::ROOT, name);
-        if let Ok(Some((automerge::Value::Object(ObjType::Map), file_map))) = file_map {
+        if let Ok(Some((Value::Object(ObjType::Map), file_map))) = file_map {
             Ok(file_map)
         } else {
             Err(anyhow!(
@@ -386,13 +367,13 @@ impl Document {
         }
     }
 
-    fn text_obj(&self, file_path: &RelativePath) -> Result<automerge::ObjId> {
+    fn text_obj(&self, file_path: &RelativePath) -> Result<ObjId> {
         let file_map = self.top_level_map_obj("files")?;
         let text_obj = self
             .doc
             .get(file_map, file_path)
             .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"));
-        if let Some((automerge::Value::Object(ObjType::Text), text_obj)) = text_obj {
+        if let Some((Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
             Err(anyhow!(
@@ -401,11 +382,7 @@ impl Document {
         }
     }
 
-    fn text_obj_at(
-        &self,
-        file_path: &RelativePath,
-        heads: &[ChangeHash],
-    ) -> Result<automerge::ObjId> {
+    fn text_obj_at(&self, file_path: &RelativePath, heads: &[ChangeHash]) -> Result<ObjId> {
         // I hope this one is always there...
         let file_map = self.top_level_map_obj("files")?;
 
@@ -413,7 +390,7 @@ impl Document {
             .doc
             .get_at(file_map, file_path, heads)
             .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"));
-        if let Some((automerge::Value::Object(ObjType::Text), text_obj)) = text_obj {
+        if let Some((Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
             Err(anyhow!(

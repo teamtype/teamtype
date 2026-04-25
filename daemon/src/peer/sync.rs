@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -9,7 +10,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use automerge::sync::{Message as AutomergeSyncMessage, State as AutomergeSyncState};
 use serde::{Deserialize, Serialize};
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::{broadcast::error::RecvError, oneshot};
 use tracing::debug;
 
 use crate::daemon::{DocMessage, DocumentActorHandle};
@@ -114,10 +115,10 @@ impl SyncActor {
                 doc_ping = doc_changed_ping_rx.recv() => {
                     match doc_ping {
                         Ok(()) => { self.generate_sync_message().await?; }
-                        Err(broadcast::error::RecvError::Closed) => {
+                        Err(RecvError::Closed) => {
                             panic!("Doc changed channel has been closed");
                         }
-                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                        Err(RecvError::Lagged(_)) => {
                             // This is fine, the messages in this channel are just pings.
                             // It's fine if we miss some.
                             debug!("Doc changed ping channel lagged (this is probably fine).");
@@ -129,10 +130,10 @@ impl SyncActor {
                         Ok(ephemeral_message) => {
                             self.connection.send(PeerMessage::Ephemeral(ephemeral_message)).await?;
                         }
-                        Err(broadcast::error::RecvError::Closed) => {
+                        Err(RecvError::Closed) => {
                             panic!("Ephemeral message channel has been closed");
                         }
-                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                        Err(RecvError::Lagged(_)) => {
                             // We missed some cursor states, because of the limited
                             // capacity of the channel.
                             debug!("Ephemeral message channel lagged (this is unfortunate, but okay).");

@@ -8,8 +8,9 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
-use git2::ConfigLevel;
+use anyhow::bail;
+use anyhow::{Context, Result};
+use git2::{Config as GitConfig, ConfigLevel, Error as GitError, Repository};
 use ini::{Ini, Properties};
 use tracing::info;
 
@@ -278,14 +279,14 @@ fn local_git_username(base_dir: &Path) -> Result<String> {
 }
 
 fn global_git_username() -> Result<String> {
-    Ok(git2::Config::open_default()?
+    Ok(GitConfig::open_default()?
         .snapshot()?
         .get_str("user.name")?
         .to_string())
 }
 
-fn find_git_repo(path: &Path) -> Result<git2::Repository, git2::Error> {
-    git2::Repository::discover(path)
+fn find_git_repo(path: &Path) -> Result<Repository, GitError> {
+    Repository::discover(path)
 }
 
 fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
