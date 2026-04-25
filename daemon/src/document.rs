@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::collections::HashMap;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
+use anyhow::{anyhow, bail};
 use automerge::{
     AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc,
     sync::{Message as AutomergeSyncMessage, State as SyncState, SyncDoc},
@@ -378,7 +380,7 @@ impl Document {
         if let Ok(Some((automerge::Value::Object(ObjType::Map), file_map))) = file_map {
             Ok(file_map)
         } else {
-            Err(anyhow::anyhow!(
+            Err(anyhow!(
                 "Automerge document doesn't have a {name} Map object"
             ))
         }
@@ -393,7 +395,7 @@ impl Document {
         if let Some((automerge::Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
-            Err(anyhow::anyhow!(
+            Err(anyhow!(
                 "Automerge document doesn't have a {file_path} Text object, so I can't provide it"
             ))
         }
@@ -414,7 +416,7 @@ impl Document {
         if let Some((automerge::Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
-            Err(anyhow::anyhow!(
+            Err(anyhow!(
                 "Automerge document doesn't have a {file_path} Text object, so I can't provide it"
             ))
         }

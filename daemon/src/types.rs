@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::fmt;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, bail};
 use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding};
 use dissimilar::Chunk;
 use operational_transform::{Operation as OTOperation, OperationSeq};
@@ -336,14 +338,14 @@ impl TextDelta {
 // TODO: This feels like it should go into another file, close to where Document handles writing to
 // the Automerge document. Both places need to know about our chosen structure.
 impl TryFrom<&Patch> for PatchEffect {
-    type Error = anyhow::Error;
+    type Error = Error;
 
     fn try_from(patch: &Patch) -> Result<Self, Self::Error> {
         fn file_path_from_path_default(
             path: &[(automerge::ObjId, automerge::Prop)],
-        ) -> Result<RelativePath, anyhow::Error> {
+        ) -> Result<RelativePath, Error> {
             if path.len() != 2 {
-                return Err(anyhow::anyhow!(
+                return Err(anyhow!(
                     "Unexpected path in Automerge patch, length is not 2"
                 ));
             }
@@ -351,7 +353,7 @@ impl TryFrom<&Patch> for PatchEffect {
             if let automerge::Prop::Map(file_path) = prop {
                 return Ok(RelativePath::new(file_path));
             }
-            Err(anyhow::anyhow!(
+            Err(anyhow!(
                 "Unexpected path in Automerge patch: Prop is not a map"
             ))
         }
@@ -362,12 +364,12 @@ impl TryFrom<&Patch> for PatchEffect {
                     if key == "files" {
                         Ok(Self::NoEffect)
                     } else {
-                        Err(anyhow::anyhow!(
+                        Err(anyhow!(
                             "Path is empty and action is PutMap, but key is not 'files'",
                         ))
                     }
                 }
-                other_action => Err(anyhow::anyhow!(
+                other_action => Err(anyhow!(
                     "Unsupported patch action for empty path: {other_action}"
                 )),
             };
@@ -411,9 +413,7 @@ impl TryFrom<&Patch> for PatchEffect {
                                     )),
                                     _,
                                 ) => Ok(Self::FileBytes(relative_path, bytes.clone())),
-                                _ => {
-                                    Err(anyhow::anyhow!("Unexpected value in path {relative_path}"))
-                                }
+                                _ => Err(anyhow!("Unexpected value in path {relative_path}")),
                             }
                         }
                         PatchAction::DeleteMap { key } => {
@@ -432,12 +432,12 @@ impl TryFrom<&Patch> for PatchEffect {
                                     );
                                     Ok(Self::NoEffect)
                                 }
-                                automerge::Prop::Seq(seq) => Err(anyhow::anyhow!(
+                                automerge::Prop::Seq(seq) => Err(anyhow!(
                                     "Got a Seq-type prop as a conflict, expected Map: {seq}"
                                 )),
                             }
                         }
-                        other_action => Err(anyhow::anyhow!(
+                        other_action => Err(anyhow!(
                             "Unsupported patch action for path 'files': {other_action}"
                         )),
                     }
@@ -460,17 +460,17 @@ impl TryFrom<&Patch> for PatchEffect {
                                 delta,
                             )))
                         }
-                        other_action => Err(anyhow::anyhow!(
+                        other_action => Err(anyhow!(
                             "Unsupported patch action for path 'files/*': {other_action}"
                         )),
                     }
                 } else {
-                    Err(anyhow::anyhow!(
+                    Err(anyhow!(
                         "Unexpected path action for path 'files/**', expected it to be of length 1 or 2"
                     ))
                 }
             }
-            (_, _) => Err(anyhow::anyhow!(
+            (_, _) => Err(anyhow!(
                 "Unexpected path in Automerge patch, expected it to begin with 'files'"
             )),
         }
