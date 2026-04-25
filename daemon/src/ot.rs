@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -500,7 +501,7 @@ mod tests {
     }
 
     mod operational_transform_internals {
-        use operational_transform::Operation as OTOperation;
+        use operational_transform::Operation;
 
         use super::*;
 
@@ -589,15 +590,15 @@ mod tests {
                 .expect("Transform failed. Do the lengths fit?");
             assert_eq!(
                 a_prime.ops(),
-                vec![OTOperation::Retain(1), OTOperation::Insert("x".to_string())]
+                vec![Operation::Retain(1), Operation::Insert("x".to_string())]
             );
             assert_eq!(
                 b_prime.ops(),
                 vec![
-                    OTOperation::Retain(1),
-                    OTOperation::Delete(1),
-                    OTOperation::Retain(1),
-                    OTOperation::Delete(1)
+                    Operation::Retain(1),
+                    Operation::Delete(1),
+                    Operation::Retain(1),
+                    Operation::Delete(1)
                 ]
             );
 
@@ -610,17 +611,17 @@ mod tests {
             assert_eq!(
                 a_prime.ops(),
                 vec![
-                    OTOperation::Retain(2),
-                    OTOperation::Insert("x".to_string()),
-                    OTOperation::Retain(2)
+                    Operation::Retain(2),
+                    Operation::Insert("x".to_string()),
+                    Operation::Retain(2)
                 ]
             );
             assert_eq!(
                 c_prime.ops(),
                 vec![
-                    OTOperation::Retain(3),
-                    OTOperation::Insert("y".to_string()),
-                    OTOperation::Retain(1)
+                    Operation::Retain(3),
+                    Operation::Insert("y".to_string()),
+                    Operation::Retain(1)
                 ]
             );
         }

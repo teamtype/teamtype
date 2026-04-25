@@ -10,7 +10,7 @@ use anyhow::{Context, Error, Result};
 use anyhow::{anyhow, bail};
 use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding};
 use dissimilar::Chunk;
-use operational_transform::{Operation as OTOperation, OperationSeq};
+use operational_transform::{Operation, OperationSeq};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
@@ -512,13 +512,13 @@ impl From<OperationSeq> for TextDelta {
         let mut delta = Self::default();
         for op in op_seq.ops() {
             match op {
-                OTOperation::Retain(n) => {
+                Operation::Retain(n) => {
                     delta.retain(*n as usize);
                 }
-                OTOperation::Insert(s) => {
+                Operation::Insert(s) => {
                     delta.insert(s);
                 }
-                OTOperation::Delete(n) => {
+                Operation::Delete(n) => {
                     delta.delete(*n as usize);
                 }
             }

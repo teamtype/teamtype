@@ -16,8 +16,8 @@ use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use iroh::discovery::dns::DnsDiscovery;
 use iroh::discovery::pkarr::PkarrPublisher;
-use iroh::endpoint::{RecvStream, SendStream};
-use iroh::{NodeAddr, RelayMap, RelayUrl, SecretKey};
+use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, SendStream};
+use iroh::{Endpoint, NodeAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
@@ -374,7 +374,7 @@ impl EndpointActor {
         }
     }
 
-    fn handle_incoming_connection(&self, conn: iroh::endpoint::Connection) {
+    fn handle_incoming_connection(&self, conn: IrohEndpointConnection) {
         let node_id = conn
             .remote_node_id()
             .expect("Connection should have a node ID");
@@ -400,23 +400,23 @@ impl EndpointActor {
 
     async fn handle_peer(
         document_handle: DocumentActorHandle,
-        conn: iroh::endpoint::Connection,
+        conn: IrohEndpointConnection,
         auth: PeerAuth,
     ) -> Result<()> {
-        let connection = IrohConnection::new(conn, auth).await?;
-        let syncer = SyncActor::new(document_handle, Box::new(connection));
+        let stream = PeerMessageStream::new(conn, auth).await?;
+        let syncer = SyncActor::new(document_handle, Box::new(stream));
         syncer.run().await
     }
 }
 
-// Sends/receives PeerMessages to/from and Iroh connection.
-struct IrohConnection {
+// Sends/receives PeerMessages through an Iroh connection.
+struct PeerMessageStream {
     send: SendStream,
     message_rx: mpsc::Receiver<Result<PeerMessage>>,
 }
 
-impl IrohConnection {
-    async fn new(conn: iroh::endpoint::Connection, auth: PeerAuth) -> Result<Self> {
+impl PeerMessageStream {
+    async fn new(conn: IrohEndpointConnection, auth: PeerAuth) -> Result<Self> {
         let (send, receive) = match auth {
             PeerAuth::YourPassphrase(passphrase) => {
                 let (mut send, recv) = conn.open_bi().await?;
@@ -473,7 +473,7 @@ impl IrohConnection {
 }
 
 #[async_trait]
-impl Connection<PeerMessage> for IrohConnection {
+impl Connection<PeerMessage> for PeerMessageStream {
     async fn send(&mut self, message: PeerMessage) -> Result<()> {
         let bytes: Vec<u8> =
             to_allocvec(&message).context("Failed to convert PeerMessage to bytes")?;

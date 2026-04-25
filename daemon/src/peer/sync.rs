@@ -7,7 +7,7 @@ use std::mem;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use automerge::sync::{Message as AutomergeSyncMessage, State as SyncState};
+use automerge::sync::{Message as AutomergeSyncMessage, State as AutomergeSyncState};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, oneshot};
 use tracing::debug;
@@ -35,7 +35,7 @@ pub trait Connection<T>: Send + Sync {
 /// Exchanges [`PeerMessage`]s with the connection, and communicates with the document on the other side.
 /// Maintains the sync state.
 pub struct SyncActor {
-    peer_state: SyncState,
+    peer_state: AutomergeSyncState,
     document_handle: DocumentActorHandle,
     connection: Box<dyn Connection<PeerMessage>>,
 }
@@ -46,7 +46,7 @@ impl SyncActor {
         connection: Box<dyn Connection<PeerMessage>>,
     ) -> Self {
         Self {
-            peer_state: SyncState::new(),
+            peer_state: AutomergeSyncState::new(),
             document_handle,
             connection,
         }

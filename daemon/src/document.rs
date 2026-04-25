@@ -10,7 +10,7 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use automerge::{
     AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc,
-    sync::{Message as AutomergeSyncMessage, State as SyncState, SyncDoc},
+    sync::{Message, State, SyncDoc},
     transaction::Transactable,
 };
 use dissimilar::Chunk;
@@ -86,7 +86,7 @@ impl Document {
     pub fn receive_sync_message_log_patches(
         &mut self,
         message: AutomergeSyncMessage,
-        peer_state: &mut SyncState,
+        peer_state: &mut AutomergeSyncState,
     ) -> Vec<Patch> {
         let mut patch_log = PatchLog::active();
         self.doc
@@ -136,7 +136,7 @@ impl Document {
     #[must_use]
     pub fn generate_sync_message(
         &mut self,
-        peer_state: &mut SyncState,
+        peer_state: &mut AutomergeSyncState,
     ) -> Option<AutomergeSyncMessage> {
         self.doc.sync().generate_sync_message(peer_state)
     }
@@ -562,7 +562,7 @@ mod tests {
         #[test]
         fn test_generate_sync_message() {
             let mut document = Document::default();
-            let mut state = SyncState::new();
+            let mut state = AutomergeSyncState::new();
             assert!(document.generate_sync_message(&mut state).is_some());
             // Stops for now and waits for a response
             assert!(document.generate_sync_message(&mut state).is_none());
