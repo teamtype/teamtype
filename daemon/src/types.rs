@@ -7,8 +7,8 @@
 use std::borrow::Cow;
 use std::{fmt, vec};
 
+use anyhow::bail;
 use anyhow::{Context, Error, Result};
-use anyhow::{anyhow, bail};
 use automerge::{
     ConcreteTextValue, ObjId, ObjType, Patch, PatchAction, Prop, ScalarValue, TextEncoding, Value,
 };
@@ -346,17 +346,13 @@ impl TryFrom<&Patch> for PatchEffect {
     fn try_from(patch: &Patch) -> Result<Self, Self::Error> {
         fn file_path_from_path_default(path: &[(ObjId, Prop)]) -> Result<RelativePath, Error> {
             if path.len() != 2 {
-                return Err(anyhow!(
-                    "Unexpected path in Automerge patch, length is not 2"
-                ));
+                bail!("Unexpected path in Automerge patch, length is not 2");
             }
             let (_obj_id, prop) = &path[1];
             if let Prop::Map(file_path) = prop {
                 return Ok(RelativePath::new(file_path));
             }
-            Err(anyhow!(
-                "Unexpected path in Automerge patch: Prop is not a map"
-            ))
+            bail!("Unexpected path in Automerge patch: Prop is not a map")
         }
 
         if patch.path.is_empty() {
@@ -365,14 +361,10 @@ impl TryFrom<&Patch> for PatchEffect {
                     if key == "files" {
                         Ok(Self::NoEffect)
                     } else {
-                        Err(anyhow!(
-                            "Path is empty and action is PutMap, but key is not 'files'",
-                        ))
+                        bail!("Path is empty and action is PutMap, but key is not 'files'")
                     }
                 }
-                other_action => Err(anyhow!(
-                    "Unsupported patch action for empty path: {other_action}"
-                )),
+                other_action => bail!("Unsupported patch action for empty path: {other_action}"),
             };
         }
 
@@ -411,7 +403,7 @@ impl TryFrom<&Patch> for PatchEffect {
                                 (Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _) => {
                                     Ok(Self::FileBytes(relative_path, bytes.clone()))
                                 }
-                                _ => Err(anyhow!("Unexpected value in path {relative_path}")),
+                                _ => bail!("Unexpected value in path {relative_path}"),
                             }
                         }
                         PatchAction::DeleteMap { key } => {
@@ -430,14 +422,14 @@ impl TryFrom<&Patch> for PatchEffect {
                                     );
                                     Ok(Self::NoEffect)
                                 }
-                                Prop::Seq(seq) => Err(anyhow!(
-                                    "Got a Seq-type prop as a conflict, expected Map: {seq}"
-                                )),
+                                Prop::Seq(seq) => {
+                                    bail!("Got a Seq-type prop as a conflict, expected Map: {seq}")
+                                }
                             }
                         }
-                        other_action => Err(anyhow!(
-                            "Unsupported patch action for path 'files': {other_action}"
-                        )),
+                        other_action => {
+                            bail!("Unsupported patch action for path 'files': {other_action}")
+                        }
                     }
                 } else if patch.path.len() == 2 {
                     let mut delta = TextDelta::default();
@@ -458,19 +450,19 @@ impl TryFrom<&Patch> for PatchEffect {
                                 delta,
                             )))
                         }
-                        other_action => Err(anyhow!(
-                            "Unsupported patch action for path 'files/*': {other_action}"
-                        )),
+                        other_action => {
+                            bail!("Unsupported patch action for path 'files/*': {other_action}")
+                        }
                     }
                 } else {
-                    Err(anyhow!(
+                    bail!(
                         "Unexpected path action for path 'files/**', expected it to be of length 1 or 2"
-                    ))
+                    )
                 }
             }
-            (_, _) => Err(anyhow!(
-                "Unexpected path in Automerge patch, expected it to begin with 'files'"
-            )),
+            (_, _) => {
+                bail!("Unexpected path in Automerge patch, expected it to begin with 'files'")
+            }
         }
     }
 }

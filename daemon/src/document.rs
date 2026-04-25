@@ -7,8 +7,8 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use anyhow::Result;
-use anyhow::{anyhow, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use automerge::{
     AutoCommit, ChangeHash, ObjId, ObjType, Patch, PatchLog, ReadDoc, ScalarValue, Value,
     sync::{Message as AutomergeSyncMessage, State as AutomergeSyncState, SyncDoc},
@@ -154,7 +154,7 @@ impl Document {
         let mut offset = 0isize;
 
         let Some(Content::String(text)) = self.current_file_content(file_path) else {
-            panic!("Should have initialized text before applying delta to it");
+            bail!("File {file_path} not initialized before applying delta");
         };
         // Clone so that `self` is no longer borrowed.
         let text = text.clone();
@@ -179,7 +179,7 @@ impl Document {
 
         // Update cached content.
         let Some(Content::String(old_text)) = self.files.get(file_path) else {
-            panic!("Did not find text content in files cache at file_path");
+            bail!("Did not find text content in files cache at file_path");
         };
         let new_text = delta.apply_to(old_text)?;
         self.files
@@ -361,9 +361,7 @@ impl Document {
         if let Ok(Some((Value::Object(ObjType::Map), file_map))) = file_map {
             Ok(file_map)
         } else {
-            Err(anyhow!(
-                "Automerge document doesn't have a {name} Map object"
-            ))
+            bail!("Automerge document doesn't have a {name} Map object")
         }
     }
 
@@ -372,13 +370,13 @@ impl Document {
         let text_obj = self
             .doc
             .get(file_map, file_path)
-            .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"));
+            .with_context(|| format!("Failed to get {file_path} key from Automerge document"))?;
         if let Some((Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
-            Err(anyhow!(
+            bail!(
                 "Automerge document doesn't have a {file_path} Text object, so I can't provide it"
-            ))
+            )
         }
     }
 
@@ -389,13 +387,13 @@ impl Document {
         let text_obj = self
             .doc
             .get_at(file_map, file_path, heads)
-            .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"));
+            .with_context(|| format!("Failed to get {file_path} key from Automerge document"))?;
         if let Some((Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
-            Err(anyhow!(
+            bail!(
                 "Automerge document doesn't have a {file_path} Text object, so I can't provide it"
-            ))
+            )
         }
     }
 

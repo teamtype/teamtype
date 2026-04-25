@@ -9,7 +9,8 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::{env, panic};
 
-use anyhow::{Context, Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
 use teamtype::{
@@ -173,7 +174,7 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
                 .context("Failed to resolve peer")?;
         }
         Commands::Client => {
-            panic!("This can't happen, as we earlier matched on Share|Join.")
+            bail!("This can't happen, as we earlier matched on Share|Join.")
         }
     }
 

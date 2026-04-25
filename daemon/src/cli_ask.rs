@@ -7,7 +7,8 @@
 use std::io::Write;
 use std::io::{stdin, stdout};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
+use anyhow::bail;
 
 pub fn ask(question: &str) -> Result<bool> {
     print!("{question} (y/N): ");

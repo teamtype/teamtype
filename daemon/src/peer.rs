@@ -13,7 +13,8 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use iroh::discovery::dns::DnsDiscovery;
 use iroh::discovery::pkarr::PkarrPublisher;

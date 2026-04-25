@@ -14,7 +14,8 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
@@ -222,7 +223,7 @@ fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
                 Path::new(os_str).to_path_buf()
             };
         } else {
-            panic!("Got unexpected Component variant while canonicalizing");
+            bail!("Got unexpected Component variant while canonicalizing");
         }
     }
 
