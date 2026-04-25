@@ -31,7 +31,6 @@ default-run = "teamtype"
 name = "teamtype"
 test = false
 bench = false
-doc = false
 required-features = ["executable-deps"]
 
 [lib]
