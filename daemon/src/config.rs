@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Data structures and helper methods around influencing the configuration of the application.
+
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};

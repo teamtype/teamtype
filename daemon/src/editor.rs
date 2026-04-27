@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module is all about daemon to editor communication.
+
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
 
 use anyhow::{Context, Result, bail};

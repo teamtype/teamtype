@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
 
