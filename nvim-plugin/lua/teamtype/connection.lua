@@ -36,7 +36,7 @@ function Connection:send_request(method, params, result_callback, err_callback)
 end
 
 -- Connect to the daemon, and return a handle on the connection.
-function M.connect(cmd, directory, on_notification)
+function M.connect(cmd, directory, on_notification, on_disconnect)
     local executable = cmd[1]
     if vim.fn.executable(executable) == 0 then
         vim.api.nvim_err_writeln(
@@ -58,6 +58,7 @@ function M.connect(cmd, directory, on_notification)
                     vim.api.nvim_err_writeln(
                         "Connection to Teamtype daemon lost. Probably it crashed or was stopped. Please restart the daemon, then Neovim."
                     )
+                    on_disconnect()
                     -- TODO: Enable writing here again, so that user can make backup of file?
                 end)
             else
