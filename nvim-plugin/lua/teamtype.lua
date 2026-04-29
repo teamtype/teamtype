@@ -141,6 +141,16 @@ local function find_or_create_client(config_name, root_dir)
     }
     local the_connection = connection.connect(configurations[config_name].cfg.cmd, root_dir, function(m, p)
         process_operation_for_editor(client, m, p)
+    end,
+    function()
+        -- React to disconnect.
+        for _, c in ipairs(clients) do
+            if c == client then
+                for _, buf_nr in ipairs(c.buffers) do
+                    vim.bo[buf_nr].modifiable = false
+                end
+            end
+        end
     end)
     client.connection = the_connection
     table.insert(clients, client)
