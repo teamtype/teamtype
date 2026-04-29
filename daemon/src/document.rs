@@ -342,7 +342,7 @@ impl Document {
                         let string = self
                             .doc
                             .text(&text_obj)
-                            .expect("Should be able to retreive text");
+                            .expect("Should be able to retrieve text");
                         self.files
                             .insert(RelativePath::new(&file_path), Content::String(string));
                     }

@@ -137,7 +137,7 @@ impl AppConfig {
                     get_secret_address_from_wormhole(join_code, self.magic_wormhole_relay.clone())
                         .await
                         .context(
-                            "Failed to retreive secret address, was this join code already used?",
+                            "Failed to retrieve secret address, was this join code already used?",
                         )?;
                 info!(
                     "Derived peer from join code. Storing in config (overwriting previous config)."

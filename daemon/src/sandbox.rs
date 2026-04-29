@@ -346,7 +346,7 @@ mod tests {
         assert!(read_file(Path::new("project"), &project_dir.join("a")).is_err());
 
         // File not exist.
-        assert!(read_file(&project_dir, &project_dir.join("nonexistant")).is_err());
+        assert!(read_file(&project_dir, &project_dir.join("nonexistent")).is_err());
     }
 
     #[test]

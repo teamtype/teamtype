@@ -53,7 +53,7 @@ impl SyncActor {
     }
 
     async fn receive_peer_message(&mut self, message: PeerMessage) -> Result<()> {
-        let (reponse_tx, response_rx) = oneshot::channel();
+        let (response_tx, response_rx) = oneshot::channel();
         match message {
             PeerMessage::Sync(message_buf) => {
                 let message = AutomergeSyncMessage::decode(&message_buf)?;
@@ -61,7 +61,7 @@ impl SyncActor {
                     .send_message(DocMessage::ReceiveSyncMessage {
                         message,
                         state: mem::take(&mut self.peer_state),
-                        response_tx: reponse_tx,
+                        response_tx,
                     })
                     .await;
                 self.peer_state = response_rx
@@ -78,11 +78,11 @@ impl SyncActor {
     }
 
     async fn generate_sync_message(&mut self) -> Result<()> {
-        let (reponse_tx, response_rx) = oneshot::channel();
+        let (response_tx, response_rx) = oneshot::channel();
         self.document_handle
             .send_message(DocMessage::GenerateSyncMessage {
                 state: mem::take(&mut self.peer_state),
-                response_tx: reponse_tx,
+                response_tx,
             })
             .await;
         let (ps, message) = response_rx

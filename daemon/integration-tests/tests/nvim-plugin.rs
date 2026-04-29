@@ -49,7 +49,7 @@ async fn nvim_sends_something_to_socket() {
         socket.acknowledge_open().await;
     })
     .await
-    .expect("sends_somthing test timed out");
+    .expect("sends_something test timed out");
 }
 
 async fn assert_nvim_deltas_yield_content(
