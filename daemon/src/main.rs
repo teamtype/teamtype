@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -39,6 +40,12 @@ fn has_teamtype_directory(dir: &Path) -> bool {
     sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
 }
 
+#[derive(PartialEq)]
+enum MainMode {
+    Daemon,
+    Client,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -60,17 +67,26 @@ async fn main() -> Result<()> {
     setup_teamtype_directory(&directory, temporary_directory.as_ref())
         .context("Failed to find .teamtype/ directory")?;
 
-    match cli.command {
-        Commands::Share { .. } | Commands::Join { .. } => {
-            run_daemon(cli, directory.clone()).await?;
-            wait_for_shutdown().await;
-        }
-        Commands::Client => run_client(directory.clone()).await?,
+    let mode = match cli.command {
+        Commands::Share { .. } | Commands::Join { .. } => MainMode::Daemon,
+        Commands::Client => MainMode::Client,
+    };
+
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel(1);
+
+    tokio::select! {
+        _ = run_daemon(cli, directory.clone()), if mode == MainMode::Daemon => {}
+        _ = run_client(directory.clone()), if mode == MainMode::Client => {}
+        _ = shutdown_rx.recv() => {}
     }
+
+    trap_shutdown().await;
+    let _ = shutdown_tx.send(());
+
     Ok(())
 }
 
-async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
+async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
     let persist = !config::has_git_remote(&directory);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
@@ -167,10 +183,8 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
 
     debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
-    let _daemon = Daemon::new(app_config, init_doc, persist)
-        .await
-        .context("Failed to launch the daemon")?;
-    Ok(())
+    let daemon = Daemon::new(app_config, init_doc, persist);
+    daemon.await.context("Failed to launch the daemon")
 }
 
 async fn run_client(directory: PathBuf) -> Result<()> {
@@ -181,7 +195,7 @@ async fn run_client(directory: PathBuf) -> Result<()> {
         .context("JSON-RPC forwarder failed")
 }
 
-async fn wait_for_shutdown() {
+async fn trap_shutdown() {
     let mut signal_terminate = signal::unix::signal(signal::unix::SignalKind::terminate())
         .expect("Should have been able to create terminate signal stream");
     tokio::select! {
