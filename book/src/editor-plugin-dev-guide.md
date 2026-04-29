@@ -57,7 +57,7 @@ The protocol uses a couple of basic data types (we're using the same syntax to s
 
 - `DocumentUri = string`
 
-    This is an absolute file URI, for example: "file:///home/user/bla/fu.txt"`.
+    This is an absolute file URI, for example: `"file:///home/user/bla/fu.txt"`.
 
 - `Position: {line: number, character: number}`
 
