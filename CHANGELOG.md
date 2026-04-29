@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Fix CLI thread handling to correctly listen for SIGINT (<Ctrl>-C) and SIGTERM (typically invoked with `kill`) while the main daemon or client loop is running.
+
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
 Add support for `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.
