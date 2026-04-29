@@ -21,7 +21,7 @@ Because of that, we want to give you as much useful information as we can, so th
 This documentation already gives you many insights into how Teamtype works and behaves.
 The list of related projects might be helpful for you to discover other approaches.
 
-## The Architecural Decision Records
+## The Architectural Decision Records
 
 In addition to the documentation, we wrote a number of "architectural decision records", which each look at a certain problem we were facing, document the possible options, which one we picked, and why.
 We believe these records might be useful for future projects facing the same problems.
