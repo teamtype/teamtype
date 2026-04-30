@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Enable building on Windows.
+
 Handle process signalling for specific platforms, gating POSIX specific signals to Unix platforms and adding Windows specific signal handling.
 
 Fix CLI thread handling to start listening for interruption or termination signals when the main daemon or client loop runs, not after it finishes anyway.
