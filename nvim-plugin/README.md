@@ -49,8 +49,8 @@ Here's some example configuration blocks:
 {
   "teamtype/teamtype-nvim",
   config = function()
-    vim.keymap.set('n', '<leader>ej', '<cmd>TeamtypeJumpToCursor<cr>')
-    vim.keymap.set('n', '<leader>ef', '<cmd>TeamtypeFollow<cr>')
+    vim.keymap.set("n", "<leader>ej", "<cmd>TeamtypeJumpToCursor<cr>")
+    vim.keymap.set("n", "<leader>ef", "<cmd>TeamtypeFollow<cr>")
   end
 }
 ```
