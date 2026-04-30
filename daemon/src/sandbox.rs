@@ -11,6 +11,7 @@
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
@@ -86,8 +87,11 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
     let has_dir = canonical_dir_path.exists() && canonical_dir_path.is_dir();
     if !has_dir {
         fs::create_dir(&canonical_dir_path)?;
-        let permissions = fs::Permissions::from_mode(0o700);
-        fs::set_permissions(canonical_dir_path, permissions)?;
+        #[cfg(unix)]
+        {
+            let permissions = fs::Permissions::from_mode(0o700);
+            fs::set_permissions(canonical_dir_path, permissions)?;
+        }
     }
     Ok(())
 }

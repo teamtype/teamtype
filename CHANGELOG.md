@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Enable building on Windows.
+
 Fix issue blocking directories that are deeply nested (or have very long winded names) from being shared.
 
 Handle process signalling for specific platforms, gating POSIX specific signals to Unix platforms and adding Windows specific signal handling.
