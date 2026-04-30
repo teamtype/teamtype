@@ -74,26 +74,43 @@ async fn trap_shutdown(ui: &UserInterface) {
     let interruption = async {
         signal::ctrl_c()
             .await
-            .expect("unable to setup Ctrl+C handler");
+            .expect("Unable to setup Ctrl+C handler");
     };
 
     #[cfg(unix)]
-    let termination = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("unable to setup SIGTERM handler")
-            .recv()
-            .await;
-    };
+    let (termination, terminators) = (
+        async {
+            signal::unix::signal(signal::unix::SignalKind::terminate())
+                .expect("Unable to setup SIGTERM handler")
+                .recv()
+                .await;
+        },
+        "SIGTERM",
+    );
 
-    #[cfg(not(unix))]
-    let termination = std::future::pending::<()>();
+    #[cfg(windows)]
+    let (termination, terminators) = (
+        async {
+            use tokio::signal::windows::{ctrl_close, ctrl_shutdown};
+            let mut close = ctrl_close().expect("Unable to setup CTRL_CLOSE handler");
+            let mut shutdown = ctrl_shutdown().expect("Unable to setup CTRL_SHUTDOWN handler");
+            tokio::select! {
+                _ = close.recv() => {},
+                _ = shutdown.recv() => {},
+            }
+        },
+        "CTRL_CLOSE or CTRL_SHUTDOWN",
+    );
+
+    #[cfg(not(any(windows, unix)))]
+    let (termination, terminators) = (std::future::pending::<()>(), "unknown");
 
     tokio::select! {
         () = interruption => {
-            ui.inform("Got SIGINT (Ctrl+C), shutting down");
+            ui.inform("Got interruption signal (like Ctrl+C), shutting down");
         }
         () = termination => {
-            ui.inform("Got SIGTERM, shutting down");
+            ui.inform(&format!("Got termination signal ({terminators}), shutting down"));
         }
     }
 }
