@@ -196,14 +196,29 @@ async fn run_client(directory: PathBuf) -> Result<()> {
 }
 
 async fn trap_shutdown() {
-    let mut signal_terminate = signal::unix::signal(signal::unix::SignalKind::terminate())
-        .expect("Should have been able to create terminate signal stream");
+    let interruption = async {
+        signal::ctrl_c()
+            .await
+            .expect("unable to setup Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let termination = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("unable to setup SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let temination = std::future::pending::<()>();
+
     tokio::select! {
-        _ = signal::ctrl_c() => {
-            debug!("Got SIGINT (Ctrl+C), shutting down");
+        () = interruption => {
+            info!("Got SIGINT (Ctrl+C), shutting down");
         }
-        _ = signal_terminate.recv() => {
-            debug!("Got SIGTERM, shutting down");
+        () = termination => {
+            info!("Got SIGTERM, shutting down");
         }
     }
 }

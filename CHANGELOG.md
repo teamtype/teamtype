@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Handle POSIX specific process signalling without assuming everybody is running a Unix platform.
+
 Fix CLI thread handling to correctly listen for SIGINT (<Ctrl>-C) and SIGTERM (typically invoked with `kill`) while the main daemon or client loop is running.
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
