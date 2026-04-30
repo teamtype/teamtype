@@ -9,9 +9,9 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 Fix issue blocking directories that are deeply nested (or have very long winded names) from being shared.
 
-Handle POSIX specific process signalling without assuming everybody is running a Unix platform.
+Handle process signalling for specific platforms, gating POSIX specific signals to Unix platforms and adding Windows specific signal handling.
 
-Fix CLI thread handling to correctly listen for SIGINT (<Ctrl>-C) and SIGTERM (typically invoked with `kill`) while the main daemon or client loop is running.
+Fix CLI thread handling to start listening for interruption or termination signals when the main daemon or client loop runs, not after it finishes anyway.
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
