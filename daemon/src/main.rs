@@ -203,22 +203,39 @@ async fn trap_shutdown() {
     };
 
     #[cfg(unix)]
-    let termination = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("unable to setup SIGTERM handler")
-            .recv()
-            .await;
-    };
+    let (termination, terminators) = (
+        async {
+            signal::unix::signal(signal::unix::SignalKind::terminate())
+                .expect("unable to setup SIGTERM handler")
+                .recv()
+                .await;
+        },
+        "SIGTERM",
+    );
 
-    #[cfg(not(unix))]
-    let temination = std::future::pending::<()>();
+    #[cfg(windows)]
+    let (termination, terminators) = (
+        async {
+            use tokio::signal::windows::{ctrl_close, ctrl_shutdown};
+            let mut close = ctrl_close().expect("unable to setup CTRL_CLOSE handler");
+            let mut shutdown = ctrl_shutdown().expect("unable to setup CTRL_SHUTDOWN handler");
+            tokio::select! {
+                _ = close.recv() => {},
+                _ = shutdown.recv() => {},
+            }
+        },
+        "CTRL_CLOSE or CTRL_SHUTDOWN",
+    );
+
+    #[cfg(not(any(windows, unix)))]
+    let (termination, terminators) = (std::future::pending::<()>(), "unknown");
 
     tokio::select! {
         () = interruption => {
-            info!("Got SIGINT (Ctrl+C), shutting down");
+            info!("Got interruption signal (like Ctrl+C), shutting down");
         }
         () = termination => {
-            info!("Got SIGTERM, shutting down");
+            info!("Got termination signal ({terminators}), shutting down");
         }
     }
 }
