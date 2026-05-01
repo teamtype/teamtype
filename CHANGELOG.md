@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Fix issue blocking directories that are deeply nested (or have very long winded names) from being shared.
+
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
 Add support for `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.

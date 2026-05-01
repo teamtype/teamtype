@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module is all about daemon to editor communication.
 
-use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
@@ -82,6 +85,14 @@ fn is_user_readable_only(socket_path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn strip_current_dir(path: &Path) -> PathBuf {
+    let Ok(cwd) = env::current_dir() else {
+        return path.to_path_buf();
+    };
+    path.strip_prefix(&cwd)
+        .map_or_else(|_| path.to_path_buf(), Path::to_path_buf)
+}
+
 /// # Panics
 ///
 /// Will panic if we fail to listen on the socket, or if we fail to accept an incoming connection.
@@ -111,7 +122,11 @@ pub fn spawn_socket_listener(
         }
     }
 
-    let listener = UnixListener::bind(socket_path)?;
+    // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
+    // length that matters is only the segment it is asked to handle. If passed an absolute path
+    // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
+    // relative path effectively sidesteps this limitation.
+    let listener = UnixListener::bind(strip_current_dir(socket_path))?;
     debug!("Listening on UNIX socket: {}", socket_path.display());
 
     tokio::spawn(async move {
