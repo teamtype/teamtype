@@ -7,6 +7,12 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Enable building on Windows.
+
+Handle process signalling for specific platforms, gating POSIX specific signals to Unix platforms and adding Windows specific signal handling.
+
+Fix CLI thread handling to start listening for interruption or termination signals when the main daemon or client loop runs, not after it finishes anyway.
+
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
 Add support for `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.

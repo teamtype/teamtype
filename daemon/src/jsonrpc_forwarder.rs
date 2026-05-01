@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -28,7 +29,7 @@ use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 pub const DEFAULT_SOCKET_NAME: &str = "socket";
 pub const CONFIG_DIR: &str = ".teamtype";
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait JSONRPCForwarder<
     R: AsyncRead + Unpin + Send + 'static,
     W: AsyncWrite + Unpin + Send + 'static,
@@ -67,7 +68,7 @@ pub trait JSONRPCForwarder<
 
 pub struct UnixJSONRPCForwarder {}
 
-#[async_trait(?Send)]
+#[async_trait]
 impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
     async fn connect_stream(
         &self,
