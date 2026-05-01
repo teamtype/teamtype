@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -38,6 +39,8 @@ impl Neovim {
         let handler = Dummy::new();
         let mut cmd = tokio::process::Command::new("nvim");
         cmd.arg("--headless").arg("--embed");
+        // Disable loading user RC files, to prevent unrelated local test failures
+        cmd.arg("-u").arg("NORC");
         // Disable ShaDa files, to prevent CI failures related to them.
         cmd.arg("-i").arg("NONE");
         // Disable Swap file, to prevent CI failures related to them.
