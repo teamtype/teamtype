@@ -62,118 +62,136 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Share { .. } | Commands::Join { .. } => {
-            let persist = !config::has_git_remote(&directory);
-            if !persist {
-                // TODO: drop .teamtype/doc here? Would that be rude?
-                info!(
-                    "Detected a Git remote: Assuming a pair-programming use-case and starting a new history."
-                );
-            }
-
-            config::ensure_teamtype_is_ignored(&directory)?;
-
-            let mut init_doc = false;
-            let mut app_config;
-
-            match cli.command {
-                Commands::Share {
-                    init,
-                    no_join_code,
-                    shared_flags:
-                        ShareJoinFlags {
-                            magic_wormhole_relay,
-                            iroh_relay,
-                            iroh_dns_domain,
-                            iroh_pkarr_relay,
-                            sync_vcs,
-                            username,
-                            ..
-                        },
-                    show_secret_address,
-                    ..
-                } => {
-                    init_doc = init;
-
-                    let app_config_cli = AppConfig {
-                        base_dir: directory,
-                        peer: None,
-                        emit_join_code: !no_join_code,
-                        emit_secret_address: show_secret_address,
-                        magic_wormhole_relay,
-                        iroh_relay,
-                        iroh_dns_domain,
-                        iroh_pkarr_relay,
-                        sync_vcs,
-                        username,
-                    };
-                    app_config = AppConfig::from_config_file_and_cli(app_config_cli);
-
-                    // Because of the "share" subcommand, explicitly don't connect anywhere.
-                    app_config.peer = None;
-                }
-                Commands::Join {
-                    join_code,
-                    shared_flags:
-                        ShareJoinFlags {
-                            magic_wormhole_relay,
-                            iroh_relay,
-                            iroh_dns_domain,
-                            iroh_pkarr_relay,
-                            sync_vcs,
-                            username,
-                            ..
-                        },
-                    ..
-                } => {
-                    let app_config_cli = AppConfig {
-                        base_dir: directory,
-                        peer: join_code.map(config::Peer::JoinCode),
-                        emit_join_code: false,
-                        emit_secret_address: false,
-                        magic_wormhole_relay,
-                        iroh_relay,
-                        iroh_dns_domain,
-                        iroh_pkarr_relay,
-                        sync_vcs,
-                        username,
-                    };
-
-                    app_config = AppConfig::from_config_file_and_cli(app_config_cli);
-
-                    app_config = app_config
-                        .resolve_peer()
-                        .await
-                        .context("Failed to resolve peer")?;
-                }
-                Commands::Client => {
-                    panic!("This can't happen, as we earlier matched on Share|Join.")
-                }
-            }
-
-            if app_config.sync_vcs
-                && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v)
-            {
-                warn!(
-                    "You have a local user configuration in your .git/config. In --sync-vcs mode, this file will also be synchronized between peers. If your version \"wins\", all peers will have the same Git identity. As a workaround, you could use `git commit --author`."
-                );
-            }
-
-            debug!("Starting Teamtype on {}.", app_config.base_dir.display());
-
-            let _daemon = Daemon::new(app_config, init_doc, persist)
-                .await
-                .context("Failed to launch the daemon")?;
+            run_daemon(cli, directory.clone()).await?;
             wait_for_shutdown().await;
         }
-        Commands::Client => {
-            let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
-            jsonrpc_forwarder
-                .connection(&directory)
-                .await
-                .context("JSON-RPC forwarder failed")?;
-        }
+        Commands::Client => run_client(directory.clone()).await?,
     }
     Ok(())
+}
+
+async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
+    let persist = !config::has_git_remote(&directory);
+    if !persist {
+        // TODO: drop .teamtype/doc here? Would that be rude?
+        info!(
+            "Detected a Git remote: Assuming a pair-programming use-case and starting a new history."
+        );
+    }
+
+    config::ensure_teamtype_is_ignored(&directory)?;
+
+    let mut init_doc = false;
+    let mut app_config;
+
+    match cli.command {
+        Commands::Share {
+            init,
+            no_join_code,
+            shared_flags:
+                ShareJoinFlags {
+                    magic_wormhole_relay,
+                    iroh_relay,
+                    iroh_dns_domain,
+                    iroh_pkarr_relay,
+                    sync_vcs,
+                    username,
+                    ..
+                },
+            show_secret_address,
+            ..
+        } => {
+            init_doc = init;
+
+            let app_config_cli = AppConfig {
+                base_dir: directory,
+                peer: None,
+                emit_join_code: !no_join_code,
+                emit_secret_address: show_secret_address,
+                magic_wormhole_relay,
+                iroh_relay,
+                iroh_dns_domain,
+                iroh_pkarr_relay,
+                sync_vcs,
+                username,
+            };
+            app_config = AppConfig::from_config_file_and_cli(app_config_cli);
+
+            // Because of the "share" subcommand, explicitly don't connect anywhere.
+            app_config.peer = None;
+        }
+        Commands::Join {
+            join_code,
+            shared_flags:
+                ShareJoinFlags {
+                    magic_wormhole_relay,
+                    iroh_relay,
+                    iroh_dns_domain,
+                    iroh_pkarr_relay,
+                    sync_vcs,
+                    username,
+                    ..
+                },
+            ..
+        } => {
+            let app_config_cli = AppConfig {
+                base_dir: directory,
+                peer: join_code.map(config::Peer::JoinCode),
+                emit_join_code: false,
+                emit_secret_address: false,
+                magic_wormhole_relay,
+                iroh_relay,
+                iroh_dns_domain,
+                iroh_pkarr_relay,
+                sync_vcs,
+                username,
+            };
+
+            app_config = AppConfig::from_config_file_and_cli(app_config_cli);
+
+            app_config = app_config
+                .resolve_peer()
+                .await
+                .context("Failed to resolve peer")?;
+        }
+        Commands::Client => {
+            panic!("This can't happen, as we earlier matched on Share|Join.")
+        }
+    }
+
+    if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
+        warn!(
+            "You have a local user configuration in your .git/config. In --sync-vcs mode, this file will also be synchronized between peers. If your version \"wins\", all peers will have the same Git identity. As a workaround, you could use `git commit --author`."
+        );
+    }
+
+    debug!("Starting Teamtype on {}.", app_config.base_dir.display());
+
+    let _daemon = Daemon::new(app_config, init_doc, persist)
+        .await
+        .context("Failed to launch the daemon")?;
+    Ok(())
+}
+
+async fn run_client(directory: PathBuf) -> Result<()> {
+    let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
+    jsonrpc_forwarder
+        .connection(&directory)
+        .await
+        .context("JSON-RPC forwarder failed")
+}
+
+async fn wait_for_shutdown() {
+    let mut signal_terminate = signal::unix::signal(signal::unix::SignalKind::terminate())
+        .expect("Should have been able to create terminate signal stream");
+    tokio::select! {
+        _ = signal::ctrl_c() => {
+            debug!("Got SIGINT (Ctrl+C), shutting down");
+        }
+        _ = signal_terminate.recv() => {
+            debug!("Got SIGTERM, shutting down");
+        }
+    }
 }
 
 fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
@@ -298,17 +316,4 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
 
 fn get_current_directory() -> Result<PathBuf> {
     std::env::current_dir().context("Could not access current directory")
-}
-
-async fn wait_for_shutdown() {
-    let mut signal_terminate = signal::unix::signal(signal::unix::SignalKind::terminate())
-        .expect("Should have been able to create terminate signal stream");
-    tokio::select! {
-        _ = signal::ctrl_c() => {
-            debug!("Got SIGINT (Ctrl+C), shutting down");
-        }
-        _ = signal_terminate.recv() => {
-            debug!("Got SIGTERM, shutting down");
-        }
-    }
 }
