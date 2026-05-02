@@ -15,7 +15,8 @@
 //! - takes content-length encoded data from stdin (as sent by an LSP client) and writes it
 //!   "unpacked" to the socket
 
-use std::path::Path;
+use std::env;
+use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -79,7 +80,11 @@ impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
     )> {
         // Construct socket object, which send/receive newline-delimited messages.
         let socket_path = directory.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
-        let stream = UnixStream::connect(socket_path).await?;
+        // See comment in editor, but the TL;DR is that referencing a socket node from a deeply
+        // nested or overly verbose path will fail on some platforms. The calling context should
+        // already have changed to the target directory (if any), so stripping it here will result
+        // in a relative path that won't have a cumbersomely long prefix that fails safety checks.
+        let stream = UnixStream::connect(strip_current_dir(&socket_path)).await?;
         let (socket_read, socket_write) = stream.into_split();
         let socket_read = FramedRead::new(socket_read, LinesCodec::new());
         let socket_write = FramedWrite::new(socket_write, LinesCodec::new());
@@ -148,4 +153,13 @@ impl Decoder for ContentLengthCodec {
         let content = src.split_to(content_length);
         Ok(Some(std::str::from_utf8(&content)?.to_string()))
     }
+}
+
+// TODO: debup with same function in editor, requires changing the jsonrpc_forwarder module nomespace.
+fn strip_current_dir(path: &Path) -> PathBuf {
+    let Ok(cwd) = env::current_dir() else {
+        return path.to_path_buf();
+    };
+    path.strip_prefix(&cwd)
+        .map_or_else(|_| path.to_path_buf(), Path::to_path_buf)
 }
