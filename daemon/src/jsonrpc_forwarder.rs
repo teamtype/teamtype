@@ -19,6 +19,7 @@ use std::path::Path;
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
+use teamtype::editor::strip_current_dir;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader, BufWriter};
 use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
@@ -79,7 +80,12 @@ impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
     )> {
         // Construct socket object, which send/receive newline-delimited messages.
         let socket_path = directory.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
-        let stream = UnixStream::connect(socket_path).await?;
+        // See comment about SUN_LEN in editor.rs, but the TL;DR is that referencing a socket node
+        // from a deeply nested or overly verbose path will fail on some platforms. The calling
+        // context should already have changed to the target directory (if any), so stripping it
+        // here will result in a relative path that won't have a cumbersomely long prefix that fails
+        // safety checks.
+        let stream = UnixStream::connect(strip_current_dir(&socket_path)).await?;
         let (socket_read, socket_write) = stream.into_split();
         let socket_read = FramedRead::new(socket_read, LinesCodec::new());
         let socket_write = FramedWrite::new(socket_write, LinesCodec::new());

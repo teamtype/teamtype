@@ -5,6 +5,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::env;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -182,6 +183,10 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
 }
 
 async fn run_client(directory: PathBuf) -> Result<()> {
+    // See comment in editor, but the TL;DR is that referencing a socket node from a deeply
+    // nested or overly verbose path will fail on some platforms. By *changing* into the
+    // target directory first we enable the use of relative paths in socket creation calls.
+    env::set_current_dir(&directory)?;
     let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
     jsonrpc_forwarder
         .connection(&directory)
@@ -338,5 +343,5 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
 }
 
 fn get_current_directory() -> Result<PathBuf> {
-    std::env::current_dir().context("Could not access current directory")
+    env::current_dir().context("Could not access current directory")
 }
