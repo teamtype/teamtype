@@ -40,12 +40,6 @@ fn has_teamtype_directory(dir: &Path) -> bool {
     sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
 }
 
-#[derive(PartialEq)]
-enum MainMode {
-    Daemon,
-    Client,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -67,26 +61,13 @@ async fn main() -> Result<()> {
     setup_teamtype_directory(&directory, temporary_directory.as_ref())
         .context("Failed to find .teamtype/ directory")?;
 
-    let mode = match cli.command {
-        Commands::Share { .. } | Commands::Join { .. } => MainMode::Daemon,
-        Commands::Client => MainMode::Client,
-    };
-
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel(1);
-
-    tokio::select! {
-        _ = run_daemon(cli, directory.clone()), if mode == MainMode::Daemon => {}
-        _ = run_client(directory.clone()), if mode == MainMode::Client => {}
-        _ = shutdown_rx.recv() => {}
+    match cli.command {
+        Commands::Share { .. } | Commands::Join { .. } => run_daemon(cli, directory.clone()).await,
+        Commands::Client => run_client(directory.clone()).await,
     }
-
-    trap_shutdown().await;
-    let _ = shutdown_tx.send(());
-
-    Ok(())
 }
 
-async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
+async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
     let persist = !config::has_git_remote(&directory);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
@@ -183,8 +164,15 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
 
     debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
-    let daemon = Daemon::new(app_config, init_doc, persist);
-    daemon.await.context("Failed to launch the daemon")
+    // Start the daemon. It will do its work in background processes and return a handle to it.
+    let _daemon = Daemon::new(app_config, init_doc, persist)
+        .await
+        .context("Failed to launch the daemon")?;
+
+    // Then, wait for an external shutdown signal.
+    trap_shutdown().await;
+
+    Ok(())
 }
 
 async fn run_client(directory: PathBuf) -> Result<()> {
