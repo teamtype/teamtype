@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -56,7 +57,9 @@ impl Watcher {
         let (tx, rx) = mpsc::channel(1);
         let mut watcher = notify::recommended_watcher(move |res: NotifyResult<notify::Event>| {
             futures::executor::block_on(async {
-                tx.send(res).await.unwrap();
+                tx.send(res)
+                    .await
+                    .expect("Unable to send over mpsc channel from file watcher");
             });
         })
         .expect("Could not construct watcher");

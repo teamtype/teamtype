@@ -61,13 +61,22 @@ async fn main() -> Result<()> {
     setup_teamtype_directory(&directory, temporary_directory.as_ref())
         .context("Failed to find .teamtype/ directory")?;
 
-    match cli.command {
+    // TODO: If the result of this joined future handle were to go out of scope and hence be
+    // dropped, *some* but not all parts of the daemon would shut down. Notably the local socket
+    // will go away but the remote networking connections would stay up! This is a fundamental issue
+    // with the daemon module and merits refactoring so the long running socket and network
+    // listeners properly listen to the mpsc channel or receive and process a cancellation token.
+    let _handle = match cli.command {
         Commands::Share { .. } | Commands::Join { .. } => run_daemon(cli, directory.clone()).await,
-        Commands::Client => run_client(directory.clone()).await,
-    }
+        Commands::Client => return run_client(directory.clone()).await,
+    };
+
+    trap_shutdown().await;
+
+    Ok(())
 }
 
-async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
+async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
     let persist = !config::has_git_remote(&directory);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
@@ -152,7 +161,7 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
                 .context("Failed to resolve peer")?;
         }
         Commands::Client => {
-            panic!("This can't happen, as we earlier matched on Share|Join.")
+            unreachable!("This can't happen, as we earlier matched on Share|Join.")
         }
     }
 
@@ -164,15 +173,12 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<()> {
 
     debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
-    // Start the daemon. It will do its work in background processes and return a handle to it.
-    let _daemon = Daemon::new(app_config, init_doc, persist)
+    // Setup a new daemon from the derived config. Immediately join the handle because that's what
+    // actually starts the local socket and any configured network connections. Return the result
+    // so the calling context can determine when to terminate.
+    Daemon::new(app_config, init_doc, persist)
         .await
-        .context("Failed to launch the daemon")?;
-
-    // Then, wait for an external shutdown signal.
-    trap_shutdown().await;
-
-    Ok(())
+        .context("Failed to launch the daemon")
 }
 
 async fn run_client(directory: PathBuf) -> Result<()> {
