@@ -434,7 +434,7 @@ mod tests {
         fn full_length() {
             let mut ot_server: OTServer = OTServer::new("1ö3".to_string());
             let rev_delta = rev_ed_delta_single(0, (0, 0), (0, 0), "0");
-            let (to_crdt, _) = ot_server.apply_editor_operation(rev_delta);
+            let (to_crdt, _) = ot_server.apply_editor_operation(rev_delta).unwrap();
             let mut expected = TextDelta::default();
             expected.retain(0);
             expected.insert("0");

@@ -1,5 +1,4 @@
 use anyhow::{Result, bail};
-use futures::{SinkExt, StreamExt};
 use futures_util::FutureExt;
 use reqwest::cookie::{CookieStore, Jar};
 use rust_socketio::{
@@ -8,25 +7,22 @@ use rust_socketio::{
 };
 use serde_json::json;
 use std::collections::VecDeque;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use teamtype::{
     editor_protocol::{
-        EditorProtocolMessageError, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
-        IncomingMessage, JSONRPCResponse, OutgoingMessage,
+        EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, IncomingMessage,
+        JSONRPCResponse, OutgoingMessage,
     },
     types::CursorState,
 };
 use teamtype::{
     ot::OTServer,
     path::RelativePath,
-    types::{
-        ComponentMessage, EditorTextDelta, EditorTextOp, Position, Range,
-        RevisionedEditorTextDelta, RevisionedTextDelta, TextDelta, TextOp,
-    },
+    types::{ComponentMessage, Position, Range, RevisionedEditorTextDelta, TextDelta, TextOp},
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::AsyncReadExt;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 
@@ -153,18 +149,18 @@ where
 struct Log<Forward, Backward> {
     buffered_transmits_from_io: VecDeque<Forward>,
     buffered_transmits_to_io: VecDeque<Backward>,
-    log_file: std::fs::File,
+    file: std::fs::File,
 }
 
 impl<Forward, Backward> Log<Forward, Backward> {
-    fn new(log_file_path: &str) -> Self {
+    fn new(file_path: &str) -> Self {
         Self {
             buffered_transmits_from_io: VecDeque::new(),
             buffered_transmits_to_io: VecDeque::new(),
-            log_file: std::fs::OpenOptions::new()
+            file: std::fs::OpenOptions::new()
                 .append(true)
                 .create(true)
-                .open(log_file_path)
+                .open(file_path)
                 .expect("Unable to open log file"),
         }
     }
@@ -176,19 +172,19 @@ where
     Backward: std::fmt::Debug,
 {
     fn handle_input_from_io(&mut self, message: Forward) {
-        self.log_file
-            .write_all(format!(">> {:?}\n", message).as_bytes())
+        self.file
+            .write_all(format!(">> {message:?}\n").as_bytes())
             .expect("Should be able to write to log file");
-        self.log_file
+        self.file
             .flush()
             .expect("Should be able to flush the log file");
         self.buffered_transmits_from_io.push_back(message);
     }
     fn handle_input_to_io(&mut self, message: Backward) {
-        self.log_file
-            .write_all(format!("<< {:?}\n", message).as_bytes())
+        self.file
+            .write_all(format!("<< {message:?}\n").as_bytes())
             .expect("Should be able to write to log file");
-        self.log_file
+        self.file
             .flush()
             .expect("Should be able to flush the log file");
         self.buffered_transmits_to_io.push_back(message);
@@ -215,7 +211,7 @@ impl Pipe<String, String, String, String> for ContentLengthCodec {
     }
     fn handle_input_to_io(&mut self, message: String) {
         let content_length = message.len();
-        let string = format!("Content-Length: {}\r\n\r\n", content_length);
+        let string = format!("Content-Length: {content_length}\r\n\r\n");
         self.input_to_io.push_str(&string);
         self.input_to_io.push_str(&message);
     }
@@ -230,34 +226,28 @@ impl Pipe<String, String, String, String> for ContentLengthCodec {
         // Find the position of the Content-Length header.
         let content_length_header = b"Content-Length: ";
         let content_length_header_len = content_length_header.len();
-        let start_of_header = match self
+        let start_of_header = self
             .input_from_io
             .as_bytes()
             .windows(content_length_header_len)
-            .position(|window| window == content_length_header)
-        {
-            Some(pos) => pos,
-            None => return None,
-        };
+            .position(|window| window == content_length_header)?;
 
         // Find the end of the line after that.
-        let (end_of_line, end_of_line_bytes) = match self.input_from_io
+        let position_of_rnrn = self.input_from_io.as_bytes()
             [start_of_header + content_length_header.len()..]
-            .as_bytes()
             .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-        {
-            Some(pos) => (pos, 4),
-            // Even though this is not valid in terms of the spec, also
-            // accept plain newline separators in order to simplify manual testing.
-            None => match self.input_from_io[start_of_header + content_length_header.len()..]
-                .as_bytes()
+            .position(|window| window == b"\r\n\r\n");
+        let (end_of_line, end_of_line_bytes) = if let Some(pos) = position_of_rnrn {
+            (pos, 4)
+        } else {
+            let position_of_nn = self.input_from_io.as_bytes()
+                [start_of_header + content_length_header.len()..]
                 .windows(2)
-                .position(|window| window == b"\n\n")
-            {
+                .position(|window| window == b"\n\n");
+            match position_of_nn {
                 Some(pos) => (pos, 2),
                 None => return None,
-            },
+            }
         };
 
         // Parse the content length.
@@ -280,6 +270,7 @@ impl Pipe<String, String, String, String> for ContentLengthCodec {
     }
 }
 
+/*
 #[derive(Default)]
 struct BytesToLinesPipe {
     input_from_io: Vec<u8>,
@@ -343,64 +334,7 @@ impl Pipe<String, String, String, String> for LinesCodec {
         }
     }
 }
-
-#[derive(Default)]
-struct StringToNumberPipe {
-    input_from_io: Vec<String>,
-    output_to_io: Vec<String>,
-}
-
-impl Pipe<String, i32, i32, String> for StringToNumberPipe {
-    fn handle_input_from_io(&mut self, message: String) {
-        self.input_from_io.push(message);
-    }
-    fn handle_input_to_io(&mut self, message: i32) {
-        self.output_to_io.push(message.to_string());
-    }
-    fn poll_transmit_from_io(&mut self) -> Option<i32> {
-        self.input_from_io.pop().and_then(|message| {
-            if let Ok(n) = message.parse() {
-                Some(n)
-            } else {
-                self.output_to_io.push("Invalid number".to_string());
-                None
-            }
-        })
-    }
-    fn poll_transmit_to_io(&mut self) -> Option<String> {
-        self.output_to_io.pop()
-    }
-}
-
-/*fn main() {
-    let mut bytes_to_numbers_pipe =
-        Glue::new(BytesToLinesPipe::default(), StringToNumberPipe::default());
-    let mut stdin = std::io::stdin().lock();
-
-    loop {
-        // poll from pipe
-        if let Some(n) = bytes_to_numbers_pipe.poll_transmit_from_io() {
-            // double
-            let n = 2 * n;
-            // write back to pipe
-            bytes_to_numbers_pipe.handle_input_to_io(n);
-            continue;
-        }
-
-        if let Some(bytes) = bytes_to_numbers_pipe.poll_transmit_to_io() {
-            // write to stdout
-            std::io::stdout().write_all(&bytes).unwrap();
-            continue;
-        }
-
-        let buf = &mut [0; 100];
-        let n = stdin.read(buf).unwrap();
-        // feed to pipe
-        bytes_to_numbers_pipe.handle_input_from_io(buf[..n].to_vec());
-    }
-}*/
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
+*/
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -626,10 +560,7 @@ impl
                 delta, revision, ..
             } => {
                 if let Some(ot) = &mut self.ot {
-                    let rev_delta = RevisionedEditorTextDelta {
-                        revision,
-                        delta: delta.clone(),
-                    };
+                    let rev_delta = RevisionedEditorTextDelta { revision, delta };
                     let (delta_for_crdt, rev_deltas_for_editor) =
                         ot.apply_editor_operation(rev_delta).unwrap();
                     self.buffered_transmits_to_hedgedoc
@@ -659,7 +590,7 @@ impl
                         },
                     });
             }
-            _ => {
+            EditorProtocolMessageFromEditor::Close { .. } => {
                 // todo
             }
         }
@@ -683,13 +614,14 @@ impl
                 cursor_id,
                 ..
             } => {
-                self.buffered_transmits_to_editor
-                    .push_back(EditorProtocolMessageToEditor::Cursor {
+                self.buffered_transmits_to_editor.push_back(
+                    EditorProtocolMessageToEditor::Cursor {
                         ranges,
                         name,
                         userid: cursor_id,
                         uri: self.uri.clone().unwrap(),
-                    })
+                    },
+                );
             }
             _ => {
                 todo!();
@@ -755,7 +687,7 @@ impl Truth {
         source: &mut VecDeque<ComponentMessage>,
         other: &mut VecDeque<ComponentMessage>,
         true_content: &mut Option<String>,
-        message: ComponentMessage,
+        message: &ComponentMessage,
     ) {
         match &message {
             ComponentMessage::Cursor { .. } => {
@@ -766,7 +698,7 @@ impl Truth {
                 // forward
                 other.push_back(message.clone());
                 if let Some(true_content_inner) = true_content {
-                    *true_content = Some(delta.apply_to(&true_content_inner).unwrap());
+                    *true_content = Some(delta.apply_to(true_content_inner).unwrap());
                 }
             }
             ComponentMessage::Open { content, .. } => {
@@ -786,10 +718,10 @@ impl Truth {
                         });
                     }
                 } else {
-                    *true_content = Some(content.to_string());
+                    *true_content = Some(content.clone());
                 }
             }
-            _ => {}
+            ComponentMessage::Close { .. } => {}
         }
     }
 }
@@ -802,138 +734,30 @@ impl Pipe<ComponentMessage, ComponentMessage, ComponentMessage, ComponentMessage
         self.buffered_transmits_to_front.pop_front()
     }
     fn handle_input_from_io(&mut self, message: ComponentMessage) {
-        Truth::handle(
+        Self::handle(
             &mut self.buffered_transmits_to_front,
             &mut self.buffered_transmits_to_back,
             &mut self.content,
-            message,
+            &message,
         );
     }
     fn handle_input_to_io(&mut self, message: ComponentMessage) {
-        Truth::handle(
+        Self::handle(
             &mut self.buffered_transmits_to_back,
             &mut self.buffered_transmits_to_front,
             &mut self.content,
-            message,
+            &message,
         );
     }
 }
 
-#[derive(Default)]
-struct Debugger {
-    buffered_transmits_to_io: VecDeque<String>,
-    buffered_transmits_from_io: VecDeque<ComponentMessage>,
-}
-
-impl Pipe<String, ComponentMessage, ComponentMessage, String> for Debugger {
-    fn poll_transmit_from_io(&mut self) -> Option<ComponentMessage> {
-        self.buffered_transmits_from_io.pop_front()
-    }
-    fn poll_transmit_to_io(&mut self) -> Option<String> {
-        self.buffered_transmits_to_io.pop_front()
-    }
-    fn handle_input_from_io(&mut self, message: String) {
-        let components = message.split(" ").collect::<Vec<_>>();
-        let message = match components[0] {
-            "open" => {
-                let file_path = RelativePath::new(components[1]);
-                let content = components[2..].join(" ");
-                ComponentMessage::Open { file_path, content }
-            }
-            "edit" => {
-                let file_path = RelativePath::new("file");
-                let mut delta = TextDelta::default();
-                // loop through components[1..] and parse them into TextDelta
-                // "..." are insertions, negative numbers are deletions, positive numbers are retain
-                for component in components[1..].iter() {
-                    if let Ok(n) = component.parse::<i32>() {
-                        if n > 0 {
-                            delta.retain(n as usize);
-                        } else {
-                            delta.delete((-n) as usize);
-                        }
-                    } else {
-                        delta.insert(component);
-                    }
-                }
-                ComponentMessage::Edit { file_path, delta }
-            }
-            _ => {
-                todo!();
-            }
-        };
-        self.buffered_transmits_from_io.push_back(message);
-    }
-    fn handle_input_to_io(&mut self, message: ComponentMessage) {
-        self.buffered_transmits_to_io
-            .push_back(format!("{:?}\n", message));
-    }
-}
-
-#[derive(Default)]
-struct EditorDebugger {
-    buffered_transmits_to_io: VecDeque<String>,
-    buffered_transmits_from_io: VecDeque<EditorProtocolMessageFromEditor>,
-}
-
-impl Pipe<String, EditorProtocolMessageToEditor, EditorProtocolMessageFromEditor, String>
-    for EditorDebugger
-{
-    fn poll_transmit_from_io(&mut self) -> Option<EditorProtocolMessageFromEditor> {
-        self.buffered_transmits_from_io.pop_front()
-    }
-    fn poll_transmit_to_io(&mut self) -> Option<String> {
-        self.buffered_transmits_to_io.pop_front()
-    }
-    fn handle_input_from_io(&mut self, message: String) {
-        let components = message.split(" ").collect::<Vec<_>>();
-        let uri = RelativePath::new("file:///todo").to_string();
-        let message = match components[0] {
-            "open" => {
-                let content = components[1..].join(" ");
-                EditorProtocolMessageFromEditor::Open { uri, content }
-            }
-            "edit" => {
-                let revision = components[1].parse().unwrap();
-                let range = Range {
-                    start: Position {
-                        line: components[2].parse().unwrap(),
-                        character: components[3].parse().unwrap(),
-                    },
-                    end: Position {
-                        line: components[4].parse().unwrap(),
-                        character: components[5].parse().unwrap(),
-                    },
-                };
-                let replacement = components[6..].join(" ");
-                let editor_delta = EditorTextDelta(vec![EditorTextOp { range, replacement }]);
-                EditorProtocolMessageFromEditor::Edit {
-                    uri,
-                    revision,
-                    delta: editor_delta,
-                }
-            }
-            _ => {
-                todo!();
-            }
-        };
-        self.buffered_transmits_from_io.push_back(message);
-    }
-    fn handle_input_to_io(&mut self, message: EditorProtocolMessageToEditor) {
-        self.buffered_transmits_to_io
-            .push_back(format!("{:?}\n", message));
-    }
-}
-
-async fn create_socket(
-    hedgedoc_url: &str,
-) -> (Client, tokio::sync::mpsc::Receiver<(String, Payload)>) {
+async fn create_socket(hedgedoc_url: &str) -> (Client, mpsc::Receiver<(String, Payload)>) {
     let server = hedgedoc_url
-        .split("/")
+        .split('/')
         .take(3)
         .collect::<Vec<_>>()
         .join("/");
-    let note = hedgedoc_url.split("/").nth(3).unwrap();
+    let note = hedgedoc_url.split('/').nth(3).unwrap();
 
     let cookie = get_cookie(&server).await.expect("Failed to get cookie");
 
@@ -948,7 +772,7 @@ async fn create_socket(
             // Lock and send the message
             let tx = callback_tx.lock().await;
             if let Err(e) = tx.send(("operation".to_string(), payload)).await {
-                eprintln!("Failed to send message to channel: {}", e);
+                eprintln!("Failed to send message to channel: {e}");
             }
         }
         .boxed()
@@ -961,7 +785,7 @@ async fn create_socket(
             // Lock and send the message
             let tx = callback_tx.lock().await;
             if let Err(e) = tx.send(("doc".to_string(), payload)).await {
-                eprintln!("Failed to send message to channel: {}", e);
+                eprintln!("Failed to send message to channel: {e}");
             }
         }
         .boxed()
@@ -974,7 +798,7 @@ async fn create_socket(
             // Lock and send the message
             let tx = callback_tx.lock().await;
             if let Err(e) = tx.send(("cursor activity".to_string(), payload)).await {
-                eprintln!("Failed to send message to channel: {}", e);
+                eprintln!("Failed to send message to channel: {e}");
             }
         }
         .boxed()
@@ -1053,7 +877,7 @@ async fn main() {
                         pipeline.handle_input_from_io(String::from_utf8(buf[..n].to_vec()).unwrap());
                     }
                     Err(e) => {
-                        eprintln!("Error reading from stdin: {}", e);
+                        eprintln!("Error reading from stdin: {e}");
                         running = false;
                     }
                 }
