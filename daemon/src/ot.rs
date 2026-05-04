@@ -66,8 +66,8 @@ use crate::types::{EditorTextDelta, RevisionedEditorTextDelta, RevisionedTextDel
 #[derive(Debug, Default)]
 #[must_use]
 pub struct OTServer {
-    pub editor_revision: usize,
-    pub daemon_revision: usize,
+    editor_revision: usize,
+    daemon_revision: usize,
     /// "Source of truth" operations.
     operations: Vec<OperationSeq>,
     /// Operations that we have sent to the editor, but we're not sure whether it has
