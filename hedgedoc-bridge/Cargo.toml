@@ -1,0 +1,17 @@
+[package]
+name = "teamtype-hedgedoc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+reqwest = { version = "0.12", features = ["cookies", "native-tls-vendored"] }
+futures-util = "0.3"
+rust_socketio = { git = "https://github.com/blinry/rust-socketio", branch = "socketio-v2", features = [
+    "async",
+] }
+teamtype = { path = "../daemon" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dissimilar = "1"

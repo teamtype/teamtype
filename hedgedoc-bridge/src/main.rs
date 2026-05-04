@@ -903,6 +903,6 @@ mod tests {
             content: "oo".to_string(),
         });
         assert_eq!(truth.content, Some("foo".to_string()));
-        let from_io = truth.poll_transmit_from_io().unwrap();
+        let _from_io = truth.poll_transmit_from_io().unwrap();
     }
 }

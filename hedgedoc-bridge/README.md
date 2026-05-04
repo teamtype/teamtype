@@ -3,7 +3,7 @@
 To build:
 
 ```
-cargo build -r --bin ethersync-hedgedoc
+cargo build -r
 ```
 
 Configuration in the Neovim Teamtype plugin (for Lazy):
@@ -18,7 +18,7 @@ Configuration in the Neovim Teamtype plugin (for Lazy):
 
         teamtype.config("hedgedoc", {
             cmd = {
-                os.getenv("HOME") .. "/path/to/daemon/target/release/ethersync-hedgedoc",
+                os.getenv("HOME") .. "/path/to/target/release/teamtype-hedgedoc",
                 "https://md.ha.si/test",
             },
             root_dir = function(bufnr, on_dir)
