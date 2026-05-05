@@ -19,8 +19,9 @@ pub fn initialize() -> Result<()> {
         let subscriber = FmtSubscriber::builder()
             .with_env_filter(EnvFilter::new("teamtype=info,fuzzer=info"))
             .without_time()
-            .with_level(false)
             .with_target(false)
+            .with_level(true)
+            .compact()
             .finish();
         subscriber::set_global_default(subscriber).expect("Setting default log subscriber failed");
     } else {
@@ -32,6 +33,8 @@ pub fn initialize() -> Result<()> {
             .with_env_filter(filter)
             .with_thread_ids(true)
             .with_timer(timer)
+            .with_level(true)
+            .pretty()
             .finish();
         subscriber::set_global_default(subscriber).expect("Setting default log subscriber failed");
     }
