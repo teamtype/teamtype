@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
-use rand::Rng;
+use rand::RngExt;
 use teamtype::daemon::Daemon;
 use teamtype::{document, sandbox};
 use tempfile::{TempDir, tempdir};
