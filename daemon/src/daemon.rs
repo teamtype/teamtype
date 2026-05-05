@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -18,7 +19,7 @@ use automerge::{
     sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
 use futures::SinkExt;
-use rand::Rng;
+use rand::RngExt;
 use tokio::{
     sync::{broadcast, mpsc, oneshot},
     time::Duration,
@@ -514,14 +515,14 @@ impl DocumentActor {
         else {
             panic!("Should have initialized text before performing random edit");
         };
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let options = ["d", "ü", "🥕", "💚", "\n"];
         let random_text: String =
-            std::iter::repeat_with(|| options[rng.gen_range(0..options.len())])
+            std::iter::repeat_with(|| options[rng.random_range(0..options.len())])
                 .take(4)
                 .collect();
         let text_length = text.chars().count();
-        let random_position = rng.gen_range(0..=text_length);
+        let random_position = rng.random_range(0..=text_length);
 
         let mut delta = TextDelta::default();
         delta.retain(random_position);
@@ -531,7 +532,7 @@ impl DocumentActor {
         // Goal is to make "more critical" edits more likely. Like an "inverted" gauss curve :D
         let mut deletion_length = 0;
         if (text_length - random_position) > 0 {
-            deletion_length = rng.gen_range(0..(text_length - random_position));
+            deletion_length = rng.random_range(0..(text_length - random_position));
             deletion_length = deletion_length.min(3);
         }
         delta.delete(deletion_length);
