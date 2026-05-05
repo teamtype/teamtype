@@ -16,9 +16,11 @@
 //!   "unpacked" to the socket
 
 use std::path::Path;
+use std::{process, str};
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
+use tokio::io;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader, BufWriter};
 use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
@@ -44,8 +46,8 @@ pub trait JSONRPCForwarder<
         let (mut socket_read, mut socket_write) = self.connect_stream(base_dir).await?;
 
         // Construct stdin/stdout objects, which send/receive messages with a Content-Length header.
-        let mut stdin = FramedRead::new(BufReader::new(tokio::io::stdin()), ContentLengthCodec);
-        let mut stdout = FramedWrite::new(BufWriter::new(tokio::io::stdout()), ContentLengthCodec);
+        let mut stdin = FramedRead::new(BufReader::new(io::stdin()), ContentLengthCodec);
+        let mut stdout = FramedWrite::new(BufWriter::new(io::stdout()), ContentLengthCodec);
 
         tokio::spawn(async move {
             while let Some(Ok(message)) = socket_read.next().await {
@@ -55,14 +57,14 @@ pub trait JSONRPCForwarder<
                     .expect("Failed to write to stdout");
             }
             // Socket was closed.
-            std::process::exit(0);
+            process::exit(0);
         });
 
         while let Some(Ok(message)) = stdin.next().await {
             socket_write.send(message).await?;
         }
         // Stdin was closed.
-        std::process::exit(0);
+        process::exit(0);
     }
 }
 
@@ -129,7 +131,7 @@ impl Decoder for ContentLengthCodec {
         };
 
         // Parse the content length.
-        let content_length = std::str::from_utf8(
+        let content_length = str::from_utf8(
             &src[start_of_header + c.len()..start_of_header + c.len() + end_of_line],
         )?
         .parse()?;
@@ -146,6 +148,6 @@ impl Decoder for ContentLengthCodec {
         // Return the body of the message.
         src.advance(content_start);
         let content = src.split_to(content_length);
-        Ok(Some(std::str::from_utf8(&content)?.to_string()))
+        Ok(Some(str::from_utf8(&content)?.to_string()))
     }
 }

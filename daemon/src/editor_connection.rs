@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -264,6 +265,8 @@ impl EditorConnection {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
 
@@ -294,7 +297,7 @@ mod tests {
     fn edits_are_oted() {
         let dir = tempdir().expect("Failed to create temp directory");
         let file = dir.path().join("file");
-        std::fs::write(&file, "hello").expect("Failed to write file");
+        fs::write(&file, "hello").expect("Failed to write file");
 
         let app_config = AppConfig {
             base_dir: dir.path().to_path_buf(),

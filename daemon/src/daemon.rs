@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::iter::repeat_with;
 use std::path::{Path, PathBuf};
 use std::sync::{
     Arc,
@@ -19,9 +21,11 @@ use automerge::{
 };
 use futures::SinkExt;
 use rand::Rng;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::{
     sync::{broadcast, mpsc, oneshot},
-    time::Duration,
+    time::sleep,
+    time::{Duration, Instant},
 };
 use tracing::{debug, error, info, warn};
 
@@ -516,10 +520,9 @@ impl DocumentActor {
         };
         let mut rng = rand::thread_rng();
         let options = ["d", "ü", "🥕", "💚", "\n"];
-        let random_text: String =
-            std::iter::repeat_with(|| options[rng.gen_range(0..options.len())])
-                .take(4)
-                .collect();
+        let random_text: String = repeat_with(|| options[rng.gen_range(0..options.len())])
+            .take(4)
+            .collect();
         let text_length = text.chars().count();
         let random_position = rng.gen_range(0..=text_length);
 
@@ -1022,7 +1025,7 @@ fn spawn_file_watcher(app_config: &AppConfig, document_handle: DocumentActorHand
     tokio::spawn(async move {
         let debounce_duration = Duration::from_millis(100);
 
-        let debounce_timer = tokio::time::sleep(debounce_duration);
+        let debounce_timer = sleep(debounce_duration);
         // Sleep does not implement the Unpin trait, so in order to use it with select!, we have to
         // pin it first (according to the documentation https://docs.rs/tokio/latest/tokio/time/struct.Sleep.html).
         tokio::pin!(debounce_timer);
@@ -1037,7 +1040,7 @@ fn spawn_file_watcher(app_config: &AppConfig, document_handle: DocumentActorHand
                             .send_message(DocMessage::FromWatcher(watcher_event))
                             .await;
 
-                        debounce_timer.as_mut().reset(tokio::time::Instant::now() + debounce_duration);
+                        debounce_timer.as_mut().reset(Instant::now() + debounce_duration);
                         rescan_required = true;
                     } else {
                         // Watcher terminated. Seems we're shutting down.
@@ -1067,10 +1070,10 @@ fn spawn_persister(document_handle: DocumentActorHandle) {
                 Ok(()) => {
                     // The document has changed.
                 }
-                Err(broadcast::error::RecvError::Closed) => {
+                Err(RecvError::Closed) => {
                     panic!("Doc changed channel has been closed");
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => {
+                Err(RecvError::Lagged(_)) => {
                     // This is fine, the messages in this channel are just pings.
                     // It's fine if we miss some.
                     debug!("Doc changed ping channel lagged (this is probably fine).");
@@ -1081,7 +1084,7 @@ fn spawn_persister(document_handle: DocumentActorHandle) {
 
             // Alternatively to sleeping, we could use a "back channel" in the Persist
             // message, so that the daemon tells us when it's done persisting.
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
         }
     });
 }

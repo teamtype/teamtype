@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -7,7 +8,8 @@
 
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
 
-use anyhow::{Context, Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use futures::StreamExt;
 use tokio::{
     io::WriteHalf,
@@ -91,7 +93,7 @@ pub fn spawn_socket_listener(
 ) -> Result<()> {
     // Make sure the parent directory of the socket is only accessible by the current user.
     if let Err(description) = is_user_readable_only(socket_path) {
-        panic!("{}", description);
+        bail!("{description}");
     }
 
     // Using the sandbox method here is technically unnecessary,

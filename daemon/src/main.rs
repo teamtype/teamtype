@@ -6,8 +6,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::path::{Path, PathBuf};
+use std::process::exit;
+use std::{env, panic};
 
-use anyhow::{Context, Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
 use teamtype::{
@@ -48,10 +51,10 @@ enum MainMode {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let default_panic = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
+    let default_panic = panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
         default_panic(info);
-        std::process::exit(1);
+        exit(1);
     }));
 
     let arg_matches = Cli::command().get_matches();
@@ -171,7 +174,7 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
                 .context("Failed to resolve peer")?;
         }
         Commands::Client => {
-            panic!("This can't happen, as we earlier matched on Share|Join.")
+            bail!("This can't happen, as we earlier matched on Share|Join.")
         }
     }
 
@@ -344,5 +347,5 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
 }
 
 fn get_current_directory() -> Result<PathBuf> {
-    std::env::current_dir().context("Could not access current directory")
+    env::current_dir().context("Could not access current directory")
 }

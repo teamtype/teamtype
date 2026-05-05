@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -12,13 +13,15 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use iroh::discovery::dns::DnsDiscovery;
 use iroh::discovery::pkarr::PkarrPublisher;
-use iroh::endpoint::{RecvStream, SendStream};
-use iroh::{NodeAddr, RelayMap, RelayUrl, SecretKey};
+use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream};
+use iroh::{Endpoint, NodeAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
 use postcard::{from_bytes, to_allocvec};
+use rand::rngs::OsRng;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
@@ -46,7 +49,7 @@ impl FromStr for SecretAddress {
             bail!("Peer string must have format <node_id>#<passphrase>");
         }
 
-        let node_addr = iroh::PublicKey::from_str(parts[0])?.into();
+        let node_addr = PublicKey::from_str(parts[0])?.into();
         let passphrase = SecretKey::from_str(parts[1])?;
 
         Ok(Self {
@@ -119,17 +122,17 @@ impl ConnectionManager {
     async fn build_endpoint(
         app_config: &AppConfig,
         base_dir: &Path,
-    ) -> Result<(iroh::Endpoint, SecretKey)> {
+    ) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
-        let mut builder = iroh::Endpoint::builder()
+        let mut builder = Endpoint::builder()
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()]);
 
         if let Some(iroh_relay) = &app_config.iroh_relay {
             let relay_url = RelayUrl::from_str(iroh_relay)?;
             let relay_map = RelayMap::from(relay_url);
-            builder = builder.relay_mode(iroh::endpoint::RelayMode::Custom(relay_map));
+            builder = builder.relay_mode(RelayMode::Custom(relay_map));
         }
 
         if let Some(iroh_dns_domain) = &app_config.iroh_dns_domain {
@@ -193,8 +196,8 @@ impl ConnectionManager {
             )
         } else {
             debug!("Generating new keypair.");
-            let secret_key = SecretKey::generate(rand::rngs::OsRng);
-            let passphrase = SecretKey::generate(rand::rngs::OsRng);
+            let secret_key = SecretKey::generate(OsRng);
+            let passphrase = SecretKey::generate(OsRng);
 
             let mut file = OpenOptions::new()
                 .create_new(true)
@@ -229,7 +232,7 @@ enum EndpointMessage {
 // Owns the Iroh endpoint, accepts incoming connections, and can be instructed to connect to
 // another daemon.
 struct EndpointActor {
-    endpoint: iroh::Endpoint,
+    endpoint: Endpoint,
     message_rx: mpsc::Receiver<EndpointMessage>,
     message_tx: mpsc::Sender<EndpointMessage>,
     document_handle: DocumentActorHandle,
@@ -238,7 +241,7 @@ struct EndpointActor {
 
 impl EndpointActor {
     fn new(
-        endpoint: iroh::Endpoint,
+        endpoint: Endpoint,
         message_rx: mpsc::Receiver<EndpointMessage>,
         message_tx: mpsc::Sender<EndpointMessage>,
         document_handle: DocumentActorHandle,
@@ -374,7 +377,7 @@ impl EndpointActor {
         }
     }
 
-    fn handle_incoming_connection(&self, conn: iroh::endpoint::Connection) {
+    fn handle_incoming_connection(&self, conn: IrohEndpointConnection) {
         let node_id = conn
             .remote_node_id()
             .expect("Connection should have a node ID");
@@ -400,23 +403,23 @@ impl EndpointActor {
 
     async fn handle_peer(
         document_handle: DocumentActorHandle,
-        conn: iroh::endpoint::Connection,
+        conn: IrohEndpointConnection,
         auth: PeerAuth,
     ) -> Result<()> {
-        let connection = IrohConnection::new(conn, auth).await?;
-        let syncer = SyncActor::new(document_handle, Box::new(connection));
+        let stream = PeerMessageStream::new(conn, auth).await?;
+        let syncer = SyncActor::new(document_handle, Box::new(stream));
         syncer.run().await
     }
 }
 
-// Sends/receives PeerMessages to/from and Iroh connection.
-struct IrohConnection {
+// Sends/receives PeerMessages through an Iroh connection.
+struct PeerMessageStream {
     send: SendStream,
     message_rx: mpsc::Receiver<Result<PeerMessage>>,
 }
 
-impl IrohConnection {
-    async fn new(conn: iroh::endpoint::Connection, auth: PeerAuth) -> Result<Self> {
+impl PeerMessageStream {
+    async fn new(conn: IrohEndpointConnection, auth: PeerAuth) -> Result<Self> {
         let (send, receive) = match auth {
             PeerAuth::YourPassphrase(passphrase) => {
                 let (mut send, recv) = conn.open_bi().await?;
@@ -473,7 +476,7 @@ impl IrohConnection {
 }
 
 #[async_trait]
-impl Connection<PeerMessage> for IrohConnection {
+impl Connection<PeerMessage> for PeerMessageStream {
     async fn send(&mut self, message: PeerMessage) -> Result<()> {
         let bytes: Vec<u8> =
             to_allocvec(&message).context("Failed to convert PeerMessage to bytes")?;

@@ -1,14 +1,17 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
-use anyhow::{Result, bail};
+use anyhow::bail;
+use anyhow::{Context, Result};
 use automerge::{
-    AutoCommit, ChangeHash, ObjType, Patch, PatchLog, ReadDoc,
-    sync::{Message as AutomergeSyncMessage, State as SyncState, SyncDoc},
+    AutoCommit, ChangeHash, ObjId, ObjType, Patch, PatchLog, ReadDoc, ScalarValue, Value,
+    sync::{Message as AutomergeSyncMessage, State as AutomergeSyncState, SyncDoc},
     transaction::Transactable,
 };
 use dissimilar::Chunk;
@@ -84,7 +87,7 @@ impl Document {
     pub fn receive_sync_message_log_patches(
         &mut self,
         message: AutomergeSyncMessage,
-        peer_state: &mut SyncState,
+        peer_state: &mut AutomergeSyncState,
     ) -> Vec<Patch> {
         let mut patch_log = PatchLog::active();
         self.doc
@@ -134,7 +137,7 @@ impl Document {
     #[must_use]
     pub fn generate_sync_message(
         &mut self,
-        peer_state: &mut SyncState,
+        peer_state: &mut AutomergeSyncState,
     ) -> Option<AutomergeSyncMessage> {
         self.doc.sync().generate_sync_message(peer_state)
     }
@@ -151,7 +154,7 @@ impl Document {
         let mut offset = 0isize;
 
         let Some(Content::String(text)) = self.current_file_content(file_path) else {
-            panic!("Should have initialized text before applying delta to it");
+            bail!("File {file_path} not initialized before applying delta");
         };
         // Clone so that `self` is no longer borrowed.
         let text = text.clone();
@@ -176,7 +179,7 @@ impl Document {
 
         // Update cached content.
         let Some(Content::String(old_text)) = self.files.get(file_path) else {
-            panic!("Did not find text content in files cache at file_path");
+            bail!("Did not find text content in files cache at file_path");
         };
         let new_text = delta.apply_to(old_text)?;
         self.files
@@ -211,18 +214,8 @@ impl Document {
         // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
 
         match self.doc.get_at(&file_map, file_path, heads) {
-            Ok(Some((
-                automerge::Value::Scalar(std::borrow::Cow::Owned(automerge::ScalarValue::Bytes(
-                    bytes,
-                ))),
-                _,
-            ))) => Ok(bytes),
-            Ok(Some((
-                automerge::Value::Scalar(std::borrow::Cow::Borrowed(
-                    automerge::ScalarValue::Bytes(bytes),
-                )),
-                _,
-            ))) => {
+            Ok(Some((Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _))) => Ok(bytes),
+            Ok(Some((Value::Scalar(Cow::Borrowed(ScalarValue::Bytes(bytes))), _))) => {
                 // TODO: Potentially memory-heavy operation. Figure out how to deal with Cows. Moo.
                 Ok(bytes.clone())
             }
@@ -338,7 +331,7 @@ impl Document {
         if let Ok(file_map) = self.top_level_map_obj("files") {
             for file_path in self.doc.keys(&file_map) {
                 match self.doc.get(&file_map, &file_path) {
-                    Ok(Some((automerge::Value::Object(ObjType::Text), text_obj))) => {
+                    Ok(Some((Value::Object(ObjType::Text), text_obj))) => {
                         let string = self
                             .doc
                             .text(&text_obj)
@@ -346,21 +339,11 @@ impl Document {
                         self.files
                             .insert(RelativePath::new(&file_path), Content::String(string));
                     }
-                    Ok(Some((
-                        automerge::Value::Scalar(std::borrow::Cow::Owned(
-                            automerge::ScalarValue::Bytes(bytes),
-                        )),
-                        _,
-                    ))) => {
+                    Ok(Some((Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _))) => {
                         self.files
                             .insert(RelativePath::new(&file_path), Content::Bytes(bytes));
                     }
-                    Ok(Some((
-                        automerge::Value::Scalar(std::borrow::Cow::Borrowed(
-                            automerge::ScalarValue::Bytes(bytes),
-                        )),
-                        _,
-                    ))) => {
+                    Ok(Some((Value::Scalar(Cow::Borrowed(ScalarValue::Bytes(bytes))), _))) => {
                         // TODO: Potentially memory-heavy operation. Figure out how to deal with Cows. Moo.
                         self.files
                             .insert(RelativePath::new(&file_path), Content::Bytes(bytes.clone()));
@@ -373,50 +356,44 @@ impl Document {
         }
     }
 
-    fn top_level_map_obj(&self, name: &str) -> Result<automerge::ObjId> {
+    fn top_level_map_obj(&self, name: &str) -> Result<ObjId> {
         let file_map = self.doc.get(automerge::ROOT, name);
-        if let Ok(Some((automerge::Value::Object(ObjType::Map), file_map))) = file_map {
+        if let Ok(Some((Value::Object(ObjType::Map), file_map))) = file_map {
             Ok(file_map)
         } else {
-            Err(anyhow::anyhow!(
-                "Automerge document doesn't have a {name} Map object"
-            ))
+            bail!("Automerge document doesn't have a {name} Map object")
         }
     }
 
-    fn text_obj(&self, file_path: &RelativePath) -> Result<automerge::ObjId> {
+    fn text_obj(&self, file_path: &RelativePath) -> Result<ObjId> {
         let file_map = self.top_level_map_obj("files")?;
         let text_obj = self
             .doc
             .get(file_map, file_path)
-            .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"));
-        if let Some((automerge::Value::Object(ObjType::Text), text_obj)) = text_obj {
+            .with_context(|| format!("Failed to get {file_path} key from Automerge document"))?;
+        if let Some((Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
-            Err(anyhow::anyhow!(
+            bail!(
                 "Automerge document doesn't have a {file_path} Text object, so I can't provide it"
-            ))
+            )
         }
     }
 
-    fn text_obj_at(
-        &self,
-        file_path: &RelativePath,
-        heads: &[ChangeHash],
-    ) -> Result<automerge::ObjId> {
+    fn text_obj_at(&self, file_path: &RelativePath, heads: &[ChangeHash]) -> Result<ObjId> {
         // I hope this one is always there...
         let file_map = self.top_level_map_obj("files")?;
 
         let text_obj = self
             .doc
             .get_at(file_map, file_path, heads)
-            .unwrap_or_else(|_| panic!("Failed to get {file_path} key from Automerge document"));
-        if let Some((automerge::Value::Object(ObjType::Text), text_obj)) = text_obj {
+            .with_context(|| format!("Failed to get {file_path} key from Automerge document"))?;
+        if let Some((Value::Object(ObjType::Text), text_obj)) = text_obj {
             Ok(text_obj)
         } else {
-            Err(anyhow::anyhow!(
+            bail!(
                 "Automerge document doesn't have a {file_path} Text object, so I can't provide it"
-            ))
+            )
         }
     }
 
@@ -560,7 +537,7 @@ mod tests {
         #[test]
         fn test_generate_sync_message() {
             let mut document = Document::default();
-            let mut state = SyncState::new();
+            let mut state = AutomergeSyncState::new();
             assert!(document.generate_sync_message(&mut state).is_some());
             // Stops for now and waits for a response
             assert!(document.generate_sync_message(&mut state).is_none());

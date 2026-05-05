@@ -1,14 +1,19 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::fmt;
+use std::borrow::Cow;
+use std::{fmt, vec};
 
-use anyhow::{Context, Result, bail};
-use automerge::{ConcreteTextValue, Patch, PatchAction, TextEncoding};
+use anyhow::bail;
+use anyhow::{Context, Error, Result};
+use automerge::{
+    ConcreteTextValue, ObjId, ObjType, Patch, PatchAction, Prop, ScalarValue, TextEncoding, Value,
+};
 use dissimilar::Chunk;
-use operational_transform::{Operation as OTOperation, OperationSeq};
+use operational_transform::{Operation, OperationSeq};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
@@ -59,7 +64,7 @@ impl TextDelta {
 }
 
 impl IntoIterator for TextDelta {
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
     type Item = TextOp;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -88,7 +93,7 @@ impl fmt::Display for TextOp {
 pub struct EditorTextDelta(pub Vec<EditorTextOp>);
 
 impl IntoIterator for EditorTextDelta {
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
     type Item = EditorTextOp;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -336,24 +341,18 @@ impl TextDelta {
 // TODO: This feels like it should go into another file, close to where Document handles writing to
 // the Automerge document. Both places need to know about our chosen structure.
 impl TryFrom<&Patch> for PatchEffect {
-    type Error = anyhow::Error;
+    type Error = Error;
 
     fn try_from(patch: &Patch) -> Result<Self, Self::Error> {
-        fn file_path_from_path_default(
-            path: &[(automerge::ObjId, automerge::Prop)],
-        ) -> Result<RelativePath, anyhow::Error> {
+        fn file_path_from_path_default(path: &[(ObjId, Prop)]) -> Result<RelativePath, Error> {
             if path.len() != 2 {
-                return Err(anyhow::anyhow!(
-                    "Unexpected path in Automerge patch, length is not 2"
-                ));
+                bail!("Unexpected path in Automerge patch, length is not 2");
             }
             let (_obj_id, prop) = &path[1];
-            if let automerge::Prop::Map(file_path) = prop {
+            if let Prop::Map(file_path) = prop {
                 return Ok(RelativePath::new(file_path));
             }
-            Err(anyhow::anyhow!(
-                "Unexpected path in Automerge patch: Prop is not a map"
-            ))
+            bail!("Unexpected path in Automerge patch: Prop is not a map")
         }
 
         if patch.path.is_empty() {
@@ -362,19 +361,15 @@ impl TryFrom<&Patch> for PatchEffect {
                     if key == "files" {
                         Ok(Self::NoEffect)
                     } else {
-                        Err(anyhow::anyhow!(
-                            "Path is empty and action is PutMap, but key is not 'files'",
-                        ))
+                        bail!("Path is empty and action is PutMap, but key is not 'files'")
                     }
                 }
-                other_action => Err(anyhow::anyhow!(
-                    "Unsupported patch action for empty path: {other_action}"
-                )),
+                other_action => bail!("Unsupported patch action for empty path: {other_action}"),
             };
         }
 
         match &patch.path[0] {
-            (_, automerge::Prop::Map(key)) if key == "files" => {
+            (_, Prop::Map(key)) if key == "files" => {
                 if patch.path.len() == 1 {
                     match &patch.action {
                         PatchAction::PutMap {
@@ -387,7 +382,7 @@ impl TryFrom<&Patch> for PatchEffect {
                             let relative_path = RelativePath::new(key);
 
                             match value {
-                                (automerge::Value::Object(automerge::ObjType::Text), _) => {
+                                (Value::Object(ObjType::Text), _) => {
                                     if *conflict {
                                         // In this case, the peer receiving this PutMap should
                                         // remove all existing content of this file in open
@@ -405,15 +400,10 @@ impl TryFrom<&Patch> for PatchEffect {
                                         )))
                                     }
                                 }
-                                (
-                                    automerge::Value::Scalar(std::borrow::Cow::Owned(
-                                        automerge::ScalarValue::Bytes(bytes),
-                                    )),
-                                    _,
-                                ) => Ok(Self::FileBytes(relative_path, bytes.clone())),
-                                _ => {
-                                    Err(anyhow::anyhow!("Unexpected value in path {relative_path}"))
+                                (Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _) => {
+                                    Ok(Self::FileBytes(relative_path, bytes.clone()))
                                 }
+                                _ => bail!("Unexpected value in path {relative_path}"),
                             }
                         }
                         PatchAction::DeleteMap { key } => {
@@ -424,7 +414,7 @@ impl TryFrom<&Patch> for PatchEffect {
                         PatchAction::Conflict { prop } => {
                             // This can happen when both sides create the same file.
                             match prop {
-                                automerge::Prop::Map(file_name) => {
+                                Prop::Map(file_name) => {
                                     // We assume that conflict resolution works the way, that the
                                     // side that gets the PatchAction is the one that "wins".
                                     warn!(
@@ -432,14 +422,14 @@ impl TryFrom<&Patch> for PatchEffect {
                                     );
                                     Ok(Self::NoEffect)
                                 }
-                                automerge::Prop::Seq(seq) => Err(anyhow::anyhow!(
-                                    "Got a Seq-type prop as a conflict, expected Map: {seq}"
-                                )),
+                                Prop::Seq(seq) => {
+                                    bail!("Got a Seq-type prop as a conflict, expected Map: {seq}")
+                                }
                             }
                         }
-                        other_action => Err(anyhow::anyhow!(
-                            "Unsupported patch action for path 'files': {other_action}"
-                        )),
+                        other_action => {
+                            bail!("Unsupported patch action for path 'files': {other_action}")
+                        }
                     }
                 } else if patch.path.len() == 2 {
                     let mut delta = TextDelta::default();
@@ -460,19 +450,19 @@ impl TryFrom<&Patch> for PatchEffect {
                                 delta,
                             )))
                         }
-                        other_action => Err(anyhow::anyhow!(
-                            "Unsupported patch action for path 'files/*': {other_action}"
-                        )),
+                        other_action => {
+                            bail!("Unsupported patch action for path 'files/*': {other_action}")
+                        }
                     }
                 } else {
-                    Err(anyhow::anyhow!(
+                    bail!(
                         "Unexpected path action for path 'files/**', expected it to be of length 1 or 2"
-                    ))
+                    )
                 }
             }
-            (_, _) => Err(anyhow::anyhow!(
-                "Unexpected path in Automerge patch, expected it to begin with 'files'"
-            )),
+            (_, _) => {
+                bail!("Unexpected path in Automerge patch, expected it to begin with 'files'")
+            }
         }
     }
 }
@@ -512,13 +502,13 @@ impl From<OperationSeq> for TextDelta {
         let mut delta = Self::default();
         for op in op_seq.ops() {
             match op {
-                OTOperation::Retain(n) => {
+                Operation::Retain(n) => {
                     delta.retain(*n as usize);
                 }
-                OTOperation::Insert(s) => {
+                Operation::Insert(s) => {
                     delta.insert(s);
                 }
-                OTOperation::Delete(n) => {
+                Operation::Delete(n) => {
                     delta.delete(*n as usize);
                 }
             }
