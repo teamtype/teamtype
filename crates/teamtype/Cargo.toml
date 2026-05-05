@@ -96,6 +96,9 @@ version = "8"
 default-features = false
 features = ["macos_fsevent"]
 
+[dependencies.nu-ansi-term]
+version = "0.50"
+
 [dependencies.postcard]
 version = "1"
 features = ["alloc"]
