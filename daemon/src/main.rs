@@ -18,6 +18,7 @@ use teamtype::{
 };
 use tempfile::{TempDir, tempdir_in};
 use tokio::signal;
+use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use self::cli::{Cli, Commands, ShareJoinFlags};
@@ -38,12 +39,6 @@ fn has_teamtype_directory(dir: &Path) -> bool {
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
     sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
-}
-
-#[derive(PartialEq)]
-enum MainMode {
-    Daemon,
-    Client,
 }
 
 #[tokio::main]
@@ -67,20 +62,22 @@ async fn main() -> Result<()> {
     setup_teamtype_directory(&directory, temporary_directory.as_ref())
         .context("Failed to find .teamtype/ directory")?;
 
-    let mode = match cli.command {
-        Commands::Share { .. } | Commands::Join { .. } => MainMode::Daemon,
-        Commands::Client => MainMode::Client,
+    let (shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel();
+
+    // TODO: If the result of this joined future handle were to go out of scope and hence be
+    // dropped, *some* but not all parts of the daemon would shut down. Notably the local socket
+    // will go away but the remote networking connections would stay up! This is a fundamental issue
+    // with the daemon module and merits refactoring so the long running socket and network
+    // listeners properly listen to the mpsc channel or receive and process a cancellation token.
+    let _handle = match cli.command {
+        Commands::Share { .. } | Commands::Join { .. } => run_daemon(cli, directory.clone()).await,
+        Commands::Client => return run_client(directory.clone()).await,
     };
 
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel(1);
-
     tokio::select! {
-        _ = run_daemon(cli, directory.clone()), if mode == MainMode::Daemon => {}
-        _ = run_client(directory.clone()), if mode == MainMode::Client => {}
-        _ = shutdown_rx.recv() => {}
+        () = trap_shutdown() => {},
+        _ = shutdown_rx.recv() => {},
     }
-
-    trap_shutdown().await;
     let _ = shutdown_tx.send(());
 
     Ok(())
@@ -171,7 +168,7 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
                 .context("Failed to resolve peer")?;
         }
         Commands::Client => {
-            panic!("This can't happen, as we earlier matched on Share|Join.")
+            unreachable!("This can't happen, as we earlier matched on Share|Join.")
         }
     }
 
@@ -183,6 +180,9 @@ async fn run_daemon(cli: Cli, directory: PathBuf) -> Result<Daemon> {
 
     debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
+    // Setup a new daemon from the derived config. Immediately join the handle because that's what
+    // actually starts the local socket and any configured network connections. Return the result
+    // so the calling context can determin when to terminate.
     let daemon = Daemon::new(app_config, init_doc, persist);
     daemon.await.context("Failed to launch the daemon")
 }
