@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -15,8 +16,9 @@ pub fn initialize() -> Result<()> {
         let subscriber = FmtSubscriber::builder()
             .with_env_filter(EnvFilter::new("teamtype=info,fuzzer=info"))
             .without_time()
-            .with_level(false)
             .with_target(false)
+            .with_level(true)
+            .pretty()
             .finish();
 
         tracing::subscriber::set_global_default(subscriber)
@@ -30,6 +32,8 @@ pub fn initialize() -> Result<()> {
             .with_env_filter(filter)
             .with_thread_ids(true)
             .with_timer(timer)
+            .with_level(true)
+            .pretty()
             .finish();
 
         tracing::subscriber::set_global_default(subscriber)
