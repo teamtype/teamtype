@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Colorize log messages from the CLI and include the message priority.
+
 Add status widget to the Neovim plugin with basic information to be used in statuslines.
 
 Fix issue blocking directories with deep nesting (or very long winded names) from being shared.
