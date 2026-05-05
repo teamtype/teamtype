@@ -206,7 +206,7 @@ impl OTServer {
     }
 
     #[must_use]
-    fn force_apply(document: &str, mut op_seq: OperationSeq) -> String {
+    pub fn force_apply(document: &str, mut op_seq: OperationSeq) -> String {
         let doc_chars = document.chars().count();
         if op_seq.base_len() < doc_chars {
             op_seq.retain((doc_chars - op_seq.base_len()) as u64);

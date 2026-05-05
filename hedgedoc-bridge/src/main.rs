@@ -373,6 +373,8 @@ enum OTState {
 #[derive(Default)]
 struct TwoSidedOT {
     state: OTState,
+    // Content that we think the client has.
+    content: String,
     // Last revision acked by the server.
     revision: u64,
     // Has been sent to the server, but hasn't been acknowledged yet.
@@ -384,6 +386,8 @@ impl TwoSidedOT {
     // The client makes an edit.
     // Returns the delta to send to the server, if any
     fn apply_client(&mut self, delta: TextDelta) -> Option<TextDelta> {
+        self.content = OTServer::force_apply(&self.content, delta.clone().into());
+
         match self.state {
             OTState::Synchronized => {
                 self.state = OTState::AwaitingConfirm;
@@ -415,6 +419,8 @@ impl TwoSidedOT {
                 assert_eq!(ops.len(), 2);
                 self.outstanding = ops[0].clone().into();
                 self.buffer = ops[1].clone().into();
+
+                self.content = OTServer::force_apply(&self.content, delta2.clone());
 
                 delta2.into()
             }
@@ -510,6 +516,7 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                             content: content.to_string(),
                         };
                         self.buffered_transmits_to_editor.push_back(open);
+                        self.ot.content = content.to_string();
                     }
                     if let Some(n) = map.get("revision") {
                         self.ot.revision = n.as_u64().unwrap();
@@ -544,6 +551,46 @@ impl Pipe<(String, Payload), ComponentMessage, ComponentMessage, (String, Payloa
                             name: Some(name.to_string()),
                             file_path: RelativePath::new("file"),
                             ranges: vec![range],
+                        },
+                    };
+                    self.buffered_transmits_to_editor.push_back(message);
+                }
+            }
+            "selection" => {
+                if let Payload::Text(data) = data {
+                    let id = data[0].as_str().unwrap().to_string() + "-selection";
+
+                    let ranges = if let Some(map) = data[1].as_object() {
+                        let ranges = map.get("ranges").unwrap().as_array().unwrap();
+
+                        ranges
+                            .iter()
+                            .map(|range| {
+                                let anchor =
+                                    range.get("anchor").unwrap().as_u64().unwrap() as usize;
+                                let head = range.get("head").unwrap().as_u64().unwrap() as usize;
+
+                                let anchor_row_col =
+                                    Position::try_from_offset(anchor, &self.ot.content).unwrap();
+                                let head_row_col =
+                                    Position::try_from_offset(head, &self.ot.content).unwrap();
+
+                                Range {
+                                    start: anchor_row_col,
+                                    end: head_row_col,
+                                }
+                            })
+                            .collect()
+                    } else {
+                        vec![]
+                    };
+
+                    let message = ComponentMessage::Cursor {
+                        cursor_id: id,
+                        cursor_state: CursorState {
+                            name: Some("".to_string()),
+                            file_path: RelativePath::new("file"),
+                            ranges,
                         },
                     };
                     self.buffered_transmits_to_editor.push_back(message);
@@ -919,6 +966,19 @@ async fn create_socket(hedgedoc_url: &str) -> (Client, mpsc::Receiver<(String, P
     };
 
     let callback_tx = Arc::clone(&tx);
+    let selection_callback = move |payload: Payload, _socket: Client| {
+        let callback_tx = Arc::clone(&callback_tx);
+        async move {
+            // Lock and send the message
+            let tx = callback_tx.lock().await;
+            if let Err(e) = tx.send(("selection".to_string(), payload)).await {
+                eprintln!("Failed to send message to channel: {e}");
+            }
+        }
+        .boxed()
+    };
+
+    let callback_tx = Arc::clone(&tx);
     let ack_callback = move |payload: Payload, _socket: Client| {
         let callback_tx = Arc::clone(&callback_tx);
         async move {
@@ -937,6 +997,7 @@ async fn create_socket(hedgedoc_url: &str) -> (Client, mpsc::Receiver<(String, P
         .on("operation", operation_callback)
         .on("doc", doc_callback)
         .on("cursor activity", cursor_callback)
+        .on("selection", selection_callback)
         .on("ack", ack_callback)
         .connect()
         .await
@@ -956,6 +1017,7 @@ async fn main() {
     let editor = glue![
         ContentLengthCodec::default(),
         AutoAcceptingJsonRpc::default(),
+        Log::new("/tmp/editorlog")
     ];
 
     //let editor = glue![LinesCodec::default(), EditorDebugger::default()];

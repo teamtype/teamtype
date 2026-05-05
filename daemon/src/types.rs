@@ -260,14 +260,14 @@ pub struct Position {
 
 impl Position {
     /// will panic when used with not matching offset/content
-    fn try_from_offset(full_offset: usize, content: &str) -> Result<Self> {
+    pub fn try_from_offset(full_offset: usize, content: &str) -> Result<Self> {
         let rope = Rope::from_str(content);
         let line = rope.try_char_to_line(full_offset)?;
         let character = full_offset - rope.try_line_to_char(line)?;
         Ok(Self { line, character })
     }
 
-    fn try_to_offset(&self, content: &str) -> Result<usize> {
+    pub fn try_to_offset(&self, content: &str) -> Result<usize> {
         let rope = Rope::from_str(content);
 
         // Ropey allows line indices that are one-past-the-end, but we don't want to.
