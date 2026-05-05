@@ -6,13 +6,10 @@ use rust_socketio::{
     asynchronous::{Client, ClientBuilder},
 };
 use serde_json::json;
+use std::collections::{HashMap, VecDeque};
+use std::io::Write;
+use std::marker::PhantomData;
 use std::sync::Arc;
-use std::{
-    collections::{HashMap, VecDeque},
-    future::pending,
-};
-use std::{future::Pending, io::Write};
-use std::{marker::PhantomData, pin::Pin};
 use teamtype::{
     editor_protocol::{
         EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor, IncomingMessage,
@@ -1052,40 +1049,16 @@ impl HedgedocEnd {
     }
 }
 
-// async fn add_end(end: HedgedocEnd, future: impl Future<Output = (String, Payload)>) -> (&HedgedocEnd, Result<Data>) {
-//     (id, future.await)
-// }
-
 #[tokio::main]
 async fn main() {
-    // let hedgedoc_url = std::env::args()
-    //     .nth(1)
-    //     .expect("Please provide the Hedgedoc URL");
-
-    // let (socket, mut rx) = create_socket(&hedgedoc_url).await;
-
     let mut editor_protocol = glue![
         ContentLengthCodec::default(),
         AutoAcceptingJsonRpc::default(),
         Log::new("/tmp/editorlog")
     ];
 
-    //let editor = glue![LinesCodec::default(), EditorDebugger::default()];
-
-    // let editor_pipeline = glue![editor, OneSidedOT::default()];
-
     let mut buf = vec![0; 1024];
     let mut stdin = tokio::io::stdin();
-
-    // let hedgedoc_pipeline = glue![Log::new("/tmp/hedgedoclog"), HedgedocBinding::default()];
-    //
-    // let truth = Truth::default();
-    //
-    // let mut pipeline = glue![editor_pipeline, truth, Flip::new(hedgedoc_pipeline)];
-    //
-    // // Process first message from Hedgedoc direction, so that it determines the content.
-    // let socket_message = rx.recv().await.unwrap();
-    // pipeline.handle_input_to_io(socket_message);
 
     let mut ends: HashMap<String, HedgedocEnd> = HashMap::default();
 
@@ -1127,9 +1100,16 @@ async fn main() {
                             delta,
                         })
                 }
+                EditorProtocolMessageFromEditor::Cursor { uri, ranges } => {
+                    let end = ends.get_mut(&uri).unwrap();
+                    end.pipe
+                        .handle_input_from_io(EditorProtocolMessageFromEditor::Cursor {
+                            uri,
+                            ranges,
+                        })
+                }
                 _ => {}
             }
-            // socket.emit(event, data).await.expect("Failed to emit");
             continue;
         }
 
@@ -1151,45 +1131,22 @@ async fn main() {
         }
 
         let mut futures: FuturesUnordered<_> = Default::default();
-
-        // let fake: Pending<Option<_>> = pending();
-
         for end in ends.values_mut() {
             futures.push(Box::pin(end.rx.recv()));
         }
 
-        async fn foo() -> Option<(String, Payload)> {
-            pending().await
-        }
-
-        // // futures.push(Box::pin(foo()));
-        // let fake = pending::<Option<(String, Payload)>>();
-        // futures.push(Box::pin(fake));
-
         tokio::select! {
-            // socket_message_maybe = rx.recv() => {
-            //     if let Some(socket_message) = socket_message_maybe {
-            //         pipeline.handle_input_to_io(socket_message);
-            //     } else {
-            //         running = false;
-            //     }
-            // }
-
-             msg = futures.next(), if !futures.is_empty() => {
-                 // Explicitly drop.
-                 drop(futures);
-
-                 dbg!(&msg);
-
-                 if let Some(Some(msg)) = msg {
-
-                 // TODO: Don't assume there's only one end.
-                 let end = ends.values_mut().next().unwrap();
-                 end.pipe.handle_input_to_io(msg);
-                 }
-             }
-            result = stdin.read(&mut buf) => {
+            msg = futures.next(), if !futures.is_empty() => {
+                // Explicitly drop, to be able to access ends.
                 drop(futures);
+
+                if let Some(Some(msg)) = msg {
+                    // TODO: Don't assume there's only one end.
+                    let end = ends.values_mut().next().unwrap();
+                    end.pipe.handle_input_to_io(msg);
+                }
+            }
+            result = stdin.read(&mut buf) => {
                 match result {
                     Ok(0) => {
                         // eof
