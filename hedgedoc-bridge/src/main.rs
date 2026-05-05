@@ -6,7 +6,7 @@ use rust_socketio::{
     asynchronous::{Client, ClientBuilder},
 };
 use serde_json::json;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::io::Write;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -1019,15 +1019,45 @@ async fn create_socket(hedgedoc_url: &str) -> (Client, mpsc::Receiver<(String, P
     (socket, rx)
 }
 
+struct HedgedocEnd {
+    socket: Client,
+    rx: mpsc::Receiver<(String, Payload)>,
+    pipe: Box<
+        dyn Pipe<
+                EditorProtocolMessageFromEditor,
+                (String, Payload),
+                (String, Payload),
+                EditorProtocolMessageToEditor,
+            >,
+    >,
+}
+
+impl HedgedocEnd {
+    async fn new(url: String) -> Self {
+        let (socket, rx) = create_socket(&url).await;
+
+        let hedgedoc_pipeline = glue![Log::new("/tmp/hedgedoclog"), HedgedocBinding::default()];
+        let truth = Truth::default();
+        let ot = OneSidedOT::default();
+        let pipe = glue![ot, truth, Flip::new(hedgedoc_pipeline)];
+
+        Self {
+            socket,
+            rx,
+            pipe: Box::new(pipe),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
-    let hedgedoc_url = std::env::args()
-        .nth(1)
-        .expect("Please provide the Hedgedoc URL");
+    // let hedgedoc_url = std::env::args()
+    //     .nth(1)
+    //     .expect("Please provide the Hedgedoc URL");
 
-    let (socket, mut rx) = create_socket(&hedgedoc_url).await;
+    // let (socket, mut rx) = create_socket(&hedgedoc_url).await;
 
-    let editor = glue![
+    let mut editor_protocol = glue![
         ContentLengthCodec::default(),
         AutoAcceptingJsonRpc::default(),
         Log::new("/tmp/editorlog")
@@ -1035,41 +1065,79 @@ async fn main() {
 
     //let editor = glue![LinesCodec::default(), EditorDebugger::default()];
 
-    let editor_pipeline = glue![editor, OneSidedOT::default()];
+    // let editor_pipeline = glue![editor, OneSidedOT::default()];
 
     let mut buf = vec![0; 1024];
     let mut stdin = tokio::io::stdin();
 
-    let hedgedoc_pipeline = glue![Log::new("/tmp/hedgedoclog"), HedgedocBinding::default()];
+    // let hedgedoc_pipeline = glue![Log::new("/tmp/hedgedoclog"), HedgedocBinding::default()];
+    //
+    // let truth = Truth::default();
+    //
+    // let mut pipeline = glue![editor_pipeline, truth, Flip::new(hedgedoc_pipeline)];
+    //
+    // // Process first message from Hedgedoc direction, so that it determines the content.
+    // let socket_message = rx.recv().await.unwrap();
+    // pipeline.handle_input_to_io(socket_message);
 
-    let truth = Truth::default();
-
-    let mut pipeline = glue![editor_pipeline, truth, Flip::new(hedgedoc_pipeline)];
-
-    // Process first message from Hedgedoc direction, so that it determines the content.
-    let socket_message = rx.recv().await.unwrap();
-    pipeline.handle_input_to_io(socket_message);
+    let mut ends: HashMap<String, HedgedocEnd> = HashMap::default();
 
     // Then, start the full pipeline.
     let mut running = true;
     while running {
-        if let Some((event, data)) = pipeline.poll_transmit_from_io() {
-            socket.emit(event, data).await.expect("Failed to emit");
-            continue;
-        }
-        if let Some(message) = pipeline.poll_transmit_to_io() {
-            print!("{message}");
-            std::io::stdout().flush().unwrap();
-            continue;
-        }
-        tokio::select! {
-            socket_message_maybe = rx.recv() => {
-                if let Some(socket_message) = socket_message_maybe {
-                    pipeline.handle_input_to_io(socket_message);
-                } else {
-                    running = false;
+        if let Some(message) = editor_protocol.poll_transmit_from_io() {
+            match message {
+                EditorProtocolMessageFromEditor::Open { uri, content } => {
+                    if !ends.contains_key(&uri) {
+                        let mut end = HedgedocEnd::new(uri.clone()).await;
+
+                        // Process first message from Hedgedoc direction, so that it determines the content.
+                        let socket_message = end.rx.recv().await.unwrap();
+                        end.pipe.handle_input_to_io(socket_message);
+
+                        ends.insert(uri.clone(), end);
+                    };
+
+                    let end = ends.get_mut(&uri).unwrap();
+
+                    // Then put "open" message in the pipe.
+                    end.pipe
+                        .handle_input_from_io(EditorProtocolMessageFromEditor::Open {
+                            uri: uri.clone(),
+                            content,
+                        });
                 }
+                EditorProtocolMessageFromEditor::Edit {
+                    uri,
+                    revision,
+                    delta,
+                } => {
+                    let end = ends.get_mut(&uri).unwrap();
+                    end.pipe
+                        .handle_input_from_io(EditorProtocolMessageFromEditor::Edit {
+                            uri,
+                            revision,
+                            delta,
+                        })
+                }
+                _ => {}
             }
+            // socket.emit(event, data).await.expect("Failed to emit");
+            continue;
+        }
+        // if let Some(message) = pipeline.poll_transmit_to_io() {
+        //     print!("{message}");
+        //     std::io::stdout().flush().unwrap();
+        //     continue;
+        // }
+        tokio::select! {
+            // socket_message_maybe = rx.recv() => {
+            //     if let Some(socket_message) = socket_message_maybe {
+            //         pipeline.handle_input_to_io(socket_message);
+            //     } else {
+            //         running = false;
+            //     }
+            // }
             result = stdin.read(&mut buf) => {
                 match result {
                     Ok(0) => {
@@ -1077,7 +1145,7 @@ async fn main() {
                         running = false;
                     }
                     Ok(n) => {
-                        pipeline.handle_input_from_io(String::from_utf8(buf[..n].to_vec()).unwrap());
+                        editor_protocol.handle_input_from_io(String::from_utf8(buf[..n].to_vec()).unwrap());
                     }
                     Err(e) => {
                         eprintln!("Error reading from stdin: {e}");
