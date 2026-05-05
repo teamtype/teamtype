@@ -31,7 +31,7 @@ use crate::types::{EditorTextDelta, RevisionedEditorTextDelta, RevisionedTextDel
 ///       to the document. It sends d2' and d3' to the editor, along with the editor revision (2).
 ///    6. The editor receives d2' and applies it, but then makes edit e3, and sends it to the daemon.
 ///       The editor rejects d3', because it is received after e3 was created.
-///    7. The daemon meanwhile makes edit d4. Upon reciving e3, it transforms it against d3' and d4,
+///    7. The daemon meanwhile makes edit d4. Upon receiving e3, it transforms it against d3' and d4,
 ///       and sends d3'' and d4' to the editor. It applies d4 and e3'' to the document.
 ///    8. The editor receives d3'' and d4', and applies them. Both sides now have the same document.
 ///
@@ -75,7 +75,7 @@ pub struct OTServer {
     /// can correctly transform operations for the editor.
     ///
     /// Design Note: The daemon should do the transformation because we want to spare
-    /// the overhead of implementing the tranformation per editor plugin. In our case
+    /// the overhead of implementing the transformation per editor plugin. In our case
     /// there's a small number of editors, so transforming it in the daemon is feasible.
     editor_queue: Vec<OperationSeq>,
     current_content: String,
@@ -370,7 +370,7 @@ mod tests {
                 "THE POEM\nLet's say\nthis could be\na poem."
             );
 
-            // both do a replacemenet at the "same time", but not overlapping.
+            // both do a replacement at the "same time", but not overlapping.
 
             // Note: using len because all is ascii and .chars().count() is more noise.
             ot_server

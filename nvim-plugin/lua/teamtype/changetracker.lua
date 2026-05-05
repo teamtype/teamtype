@@ -218,7 +218,7 @@ function M.track_changes(buffer, initial_lines, callback)
         end
 
         -- When the line ranges are larger then the actual differences, compute_diff will compute
-        -- unneccessarily large diffs. We can fix this by hand.
+        -- unnecessarily large diffs. We can fix this by hand.
         first_line, last_line, new_last_line =
             shrink_to_modified_line_range(prev_lines_copy, curr_lines, first_line, last_line, new_last_line)
 

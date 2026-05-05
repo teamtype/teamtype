@@ -7,9 +7,14 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Running your own relays
 
-By default, Teamtype uses a couple of public relays hosted by other people/groups. They facilitate smooth connections between devices in different local networks. All transmitted data is always end-to-end encrypted between peers. After a connection is established, peers connect directly, if possible.
+By default, Teamtype uses a couple of public relays hosted by other people/groups.
+They facilitate smooth connections between devices in different local networks.
+All transmitted data is always end-to-end encrypted between peers.
+After a connection is established, peers connect directly, if possible.
 
-If you don't want to rely on these public relays, you can host your own ones, and instruct Teamtype to use them. Here's how that works for each of the relays. Note that we mostly describe a "development testing setup" here; for a production deployment, please look into the individual relays more carefully.
+If you don't want to rely on these public relays, you can host your own ones, and instruct Teamtype to use them.
+Here's how that works for each of the relays.
+Note that we mostly describe a "development testing setup" here; for a production deployment, please look into the individual relays more carefully.
 
 ## Magic Wormhole relay
 
@@ -37,23 +42,28 @@ or set the `magic_wormhole_relay` parameter in `.teamtype/config`.
 
 ## Iroh Pkarr relay + DNS server
 
-Teamtype uses Iroh's [Pkarr relay and DNS server](https://github.com/n0-computer/iroh/tree/main/iroh-dns-server) to allow peers to meet on the same Iroh relay (see below). Read [Iroh's discovery documentation](https://docs.iroh.computer/concepts/discovery) for more information.
+Teamtype uses Iroh's [Pkarr relay and DNS server](https://github.com/n0-computer/iroh/tree/main/iroh-dns-server) to allow peers to meet on the same Iroh relay (see below).
+Read [Iroh's discovery documentation](https://docs.iroh.computer/concepts/discovery) for more information.
 
 ### Running your own
 
-Using Rust's `cargo`, run `cargo install iroh-dns-server@0.35.0`. Then, run:
+Using Rust's `cargo`, run `cargo install iroh-dns-server@0.35.0`.
+Then, run:
 
     iroh-dns-server
 
-This will start a Pkarr relay on port 8080, and a DNS server on port 5300 by default, which resolves subdomains of `irohdns.example`. You can provide configuration files for production setups, see the [README of iroh-dns-server](https://github.com/n0-computer/iroh/tree/main/iroh-dns-server).
+This will start a Pkarr relay on port 8080, and a DNS server on port 5300 by default, which resolves subdomains of `irohdns.example`.
+You can provide configuration files for production setups, see the [README of iroh-dns-server](https://github.com/n0-computer/iroh/tree/main/iroh-dns-server).
 
 ### DNS testing setup
 
-For a development setup, you need to configure your computer to use your local DNS server. Assuming you're on Linux and use `systemd-resolved`, run
+For a development setup, you need to configure your computer to use your local DNS server.
+Assuming you're on Linux and use `systemd-resolved`, run
 
     sudo resolvectl dns <interface> 127.0.0.1:5300
 
-to set sets it as a DNS server for a network interface, run `resolvectl status` for your options. Then, run
+to set sets it as a DNS server for a network interface, run `resolvectl status` for your options.
+Then, run
 
     sudo resolvectl domain <interface> '~irohdns.example'
 
@@ -75,11 +85,13 @@ It doesn't hurt to use both flags on both the sharing and the joining peer.
 
 ## Iroh relay
 
-Teamtype uses an [Iroh relay](https://github.com/n0-computer/iroh/tree/main/iroh-relay) when direct connections between peers aren't immediately possible. Read [Iroh's relay documentation](https://docs.iroh.computer/concepts/relays) for more information.
+Teamtype uses an [Iroh relay](https://github.com/n0-computer/iroh/tree/main/iroh-relay) when direct connections between peers aren't immediately possible.
+Read [Iroh's relay documentation](https://docs.iroh.computer/concepts/relays) for more information.
 
 ### Running your own
 
-Using Rust's `cargo`, run `cargo install cargo install iroh-relay@0.35.0 --features=server`. Then, run:
+Using Rust's `cargo`, run `cargo install cargo install iroh-relay@0.35.0 --features=server`.
+Then, run:
 
     iroh-relay --dev
 

@@ -78,7 +78,7 @@ impl Actor for Daemon {
 
     async fn content(&self) -> String {
         let Some(document::Content::String(string)) = self.document_handle.content().await else {
-            panic!("Could not retrive a string via .content()");
+            panic!("Could not retrieve a string via .content()");
         };
         string
     }

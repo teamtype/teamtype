@@ -36,7 +36,7 @@ pub fn write_file(
     let canonical_file_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
 
-    // Create the parent directorie(s), if neccessary.
+    // Create the parent directory(s), if necessary.
     let parent_dir = canonical_file_path
         .parent()
         .expect("Failed to get parent directory");
@@ -164,7 +164,7 @@ pub fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf> {
             .map(|dir_entry| dir_entry.path().to_path_buf())
             .collect();
 
-        // TODO: Remove duplictes, in the case that jj is used non-colocatedly.
+        // TODO: Remove duplicates, in the case that jj is used non-colocatedly.
         files.extend(jj_files);
     }
 
@@ -346,7 +346,7 @@ mod tests {
         assert!(read_file(Path::new("project"), &project_dir.join("a")).is_err());
 
         // File not exist.
-        assert!(read_file(&project_dir, &project_dir.join("nonexistant")).is_err());
+        assert!(read_file(&project_dir, &project_dir.join("nonexistent")).is_err());
     }
 
     #[test]

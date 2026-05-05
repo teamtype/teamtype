@@ -49,7 +49,7 @@ async fn nvim_sends_something_to_socket() {
         socket.acknowledge_open().await;
     })
     .await
-    .expect("sends_somthing test timed out");
+    .expect("sends_something test timed out");
 }
 
 async fn assert_nvim_deltas_yield_content(
@@ -201,7 +201,7 @@ async fn nvim_sends_correct_delta() {
         .await;
     // 'eol' will still be on, so let's keep the newline.
     assert_nvim_input_yields_replacements("a\n", "dd", vec![replace_ed((0, 0), (0, 1), "")]).await;
-    // Our design goal: produce something, that works without any implict newlines.
+    // Our design goal: produce something, that works without any implicit newlines.
     assert_nvim_input_yields_replacements("a", "dd", vec![replace_ed((0, 0), (0, 1), "")]).await;
     // Test what happens when we start with empty buffer:
     // The eol option can be "true" unexpectedly.

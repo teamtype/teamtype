@@ -665,7 +665,7 @@ impl DocumentActor {
             self.crdt_doc.remove_file(file_path);
         } else {
             // TODO: Once we remove the concept of ownership entirely, make sure to send proper
-            // ComponentMessagse to the editors that remove their entire content.
+            // ComponentMessage to the editors that remove their entire content.
         }
     }
 
@@ -745,7 +745,7 @@ impl DocumentActor {
         to_editor
     }
 
-    // Send component message to all editors, excluding `exlude_id`.
+    // Send component message to all editors, excluding `exclude_id`.
     async fn broadcast_to_editors(
         &mut self,
         exclude_id: Option<EditorId>,
@@ -851,7 +851,7 @@ impl DocumentActor {
 
 /// This handle knows how to talk to the `DocumentActor` and provides an interface for doing so.
 ///
-/// The main iterfaces for doing so is through through sending `DocMessage`s with `send_message`.
+/// The main interfaces for doing so is through sending `DocMessage`s with `send_message`.
 /// An alternative pathway is to subscribe to documents changes through `subscribe_document_changes`.
 ///
 /// The rest of the methods are used for instrumentation (e.g. by the fuzzer).
