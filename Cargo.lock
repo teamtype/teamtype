@@ -4451,6 +4451,7 @@ dependencies = [
  "magic-wormhole",
  "microxdg",
  "notify",
+ "nu-ansi-term",
  "operational-transform",
  "path-clean",
  "postcard",
