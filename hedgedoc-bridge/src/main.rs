@@ -373,8 +373,11 @@ enum OTState {
 #[derive(Default)]
 struct TwoSidedOT {
     state: OTState,
-    revision: u64, // Last revision acked by the server.
-    buffer: VecDeque<TextDelta>,
+    // Last revision acked by the server.
+    revision: u64,
+    // Has been sent to the server, but hasn't been acknowledged yet.
+    outstanding: TextDelta,
+    buffer: TextDelta,
 }
 
 impl TwoSidedOT {
@@ -384,10 +387,11 @@ impl TwoSidedOT {
         match self.state {
             OTState::Synchronized => {
                 self.state = OTState::AwaitingConfirm;
+                self.outstanding = delta.clone();
                 Some(delta)
             }
             OTState::AwaitingConfirm => {
-                self.buffer.push_back(delta);
+                self.buffer = self.buffer.clone().compose(delta);
                 None
             }
         }
@@ -396,16 +400,22 @@ impl TwoSidedOT {
     // The server sends us an edit.
     // Returns the delta to apply to the document.
     fn apply_server(&mut self, delta: TextDelta, revision: u64) -> TextDelta {
+        if revision != self.revision + 1 {
+            panic!("Unexpected revision");
+        }
+        self.revision = revision;
+
         match self.state {
-            OTState::Synchronized => {
-                self.revision = revision;
-                delta
-            }
+            OTState::Synchronized => delta,
             OTState::AwaitingConfirm => {
-                let buffer: Vec<_> = self.buffer.clone().into_iter().map(|o| o.into()).collect();
-                let (delta2, buffer2) =
-                    teamtype::ot::transform_through_operations(delta.into(), &buffer);
-                self.buffer = buffer2.into_iter().map(|o| o.into()).collect();
+                let ops = vec![self.outstanding.clone().into(), self.buffer.clone().into()];
+
+                let (delta2, ops) = teamtype::ot::transform_through_operations(delta.into(), &ops);
+
+                assert_eq!(ops.len(), 2);
+                self.outstanding = ops[0].clone().into();
+                self.buffer = ops[1].clone().into();
+
                 delta2.into()
             }
         }
@@ -422,13 +432,17 @@ impl TwoSidedOT {
                 if revision != self.revision + 1 {
                     panic!("Unexpected ack");
                 }
+
                 self.revision = revision;
-                if let Some(delta) = self.buffer.pop_front() {
-                    Some(delta)
-                } else {
-                    // All caught up!
+
+                if is_empty(&self.buffer) {
                     self.state = OTState::Synchronized;
                     None
+                } else {
+                    let buffer = self.buffer.clone();
+                    self.outstanding = self.buffer.clone();
+                    self.buffer = TextDelta::default();
+                    Some(buffer)
                 }
             }
         }
@@ -597,6 +611,11 @@ impl HedgedocBinding {
             .into(),
         ));
     }
+}
+
+fn is_empty(delta: &TextDelta) -> bool {
+    // TODO: Multiple retains?
+    matches!(delta.0[..], [] | [TextOp::Retain(_)])
 }
 
 fn delta_to_json(delta: &TextDelta) -> serde_json::Value {
