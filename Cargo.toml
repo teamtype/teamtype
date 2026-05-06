@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2024 Danny McClanahan <dmcC2@hypnicjerk.ai>
+# SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
+# SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+# SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[workspace]
+resolver = "3"
+members = ["crates/teamtype", "crates/integration-tests"]
+
+[workspace.package]
+version = "0.9.2-dev"
+authors = [
+    "Moritz Neeb <nt4u@kpvn.de>",
+    "blinry <mail@blinry.org>",
+    "Caleb Maclennan <caleb@alerque.com>",
+]
+homepage = "https://teamtype.github.io/teamtype/"
+repository = "https://github.com/teamtype/teamtype"
+license = "AGPL-3.0-or-later"
+edition = "2024"
+rust-version = "1.85"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+futures = { version = "0.3", default-features = false }
+pretty_assertions = "1"
+serde_json = "1"
+tempfile = "3"
+tracing = "0.1"
+teamtype = { path = "crates/teamtype" }
+
+# Stripping symbols (not debuginfo) reduces binary size by ~1.5x.
+# This is the default profile for `cargo install`:
+# https://doc.rust-lang.org/cargo/reference/profiles.html#profile-selection.
+# TODO: We may want to make [profile.release-size] the default
+# once we're out of the fast iteration development phase.
+[profile.release]
+strip = true
+opt-level = 3
+
+# 2-3x slower to compile, but produces a ~1.2x smaller binary.
+[profile.release-lto]
+inherits = "release"
+lto = true
+codegen-units = 1
+
+# Also quite slow to compile, but produces a ~1.6x smaller binary.
+[profile.release-size]
+inherits = "release"
+lto = true
+codegen-units = 1
+opt-level = "s"
+
+# The integration-tests crates will time-out without optimizations enabled, this
+# can be qualified with .pacakges.integration-tests, but that will only optimize
+# the test, not the other dependencies. Optimizing just the external dependencies
+# with .packages."*" keeps the tests from timing out, but is still slower that
+# just building the whole workspace and dependencies with optimizations.
+[profile.test]
+opt-level = 3
+
+[workspace.lints.clippy]
+allow_attributes = "warn"
+# TODO: add 'expect' to the places where casts are happening and enable the lints
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cognitive_complexity = "allow"
+map_with_unused_argument_over_ranges = "warn"
+missing_const_for_fn = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+should_panic_without_expect = "allow"
+too_long_first_doc_paragraph = "allow"
+too_many_lines = "allow"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"

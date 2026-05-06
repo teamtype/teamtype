@@ -8,13 +8,13 @@
 [package]
 name = "teamtype"
 description = "Enables real-time co-editing of local text files."
-version = "0.9.2-dev"
-authors = ["Moritz Neeb <nt4u@kpvn.de>", "blinry <mail@blinry.org>"]
-license = "AGPL-3.0-or-later"
-readme = "../README.md"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+readme = "../../README.md"
 include = ["*.rs", "*.toml", "src/initial_automerge_doc.bin"]
 documentation = "https://teamtype.github.io"
-repository = "https://github.com/teamtype/teamtype"
+repository.workspace = true
 keywords = [
     "collaboration",
     "local-first",
@@ -23,115 +23,92 @@ keywords = [
     "peer-to-peer",
 ]
 categories = ["command-line-utilities", "text-editors"]
-edition = "2024"
-rust-version = "1.89.0"
-default-run = "teamtype"
+edition.workspace = true
+rust-version.workspace = true
 
 [[bin]]
 name = "teamtype"
-test = false
-bench = false
-required-features = ["executable-deps"]
+required-features = ["cli"]
 
 [lib]
 name = "teamtype"
+crate-type = ["rlib", "cdylib"]
 
 [features]
-default = ["executable-deps"]
-executable-deps = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
+default = ["cli"] # this is unfortunate, but library users should use `default-features = false`
+cli = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
 
 [build-dependencies]
-anyhow = "1"
+anyhow.workspace = true
 automerge = "0.8"
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 clap_mangen = "0.3"
 
 [dependencies]
-anyhow = "1"
-async-trait = "0.1"
+anyhow.workspace = true
+async-trait.workspace = true
 automerge = "0.8"
-clap = { version = "4.5", features = ["derive", "env"], optional = true }
 constant_time_eq = "0.4"
-derive_more = { version = "2", features = ["as_ref", "deref", "display"] }
 dissimilar = "1"
-futures = { version = "0.3", default-features = false }
-git2 = { version = "0.20", default-features = false }
+futures.workspace = true
 ignore = "0.4"
 iroh = "0.35" # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
 magic-wormhole = "0.7" # 0.8 fails on macos due to a bad interaction with iroh's netwatcher usage
 microxdg = "0.2"
-notify = { version = "8", default-features = false, features = [
-    "macos_fsevent",
-] }
 operational-transform = "0.6"
 path-clean = "1"
-postcard = { version = "1", features = ["alloc"] }
 rand = "0.8" # must match types used in iroh 0.35
 ropey = "1"
 rust-ini = "0.21"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tempfile = "3"
-time = { version = "0.3", features = ["formatting", "macros"] }
-tokio-util = { version = "0.7", features = ["codec"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "ansi",
-    "fmt",
-    "time",
-    "env-filter",
-] }
+serde_json.workspace = true
+tempfile.workspace = true
+tracing.workspace = true
 url = "2"
+
+[dependencies.clap]
+version = "4.5"
+features = ["derive", "env"]
+optional = true
+
+[dependencies.derive_more]
+version = "2"
+features = ["as_ref", "deref", "display"]
+
+[dependencies.git2]
+version = "0.20"
+default-features = false
+
+[dependencies.notify]
+version = "8"
+default-features = false
+features = ["macos_fsevent"]
+
+[dependencies.postcard]
+version = "1"
+features = ["alloc"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.time]
+version = "0.3"
+features = ["formatting", "macros"]
 
 [dependencies.tokio]
 version = "1"
 features = ["rt", "io-std", "io-util", "macros", "net", "time"]
 
+[dependencies.tokio-util]
+version = "0.7"
+features = ["codec"]
+
+[dependencies.tracing-subscriber]
+version = "0.3"
+default-features = false
+features = ["ansi", "fmt", "time", "env-filter"]
+
 [dev-dependencies]
-pretty_assertions = "1"
+pretty_assertions.workspace = true
 tracing-test = "0.2"
-
-# Stripping symbols (not debuginfo) reduces binary size by ~1.5x.
-# This is the default profile for `cargo install`:
-# https://doc.rust-lang.org/cargo/reference/profiles.html#profile-selection.
-# TODO: We may want to make [profile.release-size] the default
-# once we're out of the fast iteration development phase.
-[profile.release]
-strip = true
-opt-level = 3
-
-# 2-3x slower to compile, but produces a ~1.2x smaller binary.
-[profile.release-lto]
-inherits = "release"
-lto = true
-codegen-units = 1
-
-# Also quite slow to compile, but produces a ~1.6x smaller binary.
-[profile.release-size]
-inherits = "release"
-lto = true
-codegen-units = 1
-opt-level = "s"
-
-[lints.rust]
-unsafe_code = "forbid"
-unused_qualifications = "warn"
-
-[lints.clippy]
-allow_attributes = "warn"
-# TODO: add 'expect' to the places where casts are happening and enable the lints
-cast_possible_truncation = "allow"
-cast_possible_wrap = "allow"
-cast_sign_loss = "allow"
-cognitive_complexity = "allow"
-map_with_unused_argument_over_ranges = "warn"
-missing_const_for_fn = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
-must_use_candidate = "allow"
-nursery = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-should_panic_without_expect = "allow"
-too_long_first_doc_paragraph = "allow"
-too_many_lines = "allow"

@@ -3,4 +3,4 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [env]
-CARGO_WORKSPACE_DIR = { value = "../../", relative = true }
+CARGO_WORKSPACE_DIR = { value = "", relative = true }
