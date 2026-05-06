@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
+use docstr::docstr;
 use git2::{Config as GitConfig, ConfigLevel, Error as GitError, Repository};
 use ini::{Ini, Properties};
 use tracing::info;
@@ -238,13 +239,14 @@ fn get_username_from_git(base_dir: &Path) -> Option<String> {
     let username = get_git_username(base_dir);
     if let Some(ref username) = username {
         info!(
-            "Using the Git username '{username}' as username, to display next to the cursors other people see."
+            "{}",
+            &docstr!(format!
+                /// Using the Git username '{username}' as username, to display next to the cursors other people see.
+                /// Teamtype uses the Git username as username by default.
+                /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+                /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+            )
         );
-        info!("Teamtype uses the Git username as username by default.");
-        info!(
-            "You can set the configuration value `username` in your `.teamtype/config` to override this username."
-        );
-        info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
     }
     username
 }
@@ -252,12 +254,13 @@ fn get_username_from_git(base_dir: &Path) -> Option<String> {
 fn get_username_from_fallback_value() -> String {
     let username = USERNAME_FALLBACK.to_string();
     info!(
-        "Using the fallback value for username '{username}' as username, to display next to the cursors other people see."
+        "{}",
+        &docstr!(format!
+            /// Using the fallback value for username '{username}' as username, to display next to the cursors other people see.
+            /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+            /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+        )
     );
-    info!(
-        "You can set the configuration value `username` in your `.teamtype/config` to override this username."
-    );
-    info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
     username
 }
 
