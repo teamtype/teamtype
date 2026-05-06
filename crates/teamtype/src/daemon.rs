@@ -20,6 +20,7 @@ use automerge::{
     sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
 use futures::SinkExt;
+use indoc::printdoc;
 use rand::Rng;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::{
@@ -290,7 +291,7 @@ impl DocumentActor {
                                     // modifications to the editors, and these contents should be
                                     // consistent. So we don't need to do anything.
                                 } else {
-                                    info!(
+                                    warn!(
                                         "Peer deleted {file_path}, but you have it open in an editor. Bringing back an empty version."
                                     );
                                     self.crdt_doc.update_text("", &file_path);
@@ -987,9 +988,14 @@ impl Daemon {
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {
-            info!(
-                "\n\n\tOthers can connect by putting the following secret address in their .teamtype/config:\n\n\t{}\n",
-                address
+            info!("Secret address emition enabled: {address}");
+            printdoc!(
+                r#"
+                    Others can connect by putting the following secret address in their .teamtype/config:
+
+                        peer={address}
+
+                "#,
             );
         }
         if app_config.emit_join_code {
