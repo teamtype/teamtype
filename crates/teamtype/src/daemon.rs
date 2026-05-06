@@ -297,7 +297,7 @@ impl DocumentActor {
                                     // modifications to the editors, and these contents should be
                                     // consistent. So we don't need to do anything.
                                 } else {
-                                    self.ui.inform(&format!(
+                                    self.ui.warn(&format!(
                                         "Peer deleted {file_path}, but you have it open in an editor. Bringing back an empty version."
                                     ));
                                     self.crdt_doc.update_text("", &file_path);
