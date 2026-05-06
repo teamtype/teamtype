@@ -14,6 +14,7 @@ use std::{env, panic};
 use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
+use docstr::docstr;
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
 use teamtype::{
@@ -99,9 +100,12 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool) -> Result<Daemon> {
     config::ensure_teamtype_is_ignored(&app_config.base_dir)?;
 
     if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
-        warn!(
-            "You have a local user configuration in your .git/config. In --sync-vcs mode, this file will also be synchronized between peers. If your version \"wins\", all peers will have the same Git identity. As a workaround, you could use `git commit --author`."
-        );
+        warn!(docstr!(
+            /// You have a local user configuration in your .git/config.
+            /// In --sync-vcs mode, this file will also be synchronized between peers.
+            /// If your version "wins", all peers will have the same Git identity.
+            /// As a workaround, you could use `git commit --author`.
+        ));
     }
 
     debug!("Starting Teamtype on {}.", app_config.base_dir.display());
