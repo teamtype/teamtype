@@ -19,6 +19,7 @@ use automerge::{
     Patch,
     sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
+use docstr::docstr;
 use futures::SinkExt;
 use rand::RngExt;
 use tokio::sync::broadcast::error::RecvError;
@@ -983,8 +984,13 @@ impl Daemon {
 
         if app_config.emit_secret_address {
             info!(
-                "\n\n\tOthers can connect by putting the following secret address in their .teamtype/config:\n\n\t{}\n",
-                address
+                "{}",
+                &docstr!(format!
+                    /// Others can connect by putting the following secret address in their .teamtype/config:
+                    ///
+                    ///     peer={address}
+                    ///
+                )
             );
         }
         if app_config.emit_join_code {
