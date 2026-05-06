@@ -332,7 +332,7 @@ fn setup_teamtype_directory(
     if !has_teamtype_directory(directory) {
         let teamtype_dir = directory.join(config::CONFIG_DIR);
         let directory_is_temporary_directory = temporary_directory.is_some();
-        if directory_is_temporary_directory {
+         if directory_is_temporary_directory {
             ui.log(&format!(
                 "'{}' is the temporary directory that is used as a Teamtype directory.",
                 directory.display()
@@ -341,7 +341,7 @@ fn setup_teamtype_directory(
         } else if ui.confirm(&docstr!(format!
             /// '{}' hasn't been used as a Teamtype directory before.
             ///
-            /// Do you want to enable live collaboration here? (This will create an {}/ directory.)
+            /// Do you want to enable live collaboration here? (This will create a {}/ directory.)
             directory.display(),
             config::CONFIG_DIR
         ))? {
