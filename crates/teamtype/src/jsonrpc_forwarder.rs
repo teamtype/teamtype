@@ -21,13 +21,14 @@ use std::{env, process, str};
 use anyhow::Context;
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
-use teamtype::editor::strip_current_dir;
 use tokio::io;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader, BufWriter};
 use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
+
+use super::editor::strip_current_dir;
 
 // TODO: Put these defaults to a module accessible by config.rs as well.
 pub const DEFAULT_SOCKET_NAME: &str = "socket";

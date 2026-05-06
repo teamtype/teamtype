@@ -13,6 +13,7 @@ use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
+use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
 use teamtype::{
     cli_ask::ask,
     config::{self, AppConfig},
@@ -26,8 +27,6 @@ use tracing::{debug, info, warn};
 use self::cli::{Cli, Commands, ShareJoinFlags};
 
 mod cli;
-mod jsonrpc_forwarder;
-use crate::jsonrpc_forwarder::JSONRPCForwarder;
 
 fn has_ethersync_directory(dir: &Path) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
@@ -191,7 +190,7 @@ fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
 }
 
 async fn run_client(directory: PathBuf) -> Result<()> {
-    let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
+    let jsonrpc_forwarder = UnixJSONRPCForwarder {};
     jsonrpc_forwarder
         .connection(&directory)
         .await
