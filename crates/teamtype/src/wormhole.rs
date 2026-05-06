@@ -18,7 +18,7 @@ use crate::types::UserInterface;
 pub async fn put_secret_address_into_wormhole(
     address: &str,
     magic_wormhole_relay: Option<String>,
-    _ui: UserInterface,
+    ui: UserInterface,
 ) {
     let payload: Vec<u8> = address.into();
     let config = build_magic_wormhole_config(magic_wormhole_relay);
@@ -35,15 +35,14 @@ pub async fn put_secret_address_into_wormhole(
             };
             let code = mailbox_connection.code().clone();
 
-            info!(
-                "{}",
-                &docstr!(format!
-                        /// One other person can use this to connect to you:
-                        ///
-                        ///    teamtype join {code}
-                        ///
-                )
-            );
+            info!("New single-use share code: {code}",);
+
+            ui.inform(&docstr!(format!
+                /// One other person can use this to connect to you:
+                ///
+                ///    teamtype join {code}
+                ///
+            ));
 
             if let Ok(mut wormhole) = Wormhole::connect(mailbox_connection).await {
                 let _ = wormhole.send(payload.clone()).await;

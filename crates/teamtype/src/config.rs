@@ -222,50 +222,52 @@ fn get_username(
         .unwrap_or_else(|| get_username_from_fallback_value(ui))
 }
 
-fn get_username_from_cli(username: String, _ui: &UserInterface) -> String {
-    info!("Using the username '{username}' to display next to the cursors other people see.");
+fn get_username_from_cli(username: String, ui: &UserInterface) -> String {
+    info!("Using the CLI provided username '{username}'");
+    ui.inform(&format!(
+        "Using the CLI provided username '{username}' to display next to the cursors other people see."
+    ));
     username
 }
 
 fn get_username_from_config_file(
     general_section: &Properties,
-    _ui: &UserInterface,
+    ui: &UserInterface,
 ) -> Option<String> {
     general_section
         .get("username")
         .map(ToString::to_string)
         .map(|username| {
-            info!("Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see.");
+            info!("Using the username '{username}' from `.teamtype/config` as username");
+            ui.inform(&format!(
+                "Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see."
+            ));
             username
         })
 }
 
-fn get_username_from_git(base_dir: &Path, _ui: &UserInterface) -> Option<String> {
+fn get_username_from_git(base_dir: &Path, ui: &UserInterface) -> Option<String> {
     let username = get_git_username(base_dir);
     if let Some(ref username) = username {
-        info!(
-            "{}",
-            &docstr!(format!
-                /// Using the Git username '{username}' as username, to display next to the cursors other people see.
-                /// Teamtype uses the Git username as username by default.;
-                /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
-                /// You can also use the flag `--username` when using the `share`/`join` subcommands.;
-            )
-        );
+        info!("Using the Git username '{username}' as username");
+        ui.inform(&docstr!(format!
+            /// Using the Git username '{username}' as username, to display next to the cursors other people see.
+            /// Teamtype uses the Git username as username by default.
+            /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+            /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+        ));
     }
     username
 }
 
-fn get_username_from_fallback_value(_ui: &UserInterface) -> String {
+fn get_username_from_fallback_value(ui: &UserInterface) -> String {
     let username = USERNAME_FALLBACK.to_string();
-    info!(
-        "{}",
-        &docstr!(format!
-            /// Using the fallback value for username '{username}' as username, to display next to the cursors other people see.
-            /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
-            /// You can also use the flag `--username` when using the `share`/`join` subcommands.
-        )
-    );
+    info!("Using the fallback value for username '{username}' as username");
+    ui.inform(&docstr!(format!
+        /// Using the fallback value for username '{username}' as username, to display next to the cursors other people see.
+        /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+        /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+    ));
     username
 }
 

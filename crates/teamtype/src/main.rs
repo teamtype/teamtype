@@ -114,7 +114,8 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: UserInterface) ->
     let persist = !config::has_git_remote(&app_config.base_dir);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
-        info!(
+        info!("Detected a Git remote");
+        ui.inform(
             "Detected a Git remote: Assuming a pair-programming use-case and starting a new history."
         );
     }
@@ -122,7 +123,8 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: UserInterface) ->
     config::ensure_teamtype_is_ignored(&app_config.base_dir)?;
 
     if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
-        warn!(docstr!(
+        warn!("Local user configuration detected in sync-vcs mode");
+        ui.inform(docstr!(
             /// You have a local user configuration in your .git/config.
             /// In --sync-vcs mode, this file will also be synchronized between peers.
             /// If your version "wins", all peers will have the same Git identity.
@@ -356,17 +358,17 @@ fn setup_teamtype_directory(
         let teamtype_dir = directory.join(config::CONFIG_DIR);
         let directory_is_temporary_directory = temporary_directory.is_some();
         if directory_is_temporary_directory {
-            info!(
+            ui.inform(&format!(
                 "'{}' is the temporary directory that is used as a Teamtype directory.",
-                &directory.display()
-            );
+                directory.display()
+            ));
             sandbox::create_dir(directory, &teamtype_dir)?;
         } else {
-            warn!(
+            warn!("Prompting re previously unused '{}'", &directory.display());
+            ui.inform(&format!(
                 "'{}' hasn't been used as a Teamtype directory before.",
-                &directory.display()
-            );
-
+                directory.display(),
+            ));
             if ui.confirm(&format!(
                 "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
                 config::CONFIG_DIR

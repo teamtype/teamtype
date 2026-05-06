@@ -991,15 +991,13 @@ impl Daemon {
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {
-            info!(
-                "{}",
-                &docstr!(format!
-                    /// Others can connect by putting the following secret address in their .teamtype/config:
-                    ///
-                    ///     peer={address}
-                    ///
-                )
-            );
+            info!("Secret address emission enabled: {address}");
+            ui.inform(&docstr!(format!
+                /// Others can connect by putting the following secret address in their .teamtype/config:
+                ///
+                ///     peer={address}
+                ///
+            ));
         }
         if app_config.emit_join_code {
             put_secret_address_into_wormhole(
