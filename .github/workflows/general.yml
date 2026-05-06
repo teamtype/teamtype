@@ -49,18 +49,17 @@ jobs:
           neovim: true
           version: ${{ matrix.nvim-version }}
       - run: nvim --version
-      - name: Compile unit tests
-        run: cargo test --no-default-features --no-run --locked
-      - name: Run unit tests
-        run: cargo test --no-default-features
-      - name: Compile integration tests
-        run: cargo test -p integration-tests --no-run --locked
+      - name: Compile default tests
+        run: cargo test --locked --profile e2e --no-default-features --no-run
+      - name: Compile e2e fuzzer
+        run: cargo test --locked --profile e2e --no-default-features --no-run --test fuzzer
+      - name: Run default unit tests
+        run: cargo test --locked --profile e2e --no-default-features -p teamtype
+      - name: Run default e2e tests
+        run: cargo test --locked --profile e2e --no-default-features -p e2e-tests
       - if: ${{ matrix.os == 'ubuntu-latest' && matrix.nvim-version == 'v0.10.4' }}
-        name: Run integration tests
-        run: cargo test -p integration-tests --locked
-      - if: ${{ matrix.os != 'ubuntu-latest' || matrix.nvim-version != 'v0.10.4' }}
-        name: Run integration tests (except fuzzer)
-        run: cargo test -p integration-tests --locked --test nvim-plugin
+        name: Run e2e fuzzer
+        run: cargo test --locked --profile e2e --no-default-features -p e2e-tests --test fuzzer
 
   check_formatting:
     name: Check Rust formatting

@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
-use integration_tests::actors::{Actor, Neovim};
 use pretty_assertions::assert_eq;
 use rand::RngExt;
 use teamtype::config::{self, AppConfig};

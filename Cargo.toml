@@ -7,7 +7,7 @@
 
 [workspace]
 resolver = "3"
-members = ["crates/teamtype", "crates/integration-tests"]
+members = ["crates/teamtype", "crates/e2e-tests"]
 
 [workspace.package]
 version = "0.9.2-dev"
@@ -54,12 +54,12 @@ lto = true
 codegen-units = 1
 opt-level = "s"
 
-# The integration-tests crates will time-out without optimizations enabled, this
-# can be qualified with .pacakges.integration-tests, but that will only optimize
-# the test, not the other dependencies. Optimizing just the external dependencies
-# with .packages."*" keeps the tests from timing out, but is still slower that
-# just building the whole workspace and dependencies with optimizations.
-[profile.test]
+# The fuzzer test in the e2e-tests crate will time out without
+# optimizations enabled. It is ignored by default so it won't run by
+# default, especially not from the parent workspace. To run the fuzzer
+# use `cargo test --profile e2e --test fuzzer`.
+[profile.e2e]
+inherits = "test"
 opt-level = 3
 
 [workspace.lints.clippy]

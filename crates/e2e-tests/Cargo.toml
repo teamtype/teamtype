@@ -6,8 +6,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "integration-tests"
-description = "End-to-end testing of Teamtype."
+name = "e2e-tests"
+description = "End-to-end testing of Teamtype including plugin integrations."
 publish = false
 version.workspace = true
 authors.workspace = true
@@ -19,6 +19,7 @@ rust-version.workspace = true
 name = "fuzzer"
 # We set process-global state in this test, so we want to run our own main method.
 harness = false
+test = false # don't include fuzzer in default test runs
 
 [dependencies]
 async-trait.workspace = true
