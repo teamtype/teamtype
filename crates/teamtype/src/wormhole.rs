@@ -6,6 +6,7 @@
 use std::{borrow::Cow, str::FromStr, time::Duration};
 
 use anyhow::Result;
+use indoc::printdoc;
 use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transfer};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
@@ -24,9 +25,14 @@ pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_rela
             };
             let code = mailbox_connection.code().clone();
 
-            info!(
-                "\n\tOne other person can use this to connect to you:\n\n\tteamtype join {}\n",
-                &code
+            info!("New single-use share code: {code}",);
+
+            printdoc!(
+                "
+                    One other person can use this to connect to you:
+
+                        teamtype join {code}
+                "
             );
 
             if let Ok(mut wormhole) = Wormhole::connect(mailbox_connection).await {

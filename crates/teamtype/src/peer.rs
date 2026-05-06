@@ -16,6 +16,7 @@ use std::time::Duration;
 use anyhow::bail;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use indoc::printdoc;
 use iroh::discovery::dns::DnsDiscovery;
 use iroh::discovery::pkarr::PkarrPublisher;
 use iroh::endpoint::{Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream};
@@ -281,11 +282,11 @@ impl EndpointActor {
                     }
                 };
 
-                info!(
-                    "Connected to peer: {}",
-                    conn.remote_node_id()
-                        .expect("Connection should have a node ID")
-                );
+                let node_id = conn
+                    .remote_node_id()
+                    .expect("Connection should have a node ID");
+                info!("Connected to peer: {node_id}");
+                printdoc!("Connected to peer: {node_id}");
 
                 if let Some(response_tx) = response_tx {
                     response_tx.send(Ok(())).expect("Connect receiver dropped");
@@ -318,17 +319,13 @@ impl EndpointActor {
         previous_attempts: usize,
     ) -> Result<()> {
         // Only log at "info" level if this is the first reconnection attempt.
+        let node_id = secret_address.node_addr.node_id;
         if previous_attempts == 0 {
-            info!(
-                "Connection to peer {} lost, will keep trying to reconnect...",
-                secret_address.node_addr.node_id
-            );
+            info!("Connection to peer {node_id} lost");
+            printdoc!("Connection to peer {node_id} lost, will keep trying to reconnect...");
         } else {
             sleep(Duration::from_secs(10)).await;
-            debug!(
-                "Making another attempt to connect to peer {}...",
-                secret_address.node_addr.node_id
-            );
+            debug!("Making another attempt to connect to peer {node_id}...");
         }
         // We don't need to be notified, so we don't need to use the response channel.
         message_tx
@@ -382,7 +379,8 @@ impl EndpointActor {
             .remote_node_id()
             .expect("Connection should have a node ID");
 
-        info!("Peer connected: {}", &node_id);
+        info!("Peer connected: {node_id}");
+        printdoc!("Peer connected: {node_id}");
 
         let my_passphrase_clone = self.my_passphrase.clone();
         let document_handle_clone = self.document_handle.clone();
@@ -398,6 +396,7 @@ impl EndpointActor {
             }
 
             info!("Peer disconnected: {node_id}",);
+            printdoc!("Peer disconnected: {node_id}",);
         });
     }
 
