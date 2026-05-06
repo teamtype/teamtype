@@ -229,7 +229,7 @@ fn get_username(
 
 fn get_username_from_cli(username: String, ui: &UserInterface) -> String {
     ui.log(&format!(
-        "Using the username '{username}' to display next to the cursors other people see."
+        "Using the CLI provided username '{username}' to display next to the cursors other people see."
     ));
     username
 }

@@ -341,7 +341,7 @@ fn setup_teamtype_directory(
         } else if ui.confirm(&docstr!(format!
             /// '{}' hasn't been used as a Teamtype directory before.
             ///
-            /// Do you want to enable live collaboration here? (This will create an {}/ directory.)
+            /// Do you want to enable live collaboration here? (This will create a {}/ directory.)
             directory.display(),
             config::CONFIG_DIR
         ))? {
