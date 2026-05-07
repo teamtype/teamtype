@@ -41,6 +41,10 @@ fn initialize_directory() -> (TempDir, PathBuf) {
     (dir, file)
 }
 
+fn prompt_bool_dummy(_: &str) -> Result<bool> {
+    Ok(false)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -58,7 +62,7 @@ async fn main() -> Result<()> {
     // Set up the actors.
     let mut app_config = AppConfig::default();
     app_config.base_dir = dir.path().to_path_buf();
-    let daemon = Daemon::new(app_config, true, false).await?;
+    let daemon = Daemon::new(app_config, true, false, &prompt_bool_dummy).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
@@ -68,7 +72,7 @@ async fn main() -> Result<()> {
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2.path().to_path_buf();
     app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false).await?;
+    let peer = Daemon::new(app_config2, false, false, &prompt_bool_dummy).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {

@@ -6,7 +6,6 @@
 
 #![doc = include_str!("../../../README.md")]
 
-pub mod cli_ask;
 pub mod config;
 pub mod daemon;
 pub mod document;
