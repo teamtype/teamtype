@@ -5,6 +5,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::io::Write;
+use std::io::{stdin, stdout};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::{env, panic};
@@ -15,7 +17,6 @@ use clap::{CommandFactory as _, FromArgMatches as _};
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
 use teamtype::{
-    cli_ask::ask,
     config::{self, AppConfig},
     daemon::Daemon,
     logging, sandbox,
@@ -107,7 +108,7 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool) -> Result<Daemon> {
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
     // so the calling context can determine when to terminate.
-    Daemon::new(app_config, init_doc, persist)
+    Daemon::new(app_config, init_doc, persist, &prompt_bool)
         .await
         .context("Failed to launch the daemon")
 }
@@ -302,7 +303,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
             &old_directory.display()
         );
 
-        if ask(&format!(
+        if prompt_bool(&format!(
             "Do you want to rename {}/ to {}/?",
             config::LEGACY_CONFIG_DIR,
             config::CONFIG_DIR,
@@ -331,7 +332,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
                 &directory.display()
             );
 
-            if ask(&format!(
+            if prompt_bool(&format!(
                 "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
                 config::CONFIG_DIR
             ))? {
@@ -347,4 +348,18 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
 
 fn get_current_directory() -> Result<PathBuf> {
     env::current_dir().context("Could not access current directory")
+}
+
+fn prompt_bool(question: &str) -> Result<bool> {
+    print!("{question} (y/N): ");
+    stdout().flush()?;
+    let mut lines = stdin().lines();
+    if let Some(Ok(line)) = lines.next() {
+        match line.to_lowercase().as_str() {
+            "y" | "yes" => Ok(true),
+            _ => Ok(false),
+        }
+    } else {
+        bail!("Failed to read answer");
+    }
 }

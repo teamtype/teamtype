@@ -953,7 +953,12 @@ pub struct Daemon {
 
 impl Daemon {
     // Launch the daemon. Optionally, connect to given peer.
-    pub async fn new(app_config: AppConfig, init: bool, persist: bool) -> Result<Self> {
+    pub async fn new(
+        app_config: AppConfig,
+        init: bool,
+        persist: bool,
+        prompt_bool: &(dyn Fn(&str) -> Result<bool> + Send + Sync),
+    ) -> Result<Self> {
         let is_host = app_config.is_host();
 
         let document_handle = DocumentActorHandle::new(&app_config, init, is_host, persist);
@@ -964,7 +969,7 @@ impl Daemon {
         let socket_path = base_dir
             .join(config::CONFIG_DIR)
             .join(config::DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone())?;
+        editor::spawn_socket_listener(&socket_path, document_handle.clone(), prompt_bool)?;
 
         // Start file watcher.
         spawn_file_watcher(&app_config, document_handle.clone());

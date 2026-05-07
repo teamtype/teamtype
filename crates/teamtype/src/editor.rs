@@ -23,7 +23,6 @@ use tokio_util::{
 };
 use tracing::{debug, error, info};
 
-use crate::cli_ask::ask;
 use crate::daemon::{DocMessage, DocumentActorHandle};
 use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
@@ -100,6 +99,7 @@ pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
 pub fn spawn_socket_listener(
     socket_path: &Path,
     document_handle: DocumentActorHandle,
+    bool_prompter: &dyn Fn(&str) -> Result<bool>,
 ) -> Result<()> {
     // Make sure the parent directory of the socket is only accessible by the current user.
     if let Err(description) = is_user_readable_only(socket_path) {
@@ -113,7 +113,7 @@ pub fn spawn_socket_listener(
         .expect("Failed to check existence of path")
     {
         let socket_path_display = socket_path.display();
-        let remove_socket = ask(&format!(
+        let remove_socket = bool_prompter(&format!(
             "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
         ));
         if remove_socket? {
