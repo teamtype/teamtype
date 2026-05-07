@@ -40,9 +40,6 @@ jobs:
           cache-on-failure: true
       - name: Build Teamtype
         run: cargo build --release
-      - name: Add teamtype binary to PATH
-        run: echo "$PWD/target/release" >> $GITHUB_PATH
-      - run: teamtype --version
       - name: Install Neovim
         uses: rhysd/action-setup-vim@v1
         with:

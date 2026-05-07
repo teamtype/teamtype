@@ -28,7 +28,7 @@ async fn plugin_loaded() {
 async fn teamtype_executable_from_nvim() {
     let nvim = Neovim::new(None).await.nvim;
     assert_eq!(
-        nvim.command_output("echomsg executable('teamtype')")
+        nvim.command_output(format!("echomsg executable('{TEAMTYPE_DEBUG_BINARY}')").as_str())
             .await
             .expect("Failed to run executable() in Neovim"),
         "1",

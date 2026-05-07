@@ -44,6 +44,7 @@ futures.workspace = true
 pretty_assertions.workspace = true
 serial_test = "3"
 tracing.workspace = true
+teamtype.workspace = true
 
 [lints]
 workspace = true

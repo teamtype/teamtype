@@ -2,5 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# This is the default, but forcing it here makes sure the e2e tests can find it
+# relative to the workspace dir env we're also setting even in the event users
+# have customized Cargo's default target directory, e.g. to use shared artifacts.
+[build]
+target-dir = "target"
+
 [env]
 CARGO_WORKSPACE_DIR = { value = "", relative = true }
+TEAMTYPE_DEBUG_BINARY = { value = "target/debug/teamtype", relative = true }

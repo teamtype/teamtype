@@ -11,6 +11,8 @@ reuse := require('reuse')
 stylua := require('stylua')
 typos := require('typos')
 
+export TEAMTYPE_BINARY := justfile_directory() + "/target/debug/teamtype"
+
 # By default Just will re-use the user's $SHELL. In order to make use of script
 # rules and more advanced shell features we need a more predictable runtime
 # environment. This setup is a little more strict than the default shell options
@@ -47,6 +49,10 @@ build *ARGS:
 [group('build')]
 build-release *ARGS:
     {{ just }} --set profile release build {{ ARGS }}
+
+[group('build')]
+build-test *ARGS:
+    {{ just }} --set profile test build {{ ARGS }}
 
 [group('format')]
 [parallel]
@@ -99,18 +105,18 @@ lint-rust:
 test *ARGS: (test-cargo ARGS)
 
 [group('test')]
-test-cargo *ARGS:
+test-cargo *ARGS: build
     {{ cargo }} test {{ ARGS }}
 
 [group('test')]
-fuzz:
+fuzz: build
     {{ cargo }} test --test fuzzer
 
 # Verify all the things: check, lint, test, and fuzz.
 [parallel]
 perfect: check lint test fuzz
 
-# This task will run Neovim with factory settings plus the development version of the plug-in from this repository.
+# This task will run Neovim with factory settings but wired to the development version of the client from this repository.
 # This is especially useful for manual testing and can be used from anywhere by invoking the Justfile externally,
 # e.g. with an alias such as:
 #
@@ -118,8 +124,19 @@ perfect: check lint test fuzz
 #
 # Run Neovim with the plug-in for testing (can be used from outside the project).
 [no-cd]
-nvim *ARGS:
+nvim *ARGS: build-test
     {{ nvim }} --clean \
         --cmd {{ quote("let &runtimepath=\"" + justfile_directory() + "/nvim-plugin,\" . &runtimepath") }} \
         --cmd 'runtime plugin/teamtype.lua' \
         {{ ARGS }}
+
+# This task will build (if necessary) and run the Teamtype CLI via the development version from this repository.
+# This is especially useful for manual testing and can be used from anywhere by invoking the Justfile externally,
+# e.g. with an alias such as:
+#
+#     alias teamtype='just --justfile ~/path/to/teamtype/Justfile teamtype'
+#
+# Build and run Teamtype for testing (can be used from outside the project).
+[no-cd]
+teamtype *ARGS: build-test
+    $TEAMTYPE_BINARY {{ ARGS }}
