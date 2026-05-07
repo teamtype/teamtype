@@ -28,6 +28,8 @@ tokio = { version = "1", default-features = false, features = ["process"] }
 [dependencies.teamtype]
 path = ".."
 default-features = false
+artifact = "bin"
+lib = true
 
 [dev-dependencies]
 anyhow = "1"
@@ -35,6 +37,11 @@ futures = { version = "0.3", default-features = false }
 pretty_assertions = "1"
 serial_test = "3"
 tracing = "0.1"
+
+[dev-dependencies.teamtype]
+path = ".."
+artifact = "bin"
+lib = true
 
 # This crate needs to define specific optimization settings, so we can't put it in the
 # same workspace.
