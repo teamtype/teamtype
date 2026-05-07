@@ -27,7 +27,7 @@ pub trait Actor: Send {
 }
 
 pub struct Neovim {
-    nvim: nvim_rs::Neovim<Compat<ChildStdin>>,
+    pub nvim: nvim_rs::Neovim<Compat<ChildStdin>>,
     buffer: nvim_rs::Buffer<Compat<ChildStdin>>,
 }
 
@@ -35,24 +35,35 @@ impl Neovim {
     /// # Panics
     ///
     /// Will panic if Neovim cannot be started or if the file cannot be opened.
-    pub async fn new(file_path: PathBuf) -> Self {
+    pub async fn new(file_path: Option<PathBuf>) -> Self {
         let handler = Dummy::new();
         let mut cmd = Command::new("nvim");
-        cmd.arg("--headless").arg("--embed");
-        // Disable loading user RC files, to prevent unrelated local test failures
-        cmd.arg("-u").arg("NORC");
-        // Disable ShaDa files, to prevent CI failures related to them.
-        cmd.arg("-i").arg("NONE");
-        // Disable Swap file, to prevent CI failures related to them.
+        cmd.arg("--headless");
+        cmd.arg("--embed");
+        // Use factory defaults, disable user config, plugins, and shada.
+        cmd.arg("--clean");
+        // Also disable fallback from shada to swap files.
         cmd.arg("-n");
+        // Add the local Neovim plugin tree to the plugin path.
+        let workspace_root = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
+        let workspace_root = workspace_root.to_string_lossy();
+        cmd.arg("-c").arg(format!(
+            r#"let &runtimepath="{workspace_root}/nvim-plugin,".&runtimepath"#
+        ));
+        // Load the Neovim plugin into the instance.
+        cmd.arg("-c").arg(format!(
+            "source {workspace_root}/nvim-plugin/plugin/teamtype.lua"
+        ));
         let (nvim, _, _) = new_child_cmd(&mut cmd, handler).await.unwrap();
 
         // We canonicalize the path here, because on macOS, TempDir gives us paths in /var/, which
         // symlinks to /private/var/. But the paths in the file events are always in /private/var/.
-        let file_path = file_path.canonicalize().unwrap();
-        nvim.command(&format!("edit! {}", file_path.display()))
-            .await
-            .expect("Opening file in nvim failed");
+        if let Some(file_path) = file_path {
+            let file_path = file_path.canonicalize().unwrap();
+            nvim.command(&format!("edit! {}", file_path.display()))
+                .await
+                .expect("Opening file in nvim failed");
+        }
 
         let buffer = nvim.get_current_buf().await.unwrap();
 
@@ -195,7 +206,7 @@ impl Neovim {
         let socket = MockSocket::new(&socket_path);
 
         (
-            Self::new(canonicalized_file_path.clone()).await,
+            Self::new(Some(canonicalized_file_path.clone())).await,
             canonicalized_file_path,
             socket,
             dir,

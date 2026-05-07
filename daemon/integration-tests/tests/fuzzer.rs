@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
-    let nvim = Neovim::new(file).await;
+    let nvim = Neovim::new(Some(file)).await;
 
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2.path().to_path_buf();
@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
         sleep(Duration::from_millis(100)).await;
     }
 
-    let nvim2 = Neovim::new(file2).await;
+    let nvim2 = Neovim::new(Some(file2)).await;
 
     // Give the second Neovim time to process the "open" call.
     sleep(Duration::from_millis(1000)).await;

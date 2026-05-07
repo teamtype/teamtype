@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -17,10 +18,7 @@ use tokio::time::{Duration, timeout};
 
 #[tokio::test]
 async fn plugin_loaded() {
-    let handler = Dummy::new();
-    let mut cmd = tokio::process::Command::new("nvim");
-    cmd.arg("--headless").arg("--embed");
-    let (nvim, _, _) = new_child_cmd(&mut cmd, handler).await.unwrap();
+    let nvim = Neovim::new(None).await.nvim;
     nvim.command("TeamtypeInfo")
         .await
         .expect("Failed to run TeamtypeInfo");
@@ -28,10 +26,7 @@ async fn plugin_loaded() {
 
 #[tokio::test]
 async fn teamtype_executable_from_nvim() {
-    let handler = Dummy::new();
-    let mut cmd = tokio::process::Command::new("nvim");
-    cmd.arg("--headless").arg("--embed");
-    let (nvim, _, _) = new_child_cmd(&mut cmd, handler).await.unwrap();
+    let nvim = Neovim::new(None).await.nvim;
     assert_eq!(
         nvim.command_output("echomsg executable('teamtype')")
             .await
