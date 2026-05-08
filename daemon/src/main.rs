@@ -191,10 +191,6 @@ fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
 }
 
 async fn run_client(directory: PathBuf) -> Result<()> {
-    // See comment in editor, but the TL;DR is that referencing a socket node from a deeply
-    // nested or overly verbose path will fail on some platforms. By *changing* into the
-    // target directory first we enable the use of relative paths in socket creation calls.
-    env::set_current_dir(&directory)?;
     let jsonrpc_forwarder = jsonrpc_forwarder::UnixJSONRPCForwarder {};
     jsonrpc_forwarder
         .connection(&directory)

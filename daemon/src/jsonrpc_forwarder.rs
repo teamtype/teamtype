@@ -16,8 +16,9 @@
 //!   "unpacked" to the socket
 
 use std::path::Path;
-use std::{process, str};
+use std::{env, process, str};
 
+use anyhow::Context;
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use teamtype::editor::strip_current_dir;
@@ -83,11 +84,18 @@ impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
         // Construct socket object, which send/receive newline-delimited messages.
         let socket_path = directory.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
         // See comment about SUN_LEN in editor.rs, but the TL;DR is that referencing a socket node
-        // from a deeply nested or overly verbose path will fail on some platforms. The calling
-        // context should already have changed to the target directory (if any), so stripping it
-        // here will result in a relative path that won't have a cumbersomely long prefix that fails
-        // safety checks.
+        // from a deeply nested or overly verbose path will fail on some platforms.
+        // The extra song and dance to change into the parent directory first is not needed by our CLI
+        // (which already changes to that location) but it will make this API usable when linked as a
+        // library without changing the parent thread's location for keeps.
+        let previous_cwd = env::current_dir()?;
+        env::set_current_dir(
+            socket_path
+                .parent()
+                .context("Invalid socket creation location")?,
+        )?;
         let stream = UnixStream::connect(strip_current_dir(&socket_path)).await?;
+        env::set_current_dir(previous_cwd)?;
         let (socket_read, socket_write) = stream.into_split();
         let socket_read = FramedRead::new(socket_read, LinesCodec::new());
         let socket_write = FramedWrite::new(socket_write, LinesCodec::new());

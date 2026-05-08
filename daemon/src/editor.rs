@@ -128,8 +128,19 @@ pub fn spawn_socket_listener(
     // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
     // length that matters is only the segment it is asked to handle. If passed an absolute path
     // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
-    // relative path effectively sidesteps this limitation.
+    // relative path effectively sidesteps this limitation. Stripping the leading path segments will
+    // result in a relative path that won't have a long cumbersome prefix that fails safety checks.
+    // The extra song and dance to change into the parent directory first is not needed by our CLI
+    // (which already changes to that location) but it will make this API usable when linked as a
+    // library without changing the parent thread's location for keeps.
+    let previous_cwd = env::current_dir()?;
+    env::set_current_dir(
+        socket_path
+            .parent()
+            .context("Invalid socket creation location")?,
+    )?;
     let listener = UnixListener::bind(strip_current_dir(socket_path))?;
+    env::set_current_dir(previous_cwd)?;
     debug!("Listening on UNIX socket: {}", socket_path.display());
 
     tokio::spawn(async move {

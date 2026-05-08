@@ -958,15 +958,15 @@ impl Daemon {
 
         let document_handle = DocumentActorHandle::new(&app_config, init, is_host, persist);
 
+        let base_dir = &app_config.base_dir;
+
         // Start socket listener.
-        let socket_path = app_config
-            .base_dir
+        let socket_path = base_dir
             .join(config::CONFIG_DIR)
             .join(config::DEFAULT_SOCKET_NAME);
         editor::spawn_socket_listener(&socket_path, document_handle.clone())?;
 
         // Start file watcher.
-        let base_dir = app_config.base_dir.clone();
         spawn_file_watcher(&app_config, document_handle.clone());
 
         if persist {
@@ -976,7 +976,7 @@ impl Daemon {
 
         // Start connection manager.
         let connection_manager =
-            peer::ConnectionManager::new(&app_config, document_handle.clone(), &base_dir)
+            peer::ConnectionManager::new(&app_config, document_handle.clone(), base_dir)
                 .await
                 .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
