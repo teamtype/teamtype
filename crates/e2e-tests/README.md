@@ -21,5 +21,5 @@ cargo test
 To run specifically the fuzzer, run:
 
 ```bash
-cargo test --profile e2e --test fuzzer
+cargo test --test fuzzer
 ```
