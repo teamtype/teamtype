@@ -60,12 +60,13 @@ lto = true
 codegen-units = 1
 opt-level = "s"
 
-# The fuzzer test in the e2e-tests crate will time out without
-# optimizations enabled. It is ignored by default so it won't run by
-# default, especially not from the parent workspace. To run the fuzzer
-# use `cargo test --profile e2e --test fuzzer`.
-[profile.e2e]
-inherits = "test"
+# The fuzzer in the e2e-tests crate will time out without optimizations enabled.
+# It is ignored by default, to run it one must use `cargo test --test fuzzer`.
+# Only the fuzzer tests actually time out without optimizations, and yes
+# compiling the tests in this profile takes more time. But actually *all* the
+# tests run much faster with optimizations and the time saved is more than the
+# build time lost for incremental builds. So just force all tests to optimize...
+[profile.test]
 opt-level = 3
 
 [workspace.lints.clippy]
