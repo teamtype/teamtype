@@ -19,6 +19,9 @@ ignore = [
     "RUSTSEC-2026-0097", # unsound: rand (via iroh)
     "RUSTSEC-2026-0098", # vulnerable: rustls-webpki (via iroh)
     "RUSTSEC-2026-0099", # vulnerable: rustls-webpki (via iroh)
+    "RUSTSEC-2026-0104", # reachable panic: rustls-webpki (via iroh)
+    "RUSTSEC-2026-0118", # unbounded loop: hickory-proto (via iroh)
+    "RUSTSEC-2026-0119", # cpu exhaustion: hickory-proto (via iroh)
 ]
 
 # Not exhaustive, just whitelist the current dependency tree
