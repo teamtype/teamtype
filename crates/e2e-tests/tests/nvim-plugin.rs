@@ -4,6 +4,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use e2e_tests::actors::*;
 use pretty_assertions::assert_eq;
 use serial_test::serial;
 use teamtype::{
@@ -13,7 +14,6 @@ use teamtype::{
     },
     types::{EditorTextDelta, EditorTextOp, factories::*},
 };
-use teamtype_integration_tests::actors::*;
 use tokio::time::{Duration, timeout};
 
 #[tokio::test]
@@ -100,6 +100,7 @@ async fn nvim_processes_deltas_correctly() {
     )
     .await;
 
+    // typos:ignore-next-line
     assert_nvim_deltas_yield_content("ba\nna\nnas", vec![replace_ed((0, 1), (2, 1), "")], "bas")
         .await;
 

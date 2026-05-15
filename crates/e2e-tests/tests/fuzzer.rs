@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
@@ -15,7 +16,6 @@ use teamtype::config::{self, AppConfig};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
-use teamtype_integration_tests::actors::{Actor, Neovim};
 use tempfile::{TempDir, tempdir};
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
