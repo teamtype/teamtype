@@ -100,6 +100,7 @@ async fn nvim_processes_deltas_correctly() {
     )
     .await;
 
+    // typos:ignore-next-line
     assert_nvim_deltas_yield_content("ba\nna\nnas", vec![replace_ed((0, 1), (2, 1), "")], "bas")
         .await;
 

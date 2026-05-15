@@ -8,6 +8,7 @@ just := just_executable()
 luacheck := require('luacheck')
 reuse := require('reuse')
 stylua := require('stylua')
+typos := require('typos')
 
 # By default Just will re-use the user's $SHELL. In order to make use of script
 # rules and more advanced shell features we need a more predictable runtime
@@ -19,10 +20,14 @@ set shell := ['bash', '-eu', '-c']
 set positional-arguments
 set unstable
 
-check: check-cargo
+[parallel]
+check: check-cargo check-typos
 
 check-cargo:
     {{ cargo }} check
+
+check-typos:
+    {{ typos }}
 
 [default]
 [private]

@@ -90,3 +90,19 @@ too_many_lines = "allow"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unused_qualifications = "warn"
+
+[workspace.metadata.typos.default]
+locale = "en-us"
+extend-words = {
+    ot = "ot"
+}
+extend-ignore-identifiers-re = [
+    "2nd",
+]
+extend-ignore-re = [
+    # Ignore the line following a comment containing typos:ignore-next-line.
+    "(#|//|--)\\s*typos:ignore-next-line\\n.*",
+]
+
+[workspace.metadata.typos.files]
+extend-exclude = ["/docs/decisions/*.md", "CHANGELOG.md"]

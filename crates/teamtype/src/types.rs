@@ -898,6 +898,7 @@ mod tests {
 
             // word => vorort
             delta.delete(1);
+            // typos:ignore-next-line
             delta.insert("vor");
             delta.retain(2);
             delta.delete(1);
