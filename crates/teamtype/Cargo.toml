@@ -61,6 +61,7 @@ async-trait.workspace = true
 automerge = "0.10"
 constant_time_eq = "0.4"
 dissimilar = "1"
+docstr.workspace = true
 futures.workspace = true
 ignore = "0.4"
 iroh = "1"
