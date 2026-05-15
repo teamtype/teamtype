@@ -7,23 +7,23 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
-Fix issue blocking directories that are deeply nested (or have very long winded names) from being shared.
+Fix issue blocking directories with deep nesting (or very long winded names) from being shared.
 
 Handle POSIX specific process signalling without assuming everybody is running a Unix platform.
 
-Fix CLI thread handling to correctly listen for SIGINT (<Ctrl>-C) and SIGTERM (typically invoked with `kill`) while the main daemon or client loop is running.
+Fix CLI thread handling to correctly listen for `SIGINT` (<kbd>Ctrl</kbd>-<kbd>C</kbd>) and `SIGTERM` (typically generated with `kill`) while the main daemon or client loop is running.
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 
-Add support for `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.
+Add support for a `.teamtypeignore` file to exclude files and directories from synchronization. The syntax is similar to `.gitignore`, supporting file names, directories, and glob patterns.
 
 Add support for custom Iroh relay servers, using the `--iroh-relay` flag, and for custom Iroh DNS discovery servers, using `--iroh-dns-domain` and `--iroh-pkarr-relay`. See the "Running your own relays" page in the documentation for how to run all these relays yourself!
 
 ## Notes for package maintainers
 
-### Renamed the Linux binaries
+### Renamed binary release assets
 
-We've renamed the Linux binaries
+We've renamed the prebuilt Linux binaries
 - `teamtype-x86_64-unknown-linux-musl` to `teamtype-x86_64-linux-static`
 - `teamtype-aarch64-unknown-linux-musl` to `teamtype-aarch64-linux-static`
 
