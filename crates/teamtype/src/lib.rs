@@ -4,15 +4,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../../../README.md")]
 
-pub mod cli_ask;
 pub mod config;
 pub mod daemon;
 pub mod document;
 pub mod editor;
 pub mod editor_connection;
 pub mod editor_protocol;
+pub mod jsonrpc_forwarder;
 pub mod logging;
 pub mod ot;
 pub mod path;

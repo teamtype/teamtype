@@ -16,9 +16,9 @@ repos:
     rev: v1.0
     hooks:
     -   id: fmt
-        args: ['--manifest-path', './daemon/Cargo.toml', '--']
+        args: ['--']
     -   id: cargo-check
-        args: ['--manifest-path', './daemon/Cargo.toml']
+        args: []
 -   repo: https://github.com/JohnnyMorganz/StyLua
     rev: v2.1.0
     hooks:

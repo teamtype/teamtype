@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2024 Danny McClanahan <dmcC2@hypnicjerk.ai>
+# SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
+# SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+# SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[package]
+name = "teamtype"
+description = "Enables real-time co-editing of local text files."
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+readme = "../../README.md"
+include = ["*.rs", "*.toml", "src/initial_automerge_doc.bin"]
+documentation = "https://teamtype.github.io"
+repository.workspace = true
+keywords = [
+    "collaboration",
+    "local-first",
+    "synchronization",
+    "crdt",
+    "peer-to-peer",
+]
+categories = ["command-line-utilities", "text-editors"]
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "teamtype"
+required-features = ["cli"]
+
+[lib]
+name = "teamtype"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = ["cli"] # this is unfortunate, but library users should use `default-features = false`
+cli = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
+
+[build-dependencies]
+anyhow.workspace = true
+automerge = "0.8"
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+clap_mangen = "0.3"
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+automerge = "0.8"
+constant_time_eq = "0.4"
+dissimilar = "1"
+futures.workspace = true
+ignore = "0.4"
+iroh = "0.35" # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
+magic-wormhole = "0.7" # 0.8 fails on macos due to a bad interaction with iroh's netwatcher usage
+microxdg = "0.2"
+operational-transform = "0.6"
+path-clean = "1"
+rand = "0.8" # must match types used in iroh 0.35
+ropey = "1"
+rust-ini = "0.21"
+serde_json.workspace = true
+tempfile.workspace = true
+tracing.workspace = true
+url = "2"
+
+[dependencies.clap]
+version = "4.5"
+features = ["derive", "env"]
+optional = true
+
+[dependencies.derive_more]
+version = "2"
+features = ["as_ref", "deref", "display"]
+
+[dependencies.git2]
+version = "0.20"
+default-features = false
+
+[dependencies.notify]
+version = "8"
+default-features = false
+features = ["macos_fsevent"]
+
+[dependencies.postcard]
+version = "1"
+features = ["alloc"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.time]
+version = "0.3"
+features = ["formatting", "macros"]
+
+[dependencies.tokio]
+version = "1"
+features = ["rt", "io-std", "io-util", "macros", "net", "time"]
+
+[dependencies.tokio-util]
+version = "0.7"
+features = ["codec"]
+
+[dependencies.tracing-subscriber]
+version = "0.3"
+default-features = false
+features = ["ansi", "fmt", "time", "env-filter"]
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tracing-test = "0.2"

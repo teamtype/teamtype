@@ -9,22 +9,18 @@ on:
     branches:
       - 'main'
     paths:
-      - 'daemon/**'
+      - 'crates/**'
       - 'nvim-plugin/**'
       - '.github/workflows/general.yml'
   pull_request:
     paths:
-      - 'daemon/**'
+      - 'crates/**'
       - 'nvim-plugin/**'
       - '.github/workflows/general.yml'
 
 env:
   CARGO_TERM_COLOR: always
   CARGO_PROFILE_TEST_DEBUG: 0 # See https://corrode.dev/blog/tips-for-faster-ci-builds/
-
-defaults:
-  run:
-    working-directory: ./daemon
 
 jobs:
   build_and_test:
@@ -41,9 +37,6 @@ jobs:
         run: rustup toolchain install stable --profile minimal
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            daemon
-            daemon/integration-tests
           cache-on-failure: true
       - name: Build Teamtype
         run: cargo build --release
@@ -56,21 +49,17 @@ jobs:
           neovim: true
           version: ${{ matrix.nvim-version }}
       - run: nvim --version
-      - name: Compile unit tests
-        run: cargo test --no-default-features --no-run --locked
-      - name: Run unit tests
-        run: cargo test --no-default-features
-      - name: Compile integration tests
-        working-directory: ./daemon/integration-tests
-        run: cargo test --no-run --locked
+      - name: Compile default tests
+        run: cargo test --locked --no-default-features --no-run
+      - name: Compile e2e fuzzer
+        run: cargo test --locked --no-default-features --no-run --test fuzzer
+      - name: Run default unit tests
+        run: cargo test --locked --no-default-features -p teamtype
+      - name: Run default e2e tests
+        run: cargo test --locked --no-default-features -p e2e-tests
       - if: ${{ matrix.os == 'ubuntu-latest' && matrix.nvim-version == 'v0.10.4' }}
-        name: Run integration tests
-        working-directory: ./daemon/integration-tests
-        run: cargo test
-      - if: ${{ matrix.os != 'ubuntu-latest' || matrix.nvim-version != 'v0.10.4' }}
-        name: Run integration tests (without fuzzer)
-        working-directory: ./daemon/integration-tests
-        run: cargo test --test nvim-plugin
+        name: Run e2e fuzzer
+        run: cargo test --locked --no-default-features -p e2e-tests --test fuzzer
 
   check_formatting:
     name: Check Rust formatting
@@ -93,9 +82,6 @@ jobs:
         run: rustup toolchain install stable --profile minimal --component=clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            daemon
-            daemon/integration-tests
           cache-on-failure: true
       - run: cargo clippy --all-targets --all-features
       - run: cargo doc --no-deps --all-features
