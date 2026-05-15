@@ -214,7 +214,7 @@ async fn trap_shutdown() {
     };
 
     #[cfg(not(unix))]
-    let temination = std::future::pending::<()>();
+    let termination = std::future::pending::<()>();
 
     tokio::select! {
         () = interruption => {
