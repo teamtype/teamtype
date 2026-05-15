@@ -16,7 +16,7 @@ Note: This document is in draft form and it's bringing up a few points that are 
 You will need Rust's `cargo` tool.
 
 1. Clone this repository.
-2. Navigate to the `daemon/` subdirectory and run
+2. Enter the cloned directory and run
 
     ```bash
     cargo build --locked --release
