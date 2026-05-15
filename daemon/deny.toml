@@ -24,7 +24,8 @@ ignore = [
     "RUSTSEC-2026-0119", # cpu exhaustion: hickory-proto (via iroh)
 ]
 
-# Not exhaustive, just whitelist the current dependency tree
+# This is not an exhaustive list of licenses we could accept, it is just
+# a whitelist of licenses currently known to be in the dependency tree.
 [licenses]
 allow = [
     "AGPL-3.0-or-later",
@@ -41,6 +42,6 @@ allow = [
     "Zlib",
 ]
 exceptions = [
-    # only AGPL compatible because it has the necessary extra clause
+    # This instance is only AGPL compatible because it has the necessary extra clause.
     { allow = ["EUPL-1.2"], crate = "magic-wormhole" },
 ]
