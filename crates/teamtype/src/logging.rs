@@ -17,7 +17,7 @@ pub fn initialize() -> Result<()> {
 
     if simplified_logging {
         let subscriber = FmtSubscriber::builder()
-            .with_env_filter(EnvFilter::new("teamtype=info,fuzzer=info"))
+            .with_env_filter(EnvFilter::new("teamtype=warn,fuzzer=info"))
             .without_time()
             .with_level(false)
             .with_target(false)
