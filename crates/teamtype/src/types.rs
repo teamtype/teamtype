@@ -28,7 +28,11 @@ use crate::traits::Interactions;
 /// require a UI. This should be created early, before even attempting any configuration, and then
 /// passed as an argument to the action functions that require it.
 #[derive(Clone, Deref)]
-pub struct UserInterface(Arc<dyn Interactions>);
+pub struct UserInterface {
+    #[deref]
+    interactions: Arc<dyn Interactions>,
+    verbose: bool,
+}
 
 impl fmt::Debug for UserInterface {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -40,8 +44,19 @@ impl UserInterface {
     /// Take any trait object that implements [`Interactions`] and return a reference counting
     /// pointer to the user interface implementation. This makes it possible to pass a around the UI
     /// object including by cloning it into Tokio threads.
-    pub fn new(interactions: impl Interactions + 'static) -> Self {
-        Self(Arc::new(interactions))
+    pub fn new(interactions: impl Interactions + 'static, verbose: bool) -> Self {
+        Self {
+            interactions: Arc::new(interactions),
+            verbose,
+        }
+    }
+
+    // Wrap whatever log function is provided by the implementer of [`Interactions`], and
+    // conditionally call it or not based on the CLI verbosity mode.
+    pub fn log(&self, message: &str) {
+        if self.verbose {
+            self.interactions.log(message);
+        }
     }
 }
 

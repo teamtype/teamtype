@@ -60,9 +60,9 @@ async fn main() -> Result<()> {
         Err(e) => e.exit(),
     };
 
-    logging::initialize().context("Failed to initialize logging")?;
+    logging::initialize(!cli.quiet).context("Failed to initialize logging")?;
 
-    let ui = &UserInterface::new(ConsoleInteractions {});
+    let ui = &UserInterface::new(ConsoleInteractions {}, !cli.quiet);
 
     let temporary_directory = get_temporary_directory(&cli)?;
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;
