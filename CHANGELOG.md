@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Make daemon share and join modes less verbose by default; add a flag `-v`/`--verbose` to the CLI for easy access to more chatty output.
+
 Colorize log messages from the CLI and include the message priority.
 
 Add status widget to the Neovim plugin with basic information to be used in statuslines.

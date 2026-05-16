@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize()?;
+    logging::initialize(true)?;
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
