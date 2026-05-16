@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::borrow::Cow;
+use std::sync::Arc;
 use std::{fmt, vec};
 
 use anyhow::bail;
@@ -19,6 +20,12 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::path::RelativePath;
+use crate::traits::Interactions;
+
+/// A UI for Teamype is any thread-safe reference-counting pointer to a struct that implements the
+/// [`Interactions`] trait. Running any of the listening modes will require a UI. This can be setup
+/// early before attempting any configuration or running any actions.
+pub type UserInterface = Arc<dyn Interactions>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);

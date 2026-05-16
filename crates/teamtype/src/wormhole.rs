@@ -13,7 +13,13 @@ use tracing::{info, warn};
 
 const NETWORK_RETRY: Duration = Duration::from_mins(5);
 
-pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_relay: Option<String>) {
+use crate::types::UserInterface;
+
+pub async fn put_secret_address_into_wormhole(
+    address: &str,
+    magic_wormhole_relay: Option<String>,
+    _ui: UserInterface,
+) {
     let payload: Vec<u8> = address.into();
     let config = build_magic_wormhole_config(magic_wormhole_relay);
 
