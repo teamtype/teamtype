@@ -29,6 +29,9 @@ fn get_version() -> &'static str {
 #[command(version=get_version(), about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
+    /// Output extra informational log messages
+    #[arg(short, long)]
+    pub verbose: bool,
     #[command(subcommand)]
     pub command: Commands,
     /// The shared directory. Defaults to current directory.

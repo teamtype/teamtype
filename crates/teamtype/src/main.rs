@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
         Err(e) => e.exit(),
     };
 
-    logging::initialize().context("Failed to initialize logging")?;
+    logging::initialize(cli.verbose).context("Failed to initialize logging")?;
 
     let temporary_directory = get_temporary_directory(&cli)?;
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;

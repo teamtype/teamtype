@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize()?;
+    logging::initialize(true)?;
 
     // Set up files in shared directories.
     let (dir, file) = initialize_directory();
