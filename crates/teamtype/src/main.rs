@@ -5,8 +5,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::io::Write;
-use std::io::{stdin, stdout};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::{env, panic};
@@ -14,6 +12,7 @@ use std::{env, panic};
 use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
+use dialoguer::Confirm;
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
 use teamtype::{
@@ -351,15 +350,8 @@ fn get_current_directory() -> Result<PathBuf> {
 }
 
 fn prompt_bool(question: &str) -> Result<bool> {
-    print!("{question} (y/N): ");
-    stdout().flush()?;
-    let mut lines = stdin().lines();
-    if let Some(Ok(line)) = lines.next() {
-        match line.to_lowercase().as_str() {
-            "y" | "yes" => Ok(true),
-            _ => Ok(false),
-        }
-    } else {
-        bail!("Failed to read answer");
-    }
+    Confirm::new()
+        .with_prompt(question)
+        .interact()
+        .context("Failed to read answer to y/n prompt")
 }
