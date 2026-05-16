@@ -6,8 +6,10 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Result;
+use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
@@ -15,7 +17,7 @@ use teamtype::config::{self, AppConfig};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
-use teamtype_integration_tests::actors::{Actor, Neovim};
+use teamtype::traits::UserInteractions;
 use tempfile::{TempDir, tempdir};
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
@@ -41,6 +43,16 @@ fn initialize_directory() -> (TempDir, PathBuf) {
     (dir, file)
 }
 
+struct FuzzerInteraction {}
+
+impl UserInteractions for FuzzerInteraction {
+    fn confirm(&self, _question: &str) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn inform(&self, _message: &str) {}
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -49,7 +61,9 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize()?;
+    logging::initialize(true)?;
+
+    let ui = Arc::new(FuzzerInteraction {});
 
     // Set up files in shared directories.
     let (dir, file) = initialize_directory();
@@ -58,7 +72,7 @@ async fn main() -> Result<()> {
     // Set up the actors.
     let mut app_config = AppConfig::default();
     app_config.base_dir = dir.path().to_path_buf();
-    let daemon = Daemon::new(app_config, true, false).await?;
+    let daemon = Daemon::new(app_config, true, false, ui.clone()).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
@@ -68,7 +82,7 @@ async fn main() -> Result<()> {
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2.path().to_path_buf();
     app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false).await?;
+    let peer = Daemon::new(app_config2, false, false, ui).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {

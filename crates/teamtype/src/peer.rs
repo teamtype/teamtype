@@ -30,6 +30,7 @@ use url::Url;
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::config::AppConfig;
 use crate::daemon::DocumentActorHandle;
+use crate::types::Interface;
 
 mod sync;
 
@@ -74,6 +75,7 @@ impl ConnectionManager {
         app_config: &AppConfig,
         document_handle: DocumentActorHandle,
         base_dir: &Path,
+        ui: Interface,
     ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
@@ -87,6 +89,7 @@ impl ConnectionManager {
             message_tx.clone(),
             document_handle,
             my_passphrase,
+            ui,
         );
 
         tokio::spawn(async move { actor.run().await });
@@ -237,6 +240,7 @@ struct EndpointActor {
     message_tx: mpsc::Sender<EndpointMessage>,
     document_handle: DocumentActorHandle,
     my_passphrase: SecretKey,
+    ui: Interface,
 }
 
 impl EndpointActor {
@@ -246,6 +250,7 @@ impl EndpointActor {
         message_tx: mpsc::Sender<EndpointMessage>,
         document_handle: DocumentActorHandle,
         my_passphrase: SecretKey,
+        ui: Interface,
     ) -> Self {
         Self {
             endpoint,
@@ -253,6 +258,7 @@ impl EndpointActor {
             message_tx,
             document_handle,
             my_passphrase,
+            ui,
         }
     }
 
@@ -273,19 +279,24 @@ impl EndpointActor {
                                 .send(Err(err))
                                 .expect("Connect receiver dropped");
                         }
-                        Self::reconnect(self.message_tx.clone(), secret_address, previous_attempts)
-                            .await
-                            .expect("Failed to initiate reconnection");
+                        Self::reconnect(
+                            self.message_tx.clone(),
+                            secret_address,
+                            previous_attempts,
+                            self.ui.clone(),
+                        )
+                        .await
+                        .expect("Failed to initiate reconnection");
                         // Not really Ok, but Ok enough.
                         return Ok(());
                     }
                 };
 
-                info!(
-                    "Connected to peer: {}",
-                    conn.remote_node_id()
-                        .expect("Connection should have a node ID")
-                );
+                let node_id = conn
+                    .remote_node_id()
+                    .expect("Connection should have a node ID");
+                info!("Connected to peer: {node_id}");
+                self.ui.inform(&format!("Connected to peer: {node_id}"));
 
                 if let Some(response_tx) = response_tx {
                     response_tx.send(Ok(())).expect("Connect receiver dropped");
@@ -293,19 +304,22 @@ impl EndpointActor {
 
                 let document_handle_clone = self.document_handle.clone();
                 let message_tx_clone = self.message_tx.clone();
-                tokio::spawn(async move {
-                    if let Err(err) = Self::handle_peer(
-                        document_handle_clone,
-                        conn,
-                        PeerAuth::YourPassphrase(secret_address.passphrase.clone()),
-                    )
-                    .await
-                    {
-                        debug!("Error while handling a peer: {:?}", err);
-                    }
-                    Self::reconnect(message_tx_clone, secret_address, 0)
+                tokio::spawn({
+                    let ui = self.ui.clone();
+                    async move {
+                        if let Err(err) = Self::handle_peer(
+                            document_handle_clone,
+                            conn,
+                            PeerAuth::YourPassphrase(secret_address.passphrase.clone()),
+                        )
                         .await
-                        .expect("Failed to initiate reconnection");
+                        {
+                            debug!("Error while handling a peer: {:?}", err);
+                        }
+                        Self::reconnect(message_tx_clone, secret_address, 0, ui)
+                            .await
+                            .expect("Failed to initiate reconnection");
+                    }
                 });
             }
         }
@@ -316,19 +330,18 @@ impl EndpointActor {
         message_tx: mpsc::Sender<EndpointMessage>,
         secret_address: SecretAddress,
         previous_attempts: usize,
+        ui: Interface,
     ) -> Result<()> {
         // Only log at "info" level if this is the first reconnection attempt.
+        let node_id = secret_address.node_addr.node_id;
         if previous_attempts == 0 {
-            info!(
-                "Connection to peer {} lost, will keep trying to reconnect...",
-                secret_address.node_addr.node_id
-            );
+            info!("Connection to peer {node_id} lost");
+            ui.inform(&format!(
+                "Connection to peer {node_id} lost, will keep trying to reconnect..."
+            ));
         } else {
             sleep(Duration::from_secs(10)).await;
-            debug!(
-                "Making another attempt to connect to peer {}...",
-                secret_address.node_addr.node_id
-            );
+            debug!("Making another attempt to connect to peer {node_id}...");
         }
         // We don't need to be notified, so we don't need to use the response channel.
         message_tx
@@ -382,22 +395,27 @@ impl EndpointActor {
             .remote_node_id()
             .expect("Connection should have a node ID");
 
-        info!("Peer connected: {}", &node_id);
+        info!("Peer connected: {node_id}");
+        self.ui.inform(&format!("Peer connected: {node_id}"));
 
         let my_passphrase_clone = self.my_passphrase.clone();
         let document_handle_clone = self.document_handle.clone();
-        tokio::spawn(async move {
-            if let Err(err) = Self::handle_peer(
-                document_handle_clone,
-                conn,
-                PeerAuth::MyPassphrase(my_passphrase_clone),
-            )
-            .await
-            {
-                warn!("Incoming connection failed: {err}");
-            }
+        tokio::spawn({
+            let ui = self.ui.clone();
+            async move {
+                if let Err(err) = Self::handle_peer(
+                    document_handle_clone,
+                    conn,
+                    PeerAuth::MyPassphrase(my_passphrase_clone),
+                )
+                .await
+                {
+                    warn!("Incoming connection failed: {err}");
+                }
 
-            info!("Peer disconnected: {node_id}",);
+                info!("Peer disconnected: {node_id}",);
+                ui.inform(&format!("Peer disconnected: {node_id}"));
+            }
         });
     }
 

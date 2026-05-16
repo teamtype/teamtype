@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::borrow::Cow;
+use std::sync::Arc;
 use std::{fmt, vec};
 
 use anyhow::bail;
@@ -19,6 +20,9 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::path::RelativePath;
+use crate::traits::UserInteractions;
+
+pub type Interface = Arc<dyn UserInteractions>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);

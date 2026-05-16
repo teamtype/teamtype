@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Colorize log messages from the CLI and include the message priority.
+
 Fix issue blocking directories that are deeply nested (or have very long winded names) from being shared.
 
 Handle POSIX specific process signalling without assuming everybody is running a Unix platform.

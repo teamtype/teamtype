@@ -23,12 +23,12 @@ use tokio_util::{
 };
 use tracing::{debug, error, info};
 
-use crate::cli_ask::ask;
 use crate::daemon::{DocMessage, DocumentActorHandle};
 use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
 use crate::sandbox;
+use crate::types::Interface;
 
 pub type EditorId = usize;
 
@@ -86,9 +86,7 @@ fn is_user_readable_only(socket_path: &Path) -> Result<()> {
     Ok(())
 }
 
-// Private use, should be pub(crate) but is currently used in both bin and lib crates
-#[doc(hidden)]
-pub fn strip_current_dir(path: &Path) -> PathBuf {
+pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
     let Ok(cwd) = env::current_dir() else {
         return path.to_path_buf();
     };
@@ -102,6 +100,7 @@ pub fn strip_current_dir(path: &Path) -> PathBuf {
 pub fn spawn_socket_listener(
     socket_path: &Path,
     document_handle: DocumentActorHandle,
+    ui: Interface,
 ) -> Result<()> {
     // Make sure the parent directory of the socket is only accessible by the current user.
     if let Err(description) = is_user_readable_only(socket_path) {
@@ -115,7 +114,7 @@ pub fn spawn_socket_listener(
         .expect("Failed to check existence of path")
     {
         let socket_path_display = socket_path.display();
-        let remove_socket = ask(&format!(
+        let remove_socket = ui.confirm(&format!(
             "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
         ));
         if remove_socket? {
