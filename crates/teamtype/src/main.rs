@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
         Err(e) => e.exit(),
     };
 
-    logging::initialize(!cli.quiet).context("Failed to initialize logging")?;
+    let () = logging::initialize(!cli.quiet).context("Failed to initialize logging")?;
 
     let ui = &UserInterface::new(ConsoleInteractions {}, !cli.quiet);
 

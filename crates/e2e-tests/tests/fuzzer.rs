@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize(true)?;
+    let () = logging::initialize(true)?;
 
     let ui = &UserInterface::new(FuzzerInteractions {}, true);
 
