@@ -18,6 +18,7 @@ pub mod ot;
 pub mod path;
 pub mod peer;
 pub mod sandbox;
+pub mod traits;
 pub mod types;
 pub mod watcher;
 pub mod wormhole;

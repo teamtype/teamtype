@@ -16,6 +16,7 @@ use teamtype::config::{self, AppConfig};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
+use teamtype::traits::UserInteraction;
 use tempfile::{TempDir, tempdir};
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
@@ -44,6 +45,14 @@ fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
     (dir, dir_path.to_path_buf(), file)
 }
 
+struct FuzzerInteractions {}
+
+impl UserInteraction for FuzzerInteraction {
+    fn confirm(&self, _question: &str) -> Result<bool> {
+        Ok(false)
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -54,6 +63,8 @@ async fn main() -> Result<()> {
 
     logging::initialize()?;
 
+    let ui = FuzzerInteraction {};
+
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
     let (_handle1, dir1, file1) = initialize_directory();
@@ -62,7 +73,7 @@ async fn main() -> Result<()> {
     // Set up the actors.
     let mut app_config = AppConfig::default();
     app_config.base_dir = dir1;
-    let daemon = Daemon::new(app_config, true, false).await?;
+    let daemon = Daemon::new(app_config, true, false, &ui).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
@@ -72,7 +83,7 @@ async fn main() -> Result<()> {
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2;
     app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false).await?;
+    let peer = Daemon::new(app_config2, false, false, &ui).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {
