@@ -7,16 +7,18 @@
 
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::sync::Arc;
 use std::{env, panic};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use dialoguer::Confirm;
-use indoc::printdoc;
+use indoc::indoc;
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
-use teamtype::traits::UserInteraction;
+use teamtype::traits::Interactions;
+use teamtype::types::UserInterface;
 use teamtype::{
     config::{self, AppConfig},
     daemon::Daemon,
@@ -30,14 +32,19 @@ use self::cli::{Cli, Commands, ShareJoinFlags};
 
 mod cli;
 
-struct CliInteraction {}
+#[derive(Clone)]
+struct ConsoleInteractions {}
 
-impl UserInteraction for CliInteraction {
+impl Interactions for ConsoleInteractions {
     fn confirm(&self, question: &str) -> Result<bool> {
         Confirm::new()
             .with_prompt(question)
             .interact()
             .context("Failed to read answer to y/n prompt")
+    }
+
+    fn inform(&self, message: &str) {
+        println!("{}", message.strip_suffix("\n").unwrap_or("message"));
     }
 }
 
@@ -71,7 +78,7 @@ async fn main() -> Result<()> {
 
     logging::initialize(cli.verbose).context("Failed to initialize logging")?;
 
-    let ui = CliInteraction {};
+    let ui: UserInterface = Arc::new(ConsoleInteractions {});
 
     let temporary_directory = get_temporary_directory(&cli)?;
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;
@@ -86,12 +93,12 @@ async fn main() -> Result<()> {
     let _handle = match cli.command {
         Commands::Client => return run_client(directory.clone()).await,
         Commands::Join { .. } => {
-            let join_config = parse_join_config(cli.command, directory.clone()).await?;
-            run_daemon(join_config, false, &ui).await
+            let join_config = parse_join_config(cli.command, directory.clone(), ui.clone()).await?;
+            run_daemon(join_config, false, ui.clone()).await
         }
         Commands::Share { init, .. } => {
-            let share_config = parse_share_config(cli.command, directory.clone());
-            run_daemon(share_config, init, &ui).await
+            let share_config = parse_share_config(cli.command, directory.clone(), &ui);
+            run_daemon(share_config, init, ui.clone()).await
         }
     }?;
 
@@ -100,32 +107,26 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_daemon(
-    app_config: AppConfig,
-    init_doc: bool,
-    ui: &impl UserInteraction,
-) -> Result<Daemon> {
+async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: UserInterface) -> Result<Daemon> {
     let persist = !config::has_git_remote(&app_config.base_dir);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
         info!("Detected a Git remote");
-        printdoc!(
-            "Detected a Git remote: Assuming a pair-programming use-case and starting a new history."
-        );
+        ui.inform("Detected a Git remote: Assuming a pair-programming use-case and starting a new history.");
     }
 
     config::ensure_teamtype_is_ignored(&app_config.base_dir)?;
 
     if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
-        warn!("Local user configuration detected in sync-vcs mode");
-        printdoc!(
+        info!("Local user configuration detected in sync-vcs mode");
+        ui.inform(indoc!(
             r#"
                 WARNING: You have a local user configuration in your .git/config.
                          In --sync-vcs mode, this file will also be synchronized between peers.
                          If your version "wins", all peers will have the same Git identity.
                          As a workaround, you could use `git commit --author`.
-            "#
-        );
+            "#,
+        ));
     }
 
     debug!("Starting Teamtype on {}.", app_config.base_dir.display());
@@ -138,7 +139,11 @@ async fn run_daemon(
         .context("Failed to launch the daemon")
 }
 
-async fn parse_join_config(command: Commands, directory: PathBuf) -> Result<AppConfig> {
+async fn parse_join_config(
+    command: Commands,
+    directory: PathBuf,
+    ui: UserInterface,
+) -> Result<AppConfig> {
     if let Commands::Join {
         join_code,
         shared_flags:
@@ -166,7 +171,7 @@ async fn parse_join_config(command: Commands, directory: PathBuf) -> Result<AppC
             sync_vcs,
             username,
         };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli);
+        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli, &ui);
         app_config = app_config
             .resolve_peer()
             .await
@@ -177,7 +182,7 @@ async fn parse_join_config(command: Commands, directory: PathBuf) -> Result<AppC
     }
 }
 
-fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
+fn parse_share_config(command: Commands, directory: PathBuf, ui: &UserInterface) -> AppConfig {
     if let Commands::Share {
         no_join_code,
         shared_flags:
@@ -206,7 +211,7 @@ fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
             sync_vcs,
             username,
         };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli);
+        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli, ui);
         // Because of the "share" subcommand, explicitly don't connect anywhere.
         app_config.peer = None;
         app_config
@@ -322,7 +327,7 @@ fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<Pat
 fn setup_teamtype_directory(
     directory: &Path,
     temporary_directory: Option<&TempDir>,
-    ui: &impl UserInteraction,
+    ui: &UserInterface,
 ) -> Result<()> {
     if has_ethersync_directory(directory) {
         let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
@@ -350,18 +355,16 @@ fn setup_teamtype_directory(
         let teamtype_dir = directory.join(config::CONFIG_DIR);
         let directory_is_temporary_directory = temporary_directory.is_some();
         if directory_is_temporary_directory {
-            info!(
+            ui.inform(&format!(
                 "'{}' is the temporary directory that is used as a Teamtype directory.",
                 &directory.display()
-            );
+            ));
             sandbox::create_dir(directory, &teamtype_dir)?;
         } else {
-            warn!("Prompting re previously unused '{}'", &directory.display());
-            printdoc!(
+            ui.inform(&format!(
                 "'{}' hasn't been used as a Teamtype directory before.",
-                &directory.display()
-            );
-
+                directory.display(),
+            ));
             if ui.confirm(&format!(
                 "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
                 config::CONFIG_DIR

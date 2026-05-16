@@ -28,7 +28,7 @@ use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
 use crate::sandbox;
-use crate::traits::UserInteraction;
+use crate::types::UserInterface;
 
 pub type EditorId = usize;
 
@@ -100,7 +100,7 @@ pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
 pub fn spawn_socket_listener(
     socket_path: &Path,
     document_handle: DocumentActorHandle,
-    ui: &impl UserInteraction,
+    ui: &UserInterface,
 ) -> Result<()> {
     // Make sure the parent directory of the socket is only accessible by the current user.
     if let Err(description) = is_user_readable_only(socket_path) {
