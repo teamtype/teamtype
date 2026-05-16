@@ -16,6 +16,7 @@ use dialoguer::Confirm;
 use indoc::printdoc;
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
+use teamtype::traits::UserInteraction;
 use teamtype::{
     config::{self, AppConfig},
     daemon::Daemon,
@@ -28,6 +29,17 @@ use tracing::{debug, info, warn};
 use self::cli::{Cli, Commands, ShareJoinFlags};
 
 mod cli;
+
+struct CliInteraction {}
+
+impl UserInteraction for CliInteraction {
+    fn confirm(&self, question: &str) -> Result<bool> {
+        Confirm::new()
+            .with_prompt(question)
+            .interact()
+            .context("Failed to read answer to y/n prompt")
+    }
+}
 
 fn has_ethersync_directory(dir: &Path) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
@@ -59,9 +71,11 @@ async fn main() -> Result<()> {
 
     logging::initialize(cli.verbose).context("Failed to initialize logging")?;
 
+    let ui = CliInteraction {};
+
     let temporary_directory = get_temporary_directory(&cli)?;
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;
-    setup_teamtype_directory(&directory, temporary_directory.as_ref())
+    setup_teamtype_directory(&directory, temporary_directory.as_ref(), &ui)
         .context("Failed to find .teamtype/ directory")?;
 
     // TODO: If the result of this joined future handles were to go out of scope and hence be
@@ -73,11 +87,11 @@ async fn main() -> Result<()> {
         Commands::Client => return run_client(directory.clone()).await,
         Commands::Join { .. } => {
             let join_config = parse_join_config(cli.command, directory.clone()).await?;
-            run_daemon(join_config, false).await
+            run_daemon(join_config, false, &ui).await
         }
         Commands::Share { init, .. } => {
             let share_config = parse_share_config(cli.command, directory.clone());
-            run_daemon(share_config, init).await
+            run_daemon(share_config, init, &ui).await
         }
     };
 
@@ -86,7 +100,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_daemon(app_config: AppConfig, init_doc: bool) -> Result<Daemon> {
+async fn run_daemon(
+    app_config: AppConfig,
+    init_doc: bool,
+    ui: &impl UserInteraction,
+) -> Result<Daemon> {
     let persist = !config::has_git_remote(&app_config.base_dir);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
@@ -115,7 +133,7 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool) -> Result<Daemon> {
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
     // so the calling context can determine when to terminate.
-    Daemon::new(app_config, init_doc, persist, &prompt_bool)
+    Daemon::new(app_config, init_doc, persist, ui)
         .await
         .context("Failed to launch the daemon")
 }
@@ -301,7 +319,11 @@ fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<Pat
     Ok(directory)
 }
 
-fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempDir>) -> Result<()> {
+fn setup_teamtype_directory(
+    directory: &Path,
+    temporary_directory: Option<&TempDir>,
+    ui: &impl UserInteraction,
+) -> Result<()> {
     if has_ethersync_directory(directory) {
         let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
 
@@ -310,7 +332,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
             &old_directory.display()
         );
 
-        if prompt_bool(&format!(
+        if ui.confirm(&format!(
             "Do you want to rename {}/ to {}/?",
             &config::LEGACY_CONFIG_DIR,
             &config::CONFIG_DIR,
@@ -340,7 +362,7 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
                 &directory.display()
             );
 
-            if prompt_bool(&format!(
+            if ui.confirm(&format!(
                 "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
                 config::CONFIG_DIR
             ))? {
@@ -356,11 +378,4 @@ fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempD
 
 fn get_current_directory() -> Result<PathBuf> {
     env::current_dir().context("Could not access current directory")
-}
-
-fn prompt_bool(question: &str) -> Result<bool> {
-    Confirm::new()
-        .with_prompt(question)
-        .interact()
-        .context("Failed to read answer to y/n prompt")
 }
