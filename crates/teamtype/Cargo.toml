@@ -36,7 +36,7 @@ crate-type = ["rlib", "cdylib"]
 
 [features]
 default = ["cli"] # this is unfortunate, but library users should use `default-features = false`
-cli = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
+cli = ["dep:clap", "dep:dialoguer", "tokio/signal", "tokio/rt-multi-thread"]
 
 [build-dependencies]
 anyhow.workspace = true
@@ -75,6 +75,10 @@ optional = true
 [dependencies.derive_more]
 version = "2"
 features = ["as_ref", "deref", "display"]
+
+[dependencies.dialoguer]
+version = "0.12"
+optional = true
 
 [dependencies.git2]
 version = "0.20"
