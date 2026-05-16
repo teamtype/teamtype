@@ -41,6 +41,7 @@ use crate::editor_protocol::{
 use crate::path::{AbsolutePath, RelativePath};
 use crate::peer;
 use crate::sandbox;
+use crate::traits::UserInteraction;
 use crate::types::{
     ComponentMessage, CursorId, CursorState, EphemeralMessage, FileTextDelta, PatchEffect,
     TextDelta,
@@ -958,7 +959,7 @@ impl Daemon {
         app_config: AppConfig,
         init: bool,
         persist: bool,
-        prompt_bool: &(dyn Fn(&str) -> Result<bool> + Send + Sync),
+        ui: &impl UserInteraction,
     ) -> Result<Self> {
         let is_host = app_config.is_host();
 
@@ -970,7 +971,7 @@ impl Daemon {
         let socket_path = base_dir
             .join(config::CONFIG_DIR)
             .join(config::DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), prompt_bool)?;
+        editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
 
         // Start file watcher.
         spawn_file_watcher(&app_config, document_handle.clone());
