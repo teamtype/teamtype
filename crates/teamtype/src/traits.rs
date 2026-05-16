@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 
-pub trait UserInteraction {
+pub trait UserInteractions: Send + Sync {
     fn confirm(&self, question: &str) -> Result<bool>;
+    fn inform(&self, message: &str);
 }

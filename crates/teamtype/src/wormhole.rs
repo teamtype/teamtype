@@ -6,12 +6,18 @@
 use std::{borrow::Cow, str::FromStr, time::Duration};
 
 use anyhow::Result;
-use indoc::printdoc;
+use indoc::formatdoc;
 use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transfer};
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
-pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_relay: Option<String>) {
+use crate::types::Interface;
+
+pub async fn put_secret_address_into_wormhole(
+    address: &str,
+    magic_wormhole_relay: Option<String>,
+    ui: Interface,
+) {
     let payload: Vec<u8> = address.into();
     let config = build_magic_wormhole_config(magic_wormhole_relay);
 
@@ -27,14 +33,14 @@ pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_rela
 
             info!("New single-use share code: {code}",);
 
-            printdoc!(
+            ui.inform(&formatdoc!(
                 r#"
-                    One other person can use this to connect to you:
+                   One other person can use this to connect to you:
 
-                        teamtype join {code}
+                       teamtype join {code}
 
                 "#
-            );
+            ));
 
             if let Ok(mut wormhole) = Wormhole::connect(mailbox_connection).await {
                 let _ = wormhole.send(payload.clone()).await;
