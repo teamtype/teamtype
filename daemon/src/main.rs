@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
             let share_config = parse_share_config(cli.command, directory.clone());
             run_daemon(share_config, init).await
         }
-    };
+    }?;
 
     trap_shutdown().await;
 
