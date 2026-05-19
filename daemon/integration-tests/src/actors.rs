@@ -17,6 +17,10 @@ use tokio::process::{ChildStdin, Command};
 
 use crate::socket::*;
 
+// This is the bin artifact Cargo is building for us so we can test the actual code at the time of
+// testing, not something that may be mix-matched from the system path.
+pub const TEAMTYPE_BINARY: &str = env!("CARGO_BIN_FILE_TEAMTYPE");
+
 // TODO: Consider renaming this, to avoid confusion with tokio "actors".
 #[async_trait]
 pub trait Actor: Send {
@@ -54,6 +58,8 @@ impl Neovim {
         cmd.arg("-c").arg(format!(
             "source {workspace_root}/nvim-plugin/plugin/teamtype.lua"
         ));
+        // Use binary built for *this* test run, not the system path one
+        cmd.env("TEAMTYPE_BINARY", TEAMTYPE_BINARY);
         let (nvim, _, _) = new_child_cmd(&mut cmd, handler).await.unwrap();
 
         // We canonicalize the path here, because on macOS, TempDir gives us paths in /var/, which
