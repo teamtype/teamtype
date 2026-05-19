@@ -59,7 +59,7 @@ enable({name}, {enable})                                     *teamtype.enable()*
 
     Examples: >lua
         teamtype.enable('hedgedoc')
-        teamtype.disable('teamtype')
+        teamtype.enable('teamtype', false)
 <
 
     Parameters: ~
