@@ -357,6 +357,48 @@ function M.jump_to_cursor()
     pick_cursor_menu(callback)
 end
 
+function M.number_of_cursors()
+    local count = 0
+    for _, v in pairs(user_cursors) do
+        if #v.cursors > 0 then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+-- Returns a description of remote cursors that are known to us.
+function M.short_cursor_description()
+    local users = {}
+
+    -- Build a structure using the values as keys, so they are de-duplicated.
+    for _, data in pairs(user_cursors) do
+        if #data.cursors > 0 then
+            if not users[data.name] then
+                users[data.name] = {}
+            end
+            for _, c in ipairs(data.cursors) do
+                users[data.name][vim.fs.basename(c.uri)] = true
+            end
+        end
+    end
+
+    -- Now, build a string that we can return.
+    local userList = {}
+
+    for name, files in pairs(users) do
+        local fileList = {}
+
+        for file, _ in pairs(files) do
+            table.insert(fileList, file)
+        end
+
+        table.insert(userList, name .. " (" .. table.concat(fileList, ", ") .. ")")
+    end
+
+    return table.concat(userList, ", ")
+end
+
 function M.list_cursors()
     local message = ""
 

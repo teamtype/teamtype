@@ -45,6 +45,23 @@ function M.enable(name, enable)
     configurations[name].enabled = enable
 end
 
+function M.status()
+    if #clients == 0 then
+        return ""
+    end
+
+    local result = "Teamtype: "
+
+    local n = cursor.number_of_cursors()
+    if n > 0 then
+        result = result .. cursor.short_cursor_description()
+    else
+        result = result .. "connected"
+    end
+
+    return result
+end
+
 -- Take an operation from the daemon and apply it to the editor.
 local function process_operation_for_editor(client, method, parameters)
     if method == "edit" then
@@ -141,6 +158,24 @@ local function find_or_create_client(config_name, root_dir)
     }
     local the_connection = connection.connect(configurations[config_name].cfg.cmd, root_dir, function(m, p)
         process_operation_for_editor(client, m, p)
+    end, function()
+        -- React to disconnect.
+        local to_remove = {}
+        for i, c in ipairs(clients) do
+            if c == client then
+                for _, buf_nr in ipairs(c.buffers) do
+                    vim.bo[buf_nr].modifiable = false
+                end
+            end
+            to_remove[i] = true
+        end
+
+        -- Remove from clients list.
+        for i = #clients, 1, -1 do
+            if to_remove[i] then
+                table.remove(clients, i)
+            end
+        end
     end)
     client.connection = the_connection
     table.insert(clients, client)
