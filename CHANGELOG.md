@@ -19,6 +19,8 @@ Add support for `.teamtypeignore` file to exclude files and directories from syn
 
 Add support for custom Iroh relay servers, using the `--iroh-relay` flag, and for custom Iroh DNS discovery servers, using `--iroh-dns-domain` and `--iroh-pkarr-relay`. See the "Running your own relays" page in the documentation for how to run all these relays yourself!
 
+Enable local discovery for the Iroh peer-to-peer library, allowing peers to find each other quickly if they're in the same local network.
+
 ## Note for package maintainers: Renamed the Linux binaries
 
 We've renamed the Linux binaries
