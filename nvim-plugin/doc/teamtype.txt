@@ -13,25 +13,31 @@ See main README at |https://github.com/teamtype/teamtype-nvim|.
 ==============================================================================
 CONFIGURATION                                           *teamtype-configuration*
 
-This plugin allows you to configure multiple collaboration servers.
-A configuration for connecting to Teamtype daemons is provided and enabled by
-default.
+This plugin allows you to configure multiple collaboration servers. Each is
+identified with a name and markers or a function used to identify what
+directory(s) the config should be active for. This enables separeate settings
+per-project or per group of projects.
+
+A default configuration for connecting to Teamtype daemons is provided. To
+replace the defaults replace the whole config named 'teamtype'. To provide
+alternate configurations for some projects, add new config tables.
 
 config({name}, {cfg})                                        *teamtype.config()*
     Set or update the configuration for a client.
 
     Examples:
-    • Attempt to connect Teamtype in directories that have a `.teamtype`
-      directory (this is configured by default): >lua
+    • The default config attempts to connect to a default Teamtype instance in
+      directories that have a `.teamtype` directory: >lua
         teamtype.config("teamtype", {
             cmd = { "teamtype", "client" },
             root_markers = ".teamtype",
         })
 <
-    • Use the `teamtype-http` command to sync buffers that are https URLs. The
-      directory name might not be important: >lua
-        teamtype.config("http", {
-            cmd = { "teamtype-http" },
+    • An alternative configuration might use a alternative binary like the
+      proof-of-concept `teamtype-hedgedoc` command to sync buffers that are
+      https URLs. The directory name might not be important: >lua
+        teamtype.config("hedgedoc", {
+            cmd = { "teamtype-hedgedoc" },
             root_dir = function(bufnr, on_dir)
                 local name = vim.api.nvim_buf_get_name(bufnr)
                 if string.find(name, "https://") == 1 then
@@ -52,7 +58,7 @@ enable({name}, {enable})                                     *teamtype.enable()*
     The `"teamtype"` configuration is enabled by default.
 
     Examples: >lua
-        teamtype.enable('teamtype-http')
+        teamtype.enable('hedgedoc')
         teamtype.disable('teamtype')
 <
 
