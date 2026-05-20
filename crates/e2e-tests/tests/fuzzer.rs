@@ -29,16 +29,19 @@ async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     }
 }
 
-fn initialize_directory() -> (TempDir, PathBuf) {
+fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
     let dir = tempdir().expect("Failed to create temp directory");
-    let dir_path = dir.path();
+    let dir_path = dir
+        .path()
+        .canonicalize()
+        .expect("Unable to resolve canonical name for temp dir");
     let teamtype_dir = dir_path.join(".teamtype");
-    sandbox::create_dir(dir_path, &teamtype_dir).expect("Failed to create .teamtype directory");
+    sandbox::create_dir(&dir_path, &teamtype_dir).expect("Failed to create .teamtype directory");
 
     let file = dir_path.join(TEST_FILE_PATH);
-    sandbox::write_file(dir_path, &file, b"").expect("Failed to create file in temp directory");
+    sandbox::write_file(&dir_path, &file, b"").expect("Failed to create file in temp directory");
 
-    (dir, file)
+    (dir, dir_path.to_path_buf(), file)
 }
 
 #[tokio::main]
@@ -51,22 +54,23 @@ async fn main() -> Result<()> {
 
     logging::initialize()?;
 
-    // Set up files in shared directories.
-    let (dir, file) = initialize_directory();
-    let (dir2, file2) = initialize_directory();
+    // Set up files in shared directories. The directories will get cleaned up automatically when
+    // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
+    let (_handle1, dir1, file1) = initialize_directory();
+    let (_handle2, dir2, file2) = initialize_directory();
 
     // Set up the actors.
     let mut app_config = AppConfig::default();
-    app_config.base_dir = dir.path().to_path_buf();
+    app_config.base_dir = dir1;
     let daemon = Daemon::new(app_config, true, false).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
-    let nvim = Neovim::new(Some(file)).await;
+    let nvim = Neovim::new(Some(file1)).await;
 
     let mut app_config2 = AppConfig::default();
-    app_config2.base_dir = dir2.path().to_path_buf();
+    app_config2.base_dir = dir2;
     app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
     let peer = Daemon::new(app_config2, false, false).await?;
 
