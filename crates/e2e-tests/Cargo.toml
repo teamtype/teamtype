@@ -19,7 +19,8 @@ rust-version.workspace = true
 name = "fuzzer"
 # We set process-global state in this test, so we want to run our own main method.
 harness = false
-test = false # don't include fuzzer in default test runs
+# Don't include fuzzer in default test runs.
+test = false
 
 [dependencies]
 async-trait.workspace = true
