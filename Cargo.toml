@@ -6,6 +6,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [workspace]
+# https://doc.rust-lang.org/edition-guide/rust-2024/cargo-resolver.html#details
 resolver = "3"
 members = ["crates/teamtype", "crates/e2e-tests"]
 
