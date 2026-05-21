@@ -15,21 +15,28 @@
 //! - takes content-length encoded data from stdin (as sent by an LSP client) and writes it
 //!   "unpacked" to the socket
 
+#[cfg(unix)]
+use std::env;
 use std::path::Path;
-use std::{env, process, str};
+use std::{process, str};
 
+#[cfg(unix)]
 use anyhow::Context;
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use tokio::io;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader, BufWriter};
+use tokio::io::{ReadHalf, WriteHalf};
+#[cfg(unix)]
 use tokio::net::UnixStream;
-use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient, PipeMode};
 use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
 use super::config::CONFIG_DIR;
 use super::config::DEFAULT_LISTENER_NAME;
+#[cfg(unix)]
 use super::editor::strip_current_dir;
 
 #[async_trait]
@@ -38,6 +45,7 @@ pub trait RPCForwarder<
     W: AsyncWrite + Unpin + Send + 'static,
 >
 {
+    /// Construct socket object, which send/receive newline-delimited messages.
     async fn connect_stream(
         &self,
         directory: &Path,
@@ -71,16 +79,16 @@ pub trait RPCForwarder<
 
 pub struct JSONRPCForwarder {}
 
+#[cfg(unix)]
 #[async_trait]
-impl RPCForwarder<OwnedReadHalf, OwnedWriteHalf> for JSONRPCForwarder {
+impl RPCForwarder<ReadHalf<UnixStream>, WriteHalf<UnixStream>> for JSONRPCForwarder {
     async fn connect_stream(
         &self,
         directory: &Path,
     ) -> anyhow::Result<(
-        FramedRead<OwnedReadHalf, LinesCodec>,
-        FramedWrite<OwnedWriteHalf, LinesCodec>,
+        FramedRead<ReadHalf<UnixStream>, LinesCodec>,
+        FramedWrite<WriteHalf<UnixStream>, LinesCodec>,
     )> {
-        // Construct socket object, which send/receive newline-delimited messages.
         let listener_path = directory.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
         // See comment about SUN_LEN in editor.rs, but the TL;DR is that referencing a socket node
         // from a deeply nested or overly verbose path will fail on some platforms.
@@ -95,7 +103,34 @@ impl RPCForwarder<OwnedReadHalf, OwnedWriteHalf> for JSONRPCForwarder {
         )?;
         let stream = UnixStream::connect(strip_current_dir(&listener_path)).await?;
         env::set_current_dir(previous_cwd)?;
-        let (read_half, write_half) = stream.into_split();
+        let (read_half, write_half) = io::split(stream);
+        let reader = FramedRead::new(read_half, LinesCodec::new());
+        let writer = FramedWrite::new(write_half, LinesCodec::new());
+        Ok((reader, writer))
+    }
+}
+
+#[cfg(windows)]
+#[async_trait]
+impl RPCForwarder<ReadHalf<NamedPipeClient>, WriteHalf<NamedPipeClient>> for JSONRPCForwarder {
+    async fn connect_stream(
+        &self,
+        directory: &Path,
+    ) -> anyhow::Result<(
+        FramedRead<ReadHalf<NamedPipeClient>, LinesCodec>,
+        FramedWrite<WriteHalf<NamedPipeClient>, LinesCodec>,
+    )> {
+        let listener_path = directory.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        // Convert the Path to a UTF-8 string and prepend the named pipe prefix
+        let pipe_name = format!(
+            r"\\.\pipe\{}",
+            listener_path.to_str().unwrap().split('\\').last().unwrap()
+        );
+        // TODO: check if there are security options we could set here => client_options.open_with_security_attributes_raw()
+        let mut client_options = ClientOptions::new();
+        client_options.pipe_mode(PipeMode::Byte);
+        let client = client_options.open(&pipe_name)?;
+        let (read_half, write_half) = io::split(client);
         let reader = FramedRead::new(read_half, LinesCodec::new());
         let writer = FramedWrite::new(write_half, LinesCodec::new());
         Ok((reader, writer))

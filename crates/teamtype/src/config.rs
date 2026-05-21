@@ -20,7 +20,7 @@ use crate::sandbox;
 use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
-pub(crate) const DEFAULT_LISTENER_NAME: &str = "socket";
+pub(crate) const DEFAULT_LISTENER_NAME: &str = "listener";
 pub(crate) const CONFIG_DIR: &str = ".teamtype";
 pub(crate) const CONFIG_FILE: &str = "config";
 
