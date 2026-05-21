@@ -12,7 +12,9 @@ use std::fs::{metadata, set_permissions};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::Result;
+#[cfg(unix)]
+use anyhow::{Context, bail};
 
 pub(crate) fn set_mode(path: PathBuf, mode: u32) -> Result<()> {
     #[cfg(unix)]
@@ -23,7 +25,10 @@ pub(crate) fn set_mode(path: PathBuf, mode: u32) -> Result<()> {
 
     #[cfg(windows)]
     {
-        // Windows doesn't have a direct equivalent of Unix permissions, just return success.
+        // Windows doesn't have a direct equivalent of Unix permissions, just discard the details
+        // of the question and say we're good.
+        let _ = path;
+        let _ = mode;
         Ok(())
     }
 }
@@ -50,6 +55,11 @@ pub(crate) fn check_mode(path: &Path, allowed_permissions: u32) -> Result<()> {
             );
         }
     }
+    #[cfg(windows)]
+    {
+        let _ = path;
+        let _ = allowed_permissions;
+    }
     Ok(())
 }
 
@@ -64,6 +74,7 @@ pub(crate) fn create_with_mode(file: PathBuf, mode: u32) -> Result<File> {
     }
     #[cfg(windows)]
     {
+        let _ = mode;
         Ok(OpenOptions::new().create_new(true).write(true).open(file)?)
     }
 }
