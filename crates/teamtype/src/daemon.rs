@@ -1046,7 +1046,7 @@ impl Daemon {
 
         // Start socket listener.
         let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
-        editor::spawn_listener(&listener_path, document_handle.clone(), ui)?;
+        editor::spawn_listener(&listener_path, document_handle.clone(), ui).await?;
 
         // Start file watcher.
         spawn_file_watcher(&config, document_handle.clone());
