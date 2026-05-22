@@ -58,7 +58,8 @@ fn instantiate_initial_automerge_doc() -> Result<()> {
 fn output_completions() -> Result<()> {
     const BIN_NAME: &str = env!("CARGO_PKG_NAME");
 
-    let target_dir = Path::new("target");
+    let workspace_root = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
+    let target_dir = &workspace_root.join("target");
     let compl_dir = &target_dir.join("completions");
     _ = remove_dir_all(compl_dir);
     create_dir_all(compl_dir)?;
@@ -70,7 +71,8 @@ fn output_completions() -> Result<()> {
 }
 
 fn output_manpages() -> Result<()> {
-    let target_dir = Path::new("target");
+    let workspace_root = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
+    let target_dir = &workspace_root.join("target");
     let man_dir = &target_dir.join("manpages");
     _ = remove_dir_all(man_dir);
     create_dir_all(man_dir)?;
