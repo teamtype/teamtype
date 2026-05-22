@@ -38,13 +38,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - name: Build Teamtype
-        run: cargo build --release
       - name: Install Neovim
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
           version: ${{ matrix.nvim-version }}
+      - name: Build Teamtype
+        run: cargo build --profile test
       - run: nvim --version
       - name: Compile default tests
         run: cargo test --locked --no-default-features --no-run
