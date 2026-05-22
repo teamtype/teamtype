@@ -19,11 +19,17 @@ Add support for `.teamtypeignore` file to exclude files and directories from syn
 
 Add support for custom Iroh relay servers, using the `--iroh-relay` flag, and for custom Iroh DNS discovery servers, using `--iroh-dns-domain` and `--iroh-pkarr-relay`. See the "Running your own relays" page in the documentation for how to run all these relays yourself!
 
-## Note for package maintainers: Renamed the Linux binaries
+## Notes for package maintainers
+
+### Renamed the Linux binaries
 
 We've renamed the Linux binaries
 - `teamtype-x86_64-unknown-linux-musl` to `teamtype-x86_64-linux-static`
 - `teamtype-aarch64-unknown-linux-musl` to `teamtype-aarch64-linux-static`
+
+### New crate structure
+
+We restructured the location of the crates and of the main `Cargo.toml` file. Instead of building Teamtype in the `daemon/` subdirectory, you now build it in the project root. The position of the produced binary will be in `target/release`, and the manpage and completion files go directly to `target/`.
 
 # 0.9.1 (2026-01-28)
 
