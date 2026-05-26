@@ -17,8 +17,8 @@ use automerge::{
     Patch,
     sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
+use docstr::docstr;
 use futures::SinkExt;
-use indoc::formatdoc;
 use rand::Rng;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::{
@@ -991,13 +991,12 @@ impl Daemon {
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {
-            info!("Secret address emition enabled: {address}");
-            ui.inform(&formatdoc!(
-                "
-                    Others can connect by putting the following secret address in their .teamtype/config:
-
-                        peer={address}
-                ",
+            info!("Secret address emission enabled: {address}");
+            ui.inform(&docstr!(format!
+                /// Others can connect by putting the following secret address in their .teamtype/config:
+                ///
+                ///     peer={address}
+                ///
             ));
         }
         if app_config.emit_join_code {

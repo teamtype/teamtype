@@ -14,7 +14,7 @@ use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use dialoguer::Confirm;
-use indoc::indoc;
+use docstr::docstr;
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
 use teamtype::traits::Interactions;
@@ -44,7 +44,7 @@ impl Interactions for ConsoleInteractions {
     }
 
     fn inform(&self, message: &str) {
-        println!("{}", message.strip_suffix("\n").unwrap_or("message"));
+        println!("{message}");
     }
 }
 
@@ -119,13 +119,11 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: UserInterface) ->
 
     if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
         info!("Local user configuration detected in sync-vcs mode");
-        ui.inform(indoc!(
-            r#"
-                WARNING: You have a local user configuration in your .git/config.
-                         In --sync-vcs mode, this file will also be synchronized between peers.
-                         If your version "wins", all peers will have the same Git identity.
-                         As a workaround, you could use `git commit --author`.
-            "#,
+        ui.inform(docstr!(
+            /// WARNING: You have a local user configuration in your .git/config.
+            ///          In --sync-vcs mode, this file will also be synchronized between peers.
+            ///          If your version "wins", all peers will have the same Git identity.
+            ///          As a workaround, you could use `git commit --author`.
         ));
     }
 
