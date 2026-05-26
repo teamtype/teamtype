@@ -23,11 +23,11 @@ set unstable
 
 [group('check')]
 [parallel]
-check: check-cargo check-typos
+check *ARGS: (check-cargo ARGS) check-typos
 
 [group('check')]
-check-cargo:
-    {{ cargo }} check
+check-cargo *ARGS:
+    {{ cargo }} check {{ ARGS }}
 
 [group('check')]
 check-typos:
@@ -93,11 +93,11 @@ lint-rust:
     {{ cargo }} clippy
 
 [group('test')]
-test: test-cargo
+test *ARGS: (test-cargo ARGS)
 
 [group('test')]
-test-cargo:
-    {{ cargo }} test
+test-cargo *ARGS:
+    {{ cargo }} test {{ ARGS }}
 
 [group('test')]
 fuzz:
