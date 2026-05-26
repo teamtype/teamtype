@@ -21,12 +21,15 @@ set shell := ['bash', '-eu', '-c']
 set positional-arguments
 set unstable
 
+[group('check')]
 [parallel]
 check: check-cargo check-typos
 
+[group('check')]
 check-cargo:
     {{ cargo }} check
 
+[group('check')]
 check-typos:
     {{ typos }}
 
@@ -35,52 +38,68 @@ check-typos:
 @list:
     {{ just }} --list --unsorted
 
+[group('build')]
 build *ARGS:
     {{ cargo }} build {{ ARGS }}
 
+[group('build')]
 build-release: (build "--release")
 
+[group('format')]
 [parallel]
 format: format-lua format-rust
 
+[group('format')]
 [working-directory("nvim-plugin")]
 format-lua:
     {{ stylua }} --respect-ignores .
 
+[group('format')]
 format-rust:
     {{ cargo }} +nightly fmt
 
+[group('lint')]
 [parallel]
 lint: lint-format lint-license lint-lua lint-manifests lint-rust
 
+[group('lint')]
 [parallel]
 lint-format: lint-format-lua lint-format-rust
 
+[group('lint')]
 [working-directory("nvim-plugin")]
 lint-format-lua:
     {{ stylua }} --respect-ignores --check .
 
+[group('lint')]
 lint-format-rust:
     {{ cargo }} +nightly fmt --check
 
+[group('lint')]
 lint-license:
     {{ reuse }} lint
 
+[group('lint')]
 [working-directory("nvim-plugin")]
 lint-lua:
     {{ luacheck }} .
 
+[group('lint')]
 lint-manifests:
     {{ cargo-deny }} check
 
+[group('lint')]
 lint-rust:
     {{ cargo }} clippy
 
+[group('test')]
 test: test-cargo
 
+[group('test')]
 test-cargo:
     {{ cargo }} test
 
+[group('test')]
 fuzz:
     {{ cargo }} test --test fuzzer
 
