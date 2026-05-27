@@ -16,7 +16,7 @@ ignore = [
     "RUSTSEC-2024-0436", # unmaintained: paste (via iroh)
     "RUSTSEC-2025-0052", # unmaintained: async-std (via magic-wormhole)
     "RUSTSEC-2026-0049", # vulnerable: rustls-webpki (via iroh)
-    "RUSTSEC-2026-0097", # unsound: rand (via iroh)
+    "RUSTSEC-2026-0058", # unmaintained: tokio-io (via futures)
     "RUSTSEC-2026-0098", # vulnerable: rustls-webpki (via iroh)
     "RUSTSEC-2026-0099", # vulnerable: rustls-webpki (via iroh)
     "RUSTSEC-2026-0104", # reachable panic: rustls-webpki (via iroh)
@@ -35,6 +35,7 @@ allow = [
     "CDLA-Permissive-2.0",
     "GPL-3.0-only",
     "ISC",
+    "LGPL-3.0",
     "MIT",
     "MPL-2.0",
     "Unicode-3.0",
