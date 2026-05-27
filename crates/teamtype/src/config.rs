@@ -16,6 +16,7 @@ use anyhow::{Context, Result};
 use docstr::docstr;
 use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
+use serde::{Deserialize, Serialize};
 use tempfile::{TempDir, tempdir_in};
 use tracing::info;
 
@@ -34,7 +35,8 @@ const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
 // TODO: Generate a random funny name.
 const USERNAME_FALLBACK: &str = "Anonymous";
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Peer {
     SecretAddress(String),
     JoinCode(String),
@@ -93,6 +95,21 @@ impl Display for BaseDir {
     }
 }
 
+impl Serialize for BaseDir {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Permanent(path) => path.serialize(serializer),
+            Self::Temporary(temp_dir) => temp_dir.path().to_path_buf().serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for BaseDir {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        PathBuf::deserialize(deserializer).map(Self::Permanent)
+    }
+}
+
 impl Clone for BaseDir {
     fn clone(&self) -> Self {
         match self {
@@ -102,7 +119,7 @@ impl Clone for BaseDir {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub enum VcsMode {
     Sync,
     #[default]
@@ -115,14 +132,16 @@ impl From<bool> for VcsMode {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub enum NetworkMode {
     #[default]
     Host,
     Peer,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+#[must_use]
 pub struct Config {
     pub base_dir: BaseDir,
     pub peer: Option<Peer>,
