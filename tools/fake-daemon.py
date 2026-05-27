@@ -4,14 +4,14 @@
 
 #!/usr/bin/python
 
-# This script listens on a specific `socket_path`, accepts any "open", and then sends a specific edit.
+# This script listens on a specific `listener_path`, accepts any "open", and then sends a specific edit.
 # It can be used to debug plugin behavior.
 
 import socket
 import os, os.path
 import json
 
-socket_path = "/tmp/teamtype-test/.teamtype/socket"
+listener_path = "/tmp/teamtype-test/.teamtype/socket"
 
 # Returns the next JSON-RPC object.
 def read_line(conn):
@@ -28,11 +28,12 @@ def send(conn, json_):
     conn.send(message_json.encode("utf-8"))
     conn.send(b"\n")
 
-if os.path.exists(socket_path):
-    os.remove(socket_path)
+
+if os.path.exists(listener_path):
+    os.remove(listener_path)
 
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-server.bind(socket_path)
+server.bind(listener_path)
 while True:
     server.listen()
     conn, addr = server.accept()
