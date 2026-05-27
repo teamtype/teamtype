@@ -33,7 +33,7 @@ use tracing::debug;
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
 use crate::config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
-use crate::config::{CONFIG_DIR, DEFAULT_SOCKET_NAME};
+use crate::config::{CONFIG_DIR, DEFAULT_LISTENER_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
@@ -1027,7 +1027,7 @@ impl DocumentActorHandle {
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
-    socket_path: PathBuf,
+    listener_path: PathBuf,
     config: Config,
     // We need to store the connection manager in order to keep the connection alive.
     connection_manager: peer::ConnectionManager,
@@ -1046,8 +1046,8 @@ impl Daemon {
         let document_handle = DocumentActorHandle::new(&config, ui, init, persist);
 
         // Start socket listener.
-        let socket_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
+        let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        editor::spawn_listener(&listener_path, document_handle.clone(), ui)?;
 
         // Start file watcher.
         spawn_file_watcher(&config, document_handle.clone());
@@ -1084,7 +1084,7 @@ impl Daemon {
 
         Ok(Self {
             document_handle,
-            socket_path,
+            listener_path,
             config,
             connection_manager,
         })
@@ -1098,7 +1098,7 @@ impl Daemon {
 impl Drop for Daemon {
     fn drop(&mut self) {
         debug!("Daemon dropped, removing socket");
-        sandbox::remove_file(&self.config.base_dir, &self.socket_path)
+        sandbox::remove_file(&self.config.base_dir, &self.listener_path)
             .expect("Could not remove socket");
     }
 }
