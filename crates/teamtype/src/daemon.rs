@@ -971,7 +971,7 @@ impl DocumentActorHandle {
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
-    socket_path: PathBuf,
+    listener_path: PathBuf,
     config: Config,
     // We need to store the connection manager in order to keep the connection alive.
     connection_manager: peer::ConnectionManager,
@@ -990,10 +990,10 @@ impl Daemon {
         let base_dir = &config.base_dir;
 
         // Start socket listener.
-        let socket_path = base_dir
+        let listener_path = base_dir
             .join(config::CONFIG_DIR)
-            .join(config::DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
+            .join(config::DEFAULT_LISTENER_NAME);
+        editor::spawn_listener(&listener_path, document_handle.clone(), ui)?;
 
         // Start file watcher.
         spawn_file_watcher(&config, document_handle.clone());
@@ -1032,7 +1032,7 @@ impl Daemon {
 
         Ok(Self {
             document_handle,
-            socket_path,
+            listener_path,
             config,
             connection_manager,
         })
@@ -1046,7 +1046,7 @@ impl Daemon {
 impl Drop for Daemon {
     fn drop(&mut self) {
         debug!("Daemon dropped, removing socket");
-        sandbox::remove_file(Path::new(&self.config.base_dir), &self.socket_path)
+        sandbox::remove_file(Path::new(&self.config.base_dir), &self.listener_path)
             .expect("Could not remove socket");
     }
 }
