@@ -39,6 +39,14 @@ crate-type = ["rlib", "cdylib"]
 # This is unfortunate, but users of the crate as a library should use `default-features = false`.
 default = ["cli"]
 cli = ["dep:clap", "dep:console", "dep:dialoguer", "tokio/signal", "tokio/rt-multi-thread"]
+luamodule = ["dep:mlua"]
+lua55 = ["luamodule", "mlua/lua55"]
+lua54 = ["luamodule", "mlua/lua54"]
+lua53 = ["luamodule", "mlua/lua53"]
+lua52 = ["luamodule", "mlua/lua52"]
+lua51 = ["luamodule", "mlua/lua51"]
+luajit = ["luamodule", "mlua/luajit"]
+luau = ["luamodule", "mlua/luau"]
 
 [build-dependencies]
 anyhow.workspace = true
@@ -96,6 +104,11 @@ optional = true
 [dependencies.git2]
 version = "0.20"
 default-features = false
+
+[dependencies.mlua]
+version = "0.11"
+optional = true
+features = ["async", "module", "serde"]
 
 [dependencies.notify]
 version = "8"
