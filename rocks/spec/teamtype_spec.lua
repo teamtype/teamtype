@@ -2,9 +2,6 @@
 --
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 
--- For debugging, load raw debug builds prior to Rock packaging
-package.cpath = package.cpath .. ";../target/debug/lib?.so"
-
 local teamtype = require("teamtype")
 
 local MANIFEST_VERSION = "0.9.2-dev"
