@@ -4,6 +4,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#[cfg(unix)]
 use e2e_tests::actors::*;
 use pretty_assertions::assert_eq;
 use serial_test::serial;

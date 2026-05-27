@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+#[cfg(unix)]
 use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
@@ -58,6 +59,7 @@ impl Interactions for FuzzerInteractions {
     fn error(&self, _message: &str) {}
 }
 
+#[cfg(unix)]
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();

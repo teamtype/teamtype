@@ -16,6 +16,7 @@ use teamtype::{document, sandbox};
 use tempfile::{TempDir, tempdir};
 use tokio::process::{ChildStdin, Command};
 
+#[cfg(unix)]
 use crate::socket::MockListener;
 
 // This is the bin artifact Cargo is building for us so we can test the actual code at the time of
