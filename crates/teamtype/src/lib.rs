@@ -31,3 +31,7 @@ mod path;
 mod peer;
 mod watcher;
 mod wormhole;
+
+// Binding modules (feature gated)
+#[cfg(feature = "luamodule")]
+mod lua;
