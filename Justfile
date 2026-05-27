@@ -21,6 +21,8 @@ set shell := ['bash', '-eu', '-c']
 set positional-arguments
 set unstable
 
+profile := "dev"
+
 [group('check')]
 [parallel]
 check *ARGS: (check-cargo ARGS) check-typos
@@ -40,10 +42,11 @@ check-typos:
 
 [group('build')]
 build *ARGS:
-    {{ cargo }} build {{ ARGS }}
+    {{ cargo }} build --profile {{ profile }} {{ ARGS }}
 
 [group('build')]
-build-release: (build "--release")
+build-release *ARGS:
+    {{ just }} --set profile release build {{ ARGS }}
 
 [group('format')]
 [parallel]
