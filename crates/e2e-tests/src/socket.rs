@@ -7,18 +7,18 @@ use std::path::Path;
 
 use serde_json::Value as JSONValue;
 use teamtype::sandbox;
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, split},
-    net::UnixListener,
-    sync::mpsc,
-    time::Duration,
-};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter, split};
+#[cfg(unix)]
+use tokio::net::UnixListener;
+use tokio::sync::mpsc;
+use tokio::time::Duration;
 
 pub struct MockListener {
     writer_tx: mpsc::Sender<String>,
     reader_rx: mpsc::Receiver<String>,
 }
 
+#[cfg(unix)]
 impl MockListener {
     pub fn new(listener_path: &Path) -> Self {
         let listener_dir = listener_path
