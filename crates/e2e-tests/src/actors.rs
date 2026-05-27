@@ -16,7 +16,7 @@ use teamtype::{document, sandbox};
 use tempfile::{TempDir, tempdir};
 use tokio::process::{ChildStdin, Command};
 
-use crate::socket::MockSocket;
+use crate::socket::MockListener;
 
 // This is the bin artifact Cargo is building for us so we can test the actual code at the time of
 // testing, not something that may be mix-matched from the system path.
@@ -200,12 +200,12 @@ impl Neovim {
     // The caller should store the TempDir, so that it is not garbage collected.
     pub async fn new_teamtype_enabled(
         initial_content: &str,
-    ) -> (Self, PathBuf, MockSocket, TempDir) {
+    ) -> (Self, PathBuf, MockListener, TempDir) {
         let dir = tempdir().expect("Failed to create temp directory");
         let dir_path = dir.path();
         let teamtype_dir = dir_path.join(".teamtype");
         let file_path = dir_path.join("test");
-        let socket_path = teamtype_dir.clone().join("socket");
+        let listener_path = teamtype_dir.clone().join("socket");
 
         sandbox::create_dir(dir_path, &teamtype_dir).unwrap();
 
@@ -214,7 +214,7 @@ impl Neovim {
 
         let canonicalized_file_path = fs::canonicalize(&file_path).expect("Could not canonicalize");
 
-        let socket = MockSocket::new(&socket_path);
+        let socket = MockListener::new(&listener_path);
 
         (
             Self::new(Some(canonicalized_file_path.clone())).await,
