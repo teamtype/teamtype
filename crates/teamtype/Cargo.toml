@@ -27,6 +27,9 @@ categories = ["command-line-utilities", "text-editors"]
 edition.workspace = true
 rust-version.workspace = true
 
+[package.metadata.docs.rs]
+features = ["luamodule", "luajit"]
+
 [[bin]]
 name = "teamtype"
 required-features = ["cli"]
