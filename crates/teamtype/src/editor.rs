@@ -74,29 +74,29 @@ pub fn strip_current_dir(path: &Path) -> PathBuf {
 /// # Panics
 ///
 /// Will panic if we fail to listen on the socket, or if we fail to accept an incoming connection.
-pub fn spawn_socket_listener(
-    socket_path: &Path,
+pub fn spawn_listener(
+    listener_path: &Path,
     document_handle: DocumentActorHandle,
     ui: &UserInterface,
 ) -> Result<()> {
-    let parent_path = socket_path
+    let parent_path = listener_path
         .parent()
         .context("Invalid socket creation location")?;
     // Make sure the parent directory of the socket is only accessible by the current user.
     check_mode(parent_path, 0o77700u32)?;
 
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
+    // Using the sandbox method here is technically unnecessary, but we want to really run all path
+    // operations through the sandbox module.
     // TODO: Use correct directory as guard.
-    if sandbox::exists(Path::new("/"), Path::new(&socket_path))
+    if sandbox::exists(Path::new("/"), Path::new(&listener_path))
         .expect("Failed to check existence of path")
     {
-        let socket_path_display = socket_path.display();
-        let remove_socket = ui.confirm(&format!(
-            "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
+        let listener_path_display = listener_path.display();
+        let remove_listener = ui.confirm(&format!(
+            "Detected an existing socket '{listener_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
         ));
-        if remove_socket? {
-            sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
+        if remove_listener? {
+            sandbox::remove_file(Path::new("/"), listener_path).expect("Could not remove socket");
         } else {
             bail!("Not continuing, make sure to stop all other daemons on this directory");
         }
@@ -112,9 +112,9 @@ pub fn spawn_socket_listener(
     // library without changing the parent thread's location for keeps.
     let previous_cwd = env::current_dir()?;
     env::set_current_dir(parent_path)?;
-    let listener = UnixListener::bind(strip_current_dir(socket_path))?;
+    let listener = UnixListener::bind(strip_current_dir(listener_path))?;
     env::set_current_dir(previous_cwd)?;
-    debug!("Listening on UNIX socket: {}", socket_path.display());
+    debug!("Listening on UNIX socket: {}", listener_path.display());
 
     tokio::spawn(async move {
         loop {

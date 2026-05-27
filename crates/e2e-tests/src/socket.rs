@@ -14,21 +14,23 @@ use tokio::{
     time::Duration,
 };
 
-pub struct MockSocket {
+pub struct MockListener {
     writer_tx: mpsc::Sender<String>,
     reader_rx: mpsc::Receiver<String>,
 }
 
-impl MockSocket {
-    pub fn new(socket_path: &Path) -> Self {
-        let socket_dir = socket_path
+impl MockListener {
+    pub fn new(listener_path: &Path) -> Self {
+        let listener_dir = listener_path
             .parent()
             .expect("The constructed socket paths should be in a directory");
-        if sandbox::exists(socket_dir, socket_path).expect("Could not check for socket existence") {
-            sandbox::remove_file(socket_dir, socket_path).expect("Could not remove socket");
+        if sandbox::exists(listener_dir, listener_path)
+            .expect("Could not check for socket existence")
+        {
+            sandbox::remove_file(listener_dir, listener_path).expect("Could not remove socket");
         }
 
-        let listener = UnixListener::bind(socket_path).expect("Could not bind to socket");
+        let listener = UnixListener::bind(listener_path).expect("Could not bind to socket");
         let (writer_tx, mut writer_rx) = mpsc::channel::<String>(1);
         let (reader_tx, reader_rx) = mpsc::channel::<String>(1);
 

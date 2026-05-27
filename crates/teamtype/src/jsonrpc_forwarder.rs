@@ -29,11 +29,11 @@ use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
 use super::config::CONFIG_DIR;
-use super::config::DEFAULT_SOCKET_NAME;
+use super::config::DEFAULT_LISTENER_NAME;
 use super::editor::strip_current_dir;
 
 #[async_trait]
-pub trait JSONRPCForwarder<
+pub trait RPCForwarder<
     R: AsyncRead + Unpin + Send + 'static,
     W: AsyncWrite + Unpin + Send + 'static,
 >
@@ -44,14 +44,14 @@ pub trait JSONRPCForwarder<
     ) -> anyhow::Result<(FramedRead<R, LinesCodec>, FramedWrite<W, LinesCodec>)>;
 
     async fn connection(&self, base_dir: &Path) -> anyhow::Result<()> {
-        let (mut socket_read, mut socket_write) = self.connect_stream(base_dir).await?;
+        let (mut reader, mut writer) = self.connect_stream(base_dir).await?;
 
         // Construct stdin/stdout objects, which send/receive messages with a Content-Length header.
         let mut stdin = FramedRead::new(BufReader::new(io::stdin()), ContentLengthCodec);
         let mut stdout = FramedWrite::new(BufWriter::new(io::stdout()), ContentLengthCodec);
 
         tokio::spawn(async move {
-            while let Some(Ok(message)) = socket_read.next().await {
+            while let Some(Ok(message)) = reader.next().await {
                 stdout
                     .send(message)
                     .await
@@ -62,17 +62,17 @@ pub trait JSONRPCForwarder<
         });
 
         while let Some(Ok(message)) = stdin.next().await {
-            socket_write.send(message).await?;
+            writer.send(message).await?;
         }
         // Stdin was closed.
         process::exit(0);
     }
 }
 
-pub struct UnixJSONRPCForwarder {}
+pub struct JSONRPCForwarder {}
 
 #[async_trait]
-impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
+impl RPCForwarder<OwnedReadHalf, OwnedWriteHalf> for JSONRPCForwarder {
     async fn connect_stream(
         &self,
         directory: &Path,
@@ -81,7 +81,7 @@ impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
         FramedWrite<OwnedWriteHalf, LinesCodec>,
     )> {
         // Construct socket object, which send/receive newline-delimited messages.
-        let socket_path = directory.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
+        let listener_path = directory.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
         // See comment about SUN_LEN in editor.rs, but the TL;DR is that referencing a socket node
         // from a deeply nested or overly verbose path will fail on some platforms.
         // The extra song and dance to change into the parent directory first is not needed by our CLI
@@ -89,16 +89,16 @@ impl JSONRPCForwarder<OwnedReadHalf, OwnedWriteHalf> for UnixJSONRPCForwarder {
         // library without changing the parent thread's location for keeps.
         let previous_cwd = env::current_dir()?;
         env::set_current_dir(
-            socket_path
+            listener_path
                 .parent()
                 .context("Invalid socket creation location")?,
         )?;
-        let stream = UnixStream::connect(strip_current_dir(&socket_path)).await?;
+        let stream = UnixStream::connect(strip_current_dir(&listener_path)).await?;
         env::set_current_dir(previous_cwd)?;
-        let (socket_read, socket_write) = stream.into_split();
-        let socket_read = FramedRead::new(socket_read, LinesCodec::new());
-        let socket_write = FramedWrite::new(socket_write, LinesCodec::new());
-        Ok((socket_read, socket_write))
+        let (read_half, write_half) = stream.into_split();
+        let reader = FramedRead::new(read_half, LinesCodec::new());
+        let writer = FramedWrite::new(write_half, LinesCodec::new());
+        Ok((reader, writer))
     }
 }
 

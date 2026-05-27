@@ -6,10 +6,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
-use crate::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
+use crate::jsonrpc_forwarder::{JSONRPCForwarder, RPCForwarder};
 
 pub async fn run_client(directory: PathBuf) -> Result<()> {
-    let jsonrpc_forwarder = UnixJSONRPCForwarder {};
+    let jsonrpc_forwarder = JSONRPCForwarder {};
     jsonrpc_forwarder
         .connection(&directory)
         .await
