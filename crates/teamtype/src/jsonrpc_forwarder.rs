@@ -28,11 +28,9 @@ use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
+use super::config::CONFIG_DIR;
+use super::config::DEFAULT_SOCKET_NAME;
 use super::editor::strip_current_dir;
-
-// TODO: Put these defaults to a module accessible by config.rs as well.
-pub const DEFAULT_SOCKET_NAME: &str = "socket";
-pub const CONFIG_DIR: &str = ".teamtype";
 
 #[async_trait]
 pub trait JSONRPCForwarder<
