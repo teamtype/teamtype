@@ -54,7 +54,7 @@ pub const TEST_FILE_PATH: &str = "text";
 
 // These messages are sent to the task that owns the document.
 #[must_use]
-pub enum DocMessage {
+pub(crate) enum DocMessage {
     GetContent {
         response_tx: oneshot::Sender<Option<document::Content>>,
     },
@@ -108,7 +108,7 @@ type EphemeralMessageReceiver = broadcast::Receiver<EphemeralMessage>;
 ///
 /// Any `DocMessage` that is emitted via `DocumentActorHandle` should have an effect eventually.
 #[must_use]
-pub struct DocumentActor {
+struct DocumentActor {
     doc_message_rx: mpsc::Receiver<DocMessage>,
     doc_changed_ping_tx: DocChangedSender,
     ephemeral_message_tx: EphemeralMessageSender,
@@ -882,7 +882,7 @@ pub struct DocumentActorHandle {
 }
 
 impl DocumentActorHandle {
-    pub fn new(
+     fn new(
         app_config: &AppConfig,
         ui: &UserInterface,
         init: bool,
@@ -922,7 +922,7 @@ impl DocumentActorHandle {
     }
 
     /// The TCP and socket connections will send messages through this when they receive something.
-    pub async fn send_message(&self, message: DocMessage) {
+    pub(crate) async fn send_message(&self, message: DocMessage) {
         self.doc_message_tx
             .send(message)
             .await
@@ -930,12 +930,12 @@ impl DocumentActorHandle {
     }
 
     #[must_use]
-    pub fn subscribe_document_changes(&self) -> DocChangedReceiver {
+    pub(crate) fn subscribe_document_changes(&self) -> DocChangedReceiver {
         self.doc_changed_ping_tx.subscribe()
     }
 
     #[must_use]
-    pub fn subscribe_ephemeral_messages(&self) -> EphemeralMessageReceiver {
+    pub(crate) fn subscribe_ephemeral_messages(&self) -> EphemeralMessageReceiver {
         self.ephemeral_message_tx.subscribe()
     }
 
@@ -956,7 +956,7 @@ impl DocumentActorHandle {
     }
 
     #[must_use]
-    pub fn next_editor_id(&self) -> EditorId {
+    pub(crate) fn next_editor_id(&self) -> EditorId {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
 }
@@ -964,7 +964,7 @@ impl DocumentActorHandle {
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
-    pub address: String,
+    address: String,
     socket_path: PathBuf,
     app_config: AppConfig,
     #[expect(dead_code)]
