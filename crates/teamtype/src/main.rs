@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use docstr::docstr;
 use microxdg::XdgApp;
-use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
+use teamtype::client::run_client;
 use teamtype::types::UserInterface;
 use teamtype::{
     config::{self, AppConfig},
@@ -203,14 +203,6 @@ fn parse_share_config(command: Commands, directory: PathBuf, ui: &UserInterface)
     } else {
         unreachable!("Only Share commands beget Share configs.")
     }
-}
-
-async fn run_client(directory: PathBuf) -> Result<()> {
-    let jsonrpc_forwarder = UnixJSONRPCForwarder {};
-    jsonrpc_forwarder
-        .connection(&directory)
-        .await
-        .context("JSON-RPC forwarder failed")
 }
 
 async fn trap_shutdown() {

@@ -7,9 +7,9 @@
 #![doc = include_str!("../README.md")]
 
 // Public modules, either used by CLI or exported via crate or bindings
+pub mod client;
 pub mod config;
 pub mod daemon;
-pub mod jsonrpc_forwarder;
 pub mod logging;
 pub mod sandbox;
 pub mod traits;
@@ -24,6 +24,7 @@ pub mod editor_protocol;
 // Private modules
 mod editor;
 mod editor_connection;
+mod jsonrpc_forwarder;
 mod ot;
 mod path;
 mod peer;
