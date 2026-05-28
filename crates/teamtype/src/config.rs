@@ -20,9 +20,9 @@ use crate::sandbox;
 use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
-pub const DEFAULT_SOCKET_NAME: &str = "socket";
+pub(crate) const DEFAULT_SOCKET_NAME: &str = "socket";
 pub const CONFIG_DIR: &str = ".teamtype";
-pub const CONFIG_FILE: &str = "config";
+pub(crate) const CONFIG_FILE: &str = "config";
 // TODO: Remove this after a while.
 pub const LEGACY_CONFIG_DIR: &str = ".ethersync";
 
@@ -160,12 +160,12 @@ impl AppConfig {
     }
 
     #[must_use]
-    pub const fn is_host(&self) -> bool {
+    pub(crate) const fn is_host(&self) -> bool {
         self.peer.is_none()
     }
 }
 
-pub fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) -> Result<()> {
+fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) -> Result<()> {
     info!("Storing peer's address in .teamtype/config.");
 
     let content = format!("peer={peer}\n");
@@ -270,7 +270,7 @@ fn get_username_from_fallback_value(ui: &UserInterface) -> String {
 }
 
 #[must_use]
-pub fn get_git_username(base_dir: &Path) -> Option<String> {
+fn get_git_username(base_dir: &Path) -> Option<String> {
     local_git_username(base_dir)
         .or_else(|_| global_git_username())
         .ok()

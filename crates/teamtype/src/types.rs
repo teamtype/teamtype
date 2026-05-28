@@ -49,7 +49,7 @@ impl fmt::Display for TextDelta {
 }
 
 impl TextDelta {
-    pub fn apply_to(&self, text: &str) -> Result<String> {
+    pub(crate) fn apply_to(&self, text: &str) -> Result<String> {
         let chars: Vec<char> = text.chars().collect();
         let mut pos = 0;
         let mut result = String::new();
@@ -611,7 +611,7 @@ impl From<Vec<Chunk<'_>>> for TextDelta {
 }
 
 impl EditorTextDelta {
-    pub fn try_from_delta(delta: TextDelta, content: &str) -> Result<Self> {
+    pub(crate) fn try_from_delta(delta: TextDelta, content: &str) -> Result<Self> {
         let mut editor_ops = vec![];
         let mut position = 0;
         for op in delta {

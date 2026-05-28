@@ -86,7 +86,7 @@ fn is_user_readable_only(socket_path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
+pub fn strip_current_dir(path: &Path) -> PathBuf {
     let Ok(cwd) = env::current_dir() else {
         return path.to_path_buf();
     };
