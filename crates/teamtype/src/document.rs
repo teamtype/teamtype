@@ -135,14 +135,14 @@ impl Document {
     }
 
     #[must_use]
-    pub fn generate_sync_message(
+    pub(crate) fn generate_sync_message(
         &mut self,
         peer_state: &mut AutomergeSyncState,
     ) -> Option<AutomergeSyncMessage> {
         self.doc.sync().generate_sync_message(peer_state)
     }
 
-    pub fn apply_delta_to_doc(
+    pub(crate) fn apply_delta_to_doc(
         &mut self,
         delta: &TextDelta,
         file_path: &RelativePath,
@@ -206,7 +206,7 @@ impl Document {
 
     // This function is used to integrate text that was changed while the daemon was offline.
     // We need to calculate the patches compared to the current CRDT content, and apply them.
-    pub fn update_text(
+    pub(crate) fn update_text(
         &mut self,
         desired_text: &str,
         file_path: &RelativePath,

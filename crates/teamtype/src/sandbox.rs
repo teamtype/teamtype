@@ -22,7 +22,7 @@ use path_clean::PathClean;
 
 use crate::config::AppConfig;
 
-pub fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
+pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
     let bytes = fs::read(canonical_file_path)?;
@@ -48,7 +48,7 @@ pub fn write_file(
     Ok(())
 }
 
-pub fn append_file(
+pub(crate) fn append_file(
     absolute_base_dir: &Path,
     absolute_file_path: &Path,
     content: &[u8],
@@ -92,7 +92,7 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
     Ok(())
 }
 
-pub fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
     fs::create_dir_all(canonical_dir_path)?;
@@ -105,7 +105,7 @@ pub fn exists(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<boo
     Ok(canonical_file_path.exists())
 }
 
-pub fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf> {
+pub(crate) fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf> {
     let mut ignored_things = vec![".teamtype"];
     if !app_config.sync_vcs {
         ignored_things.extend([".teamtype", ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
@@ -175,7 +175,7 @@ pub fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf> {
 
 // TODO: Don't build the list of ignored files on every call.
 // TODO: Allow calling this for non-existing files.
-pub fn ignored(app_config: &AppConfig, absolute_file_path: &Path) -> Result<bool> {
+pub(crate) fn ignored(app_config: &AppConfig, absolute_file_path: &Path) -> Result<bool> {
     let canonical_file_path =
         check_inside_base_dir_and_canonicalize(&app_config.base_dir, absolute_file_path)?;
 
