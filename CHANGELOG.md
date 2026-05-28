@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Add a Nix Flake to the project so the repository can be run directly, used as a dependency, or just to supply a developer environment.
+
 Continue trying to contact Magic Wormhole on a 5 minute cycle in the event join codes fail to register.
 
 Add status widget to the Neovim plugin with basic information to be used in statuslines.

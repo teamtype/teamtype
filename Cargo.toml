@@ -71,9 +71,8 @@ unused_qualifications = "warn"
 
 [workspace.metadata.typos.default]
 locale = "en-us"
-extend-words = {
-    ot = "ot"
-}
+# Note: the TOML parser used in the Nix flake can't handle inline tables on multiple lines.
+extend-words = { ot = "ot" }
 extend-ignore-identifiers-re = [
     "2nd",
 ]
