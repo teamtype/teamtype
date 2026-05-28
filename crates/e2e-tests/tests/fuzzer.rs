@@ -87,7 +87,9 @@ async fn main() -> Result<()> {
 
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2;
-    app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
+    app_config2.peer = Some(config::Peer::SecretAddress(
+        daemon.secret_address().to_string(),
+    ));
     let peer = Daemon::new(app_config2, false, false, &ui.clone()).await?;
 
     // Wait until file2 appears.

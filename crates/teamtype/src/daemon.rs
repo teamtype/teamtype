@@ -943,10 +943,8 @@ impl DocumentActorHandle {
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
-    address: String,
     socket_path: PathBuf,
     app_config: AppConfig,
-    #[expect(dead_code)]
     // We need to store the connection manager in order to keep the connection alive.
     connection_manager: peer::ConnectionManager,
 }
@@ -1008,11 +1006,14 @@ impl Daemon {
 
         Ok(Self {
             document_handle,
-            address: address.to_owned(),
             socket_path,
             app_config,
             connection_manager,
         })
+    }
+
+    pub fn secret_address(&self) -> &str {
+        self.connection_manager.secret_address()
     }
 }
 
