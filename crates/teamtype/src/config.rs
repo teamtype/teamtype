@@ -23,8 +23,6 @@ use crate::wormhole::get_secret_address_from_wormhole;
 pub(crate) const DEFAULT_SOCKET_NAME: &str = "socket";
 pub const CONFIG_DIR: &str = ".teamtype";
 pub(crate) const CONFIG_FILE: &str = "config";
-// TODO: Remove this after a while.
-pub const LEGACY_CONFIG_DIR: &str = ".ethersync";
 
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;

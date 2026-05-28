@@ -32,8 +32,11 @@ mod cli_ui;
 
 use cli_ui::ConsoleInteractions;
 
+// TODO: Remove this after a while.
+const LEGACY_CONFIG_DIR: &str = ".ethersync";
+
 fn has_ethersync_directory(dir: &Path) -> bool {
-    let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
+    let ethersync_dir = dir.join(LEGACY_CONFIG_DIR);
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
     sandbox::exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
@@ -312,7 +315,7 @@ fn setup_teamtype_directory(
     ui: &UserInterface,
 ) -> Result<()> {
     if has_ethersync_directory(directory) {
-        let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
+        let old_directory = directory.join(LEGACY_CONFIG_DIR);
 
         ui.error(&format!(
             "You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.",
@@ -321,7 +324,7 @@ fn setup_teamtype_directory(
 
         if ui.confirm(&format!(
             "Do you want to rename {}/ to {}/?",
-            config::LEGACY_CONFIG_DIR,
+            LEGACY_CONFIG_DIR,
             config::CONFIG_DIR,
         ))? {
             let new_directory = directory.join(config::CONFIG_DIR);
@@ -329,7 +332,7 @@ fn setup_teamtype_directory(
         } else {
             bail!(
                 "Aborting launch. Rename or remove the {} directory yourself to continue.",
-                config::LEGACY_CONFIG_DIR
+                LEGACY_CONFIG_DIR
             );
         }
     }
