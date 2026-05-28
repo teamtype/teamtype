@@ -113,6 +113,9 @@ lint-manifests:
 lint-rust:
     {{ cargo }} clippy
 
+doc:
+    {{ cargo }} doc --all-features --no-deps --open -p teamtype
+
 [group('test')]
 test *ARGS: (test-cargo ARGS)
 
