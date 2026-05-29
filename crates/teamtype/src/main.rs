@@ -5,9 +5,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::env::current_dir;
+use std::panic;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::{env, panic};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
@@ -289,7 +290,7 @@ fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<Pat
         Some(temporary_directory) => &temporary_directory.path().to_path_buf(),
         None => match cli.directory {
             Some(ref directory) => directory,
-            None => &get_current_directory()?,
+            None => &current_dir().context("Could not access current directory")?,
         },
     };
     let directory = directory.canonicalize().with_context(|| {
@@ -354,8 +355,4 @@ fn setup_teamtype_directory(
         }
     }
     Ok(())
-}
-
-fn get_current_directory() -> Result<PathBuf> {
-    env::current_dir().context("Could not access current directory")
 }
