@@ -13,11 +13,9 @@ use std::{env, panic};
 use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
-use dialoguer::Confirm;
 use docstr::docstr;
 use microxdg::XdgApp;
 use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
-use teamtype::traits::Interactions;
 use teamtype::types::UserInterface;
 use teamtype::{
     config::{self, AppConfig},
@@ -31,22 +29,9 @@ use tracing::{debug, info, warn};
 use self::cli::{Cli, Commands, ShareJoinFlags};
 
 mod cli;
+mod cli_ui;
 
-#[derive(Clone)]
-struct ConsoleInteractions {}
-
-impl Interactions for ConsoleInteractions {
-    fn confirm(&self, question: &str) -> Result<bool> {
-        Confirm::new()
-            .with_prompt(question)
-            .interact()
-            .context("Failed to read answer to y/n prompt")
-    }
-
-    fn inform(&self, message: &str) {
-        println!("{message}");
-    }
-}
+use cli_ui::ConsoleInteractions;
 
 fn has_ethersync_directory(dir: &Path) -> bool {
     let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
