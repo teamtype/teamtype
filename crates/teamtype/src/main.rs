@@ -13,18 +13,17 @@ use std::process::exit;
 use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
-use docstr::docstr;
 use microxdg::XdgApp;
 use teamtype::client::run_client;
+use teamtype::daemon::run_daemon;
 use teamtype::types::UserInterface;
 use teamtype::{
     config::{self, AppConfig},
-    daemon::Daemon,
     logging, sandbox,
 };
 use tempfile::{TempDir, tempdir_in};
 use tokio::signal;
-use tracing::{debug, info};
+use tracing::{info};
 
 use self::cli::{Cli, Commands, ShareJoinFlags};
 
@@ -93,36 +92,6 @@ async fn main() -> Result<()> {
     trap_shutdown().await;
 
     Ok(())
-}
-
-async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: &UserInterface) -> Result<Daemon> {
-    let persist = !config::has_git_remote(&app_config.base_dir);
-    if !persist {
-        // TODO: drop .teamtype/doc here? Would that be rude?
-        info!("Detected a Git remote");
-        ui.inform("Detected a Git remote: Assuming a pair-programming use-case and starting a new history.");
-    }
-
-    config::ensure_teamtype_is_ignored(&app_config.base_dir)?;
-
-    if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
-        info!("Local user configuration detected in sync-vcs mode");
-        ui.inform(docstr!(
-            /// WARNING: You have a local user configuration in your .git/config.
-            ///          In --sync-vcs mode, this file will also be synchronized between peers.
-            ///          If your version "wins", all peers will have the same Git identity.
-            ///          As a workaround, you could use `git commit --author`.
-        ));
-    }
-
-    debug!("Starting Teamtype on {}.", app_config.base_dir.display());
-
-    // Setup a new daemon from the derived config. Immediately join the handle because that's what
-    // actually starts the local socket and any configured network connections. Return the result
-    // so the calling context can determine when to terminate.
-    Daemon::new(app_config, init_doc, persist, ui)
-        .await
-        .context("Failed to launch the daemon")
 }
 
 async fn parse_join_config(
