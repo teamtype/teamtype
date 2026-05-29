@@ -102,4 +102,27 @@ USAGE                                                           *teamtype-usage*
     are present, gives you a selection menu.
     It will automatically unfollow as soon as a key is pressed.
 
+==============================================================================
+STATUS LINE                                               *teamtype-status-line*
+
+Teamtype exposes a `require("teamtype").status()` function, which displays a
+brief summary of connection status and where other people are editing. You can
+add this to your status line by, for example, using a plugin like lualine and
+a lualine configuration snippet like this:
+>lua
+  sections = {
+    lualine_c = {
+        {
+            function()
+                return require("teamtype").status()
+            end,
+        },
+    },
+  }
+
+Lua functions can also be reached using Vim's status line escape codes if your
+status line is configured that way, e.g. to replace the whole status line:
+
+  :set statusline=%!v:lua.require('teamtype').status()
+<
  vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

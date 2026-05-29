@@ -62,7 +62,8 @@ It should show the message "Not connected to Teamtype daemon."
 
 ## Tips
 
-We recommend creating mappings for the `:TeamtypeJumpToCursor` and `:TeamtypeFollow` command, see above configurations for examples.
+- Create mappings for the `:TeamtypeJumpToCursor` and `:TeamtypeFollow` command, see above configurations for examples.
+- Add the output of `require("teamtype").status()` to your status bar, see the [help file](doc/teamtype.txt) for an example.
 
 ## Configuration
 
