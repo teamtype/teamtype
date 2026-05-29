@@ -18,12 +18,23 @@ use crate::types::UserInterface;
 const LEGACY_CONFIG_DIR: &str = ".ethersync";
 
 pub fn setup_teamtype_directory(
-    directory: &Path,
-    temporary_directory: Option<&TempDir>,
+    directory: Option<&Path>,
     ui: &UserInterface,
-) -> Result<()> {
-    if has_ethersync_directory(directory) {
-        let old_directory = directory.join(LEGACY_CONFIG_DIR);
+) -> Result<(PathBuf, Option<TempDir>)> {
+    let (base_dir, temp_dir) = if let Some(directory) = directory.as_ref() {
+        let base_dir = directory.canonicalize().with_context(|| {
+            format!(
+                "Could not compute the absolute, canonical form of the path of directory {}",
+                directory.display(),
+            )
+        })?;
+        (base_dir, None)
+    } else {
+        let temp_dir = setup_temporary_directory()?;
+        (temp_dir.path().to_path_buf(), Some(temp_dir))
+    };
+    if has_ethersync_directory(&base_dir) {
+        let old_directory = base_dir.join(LEGACY_CONFIG_DIR);
 
         warn!(
             "You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.",
@@ -35,41 +46,39 @@ pub fn setup_teamtype_directory(
             LEGACY_CONFIG_DIR,
             config::CONFIG_DIR,
         ))? {
-            let new_directory = directory.join(config::CONFIG_DIR);
-            sandbox::rename_file(directory, &old_directory, &new_directory)?;
+            let new_directory = base_dir.join(config::CONFIG_DIR);
+            sandbox::rename_file(&base_dir, &old_directory, &new_directory)?;
         } else {
             bail!(
-                "Aborting launch. Rename or remove the {} directory yourself to continue.",
-                LEGACY_CONFIG_DIR
+                "Aborting launch. Rename or remove the {LEGACY_CONFIG_DIR} directory yourself to continue."
             );
         }
     }
-    if !has_teamtype_directory(directory) {
-        let teamtype_dir = directory.join(config::CONFIG_DIR);
-        let directory_is_temporary_directory = temporary_directory.is_some();
-        if directory_is_temporary_directory {
-            ui.inform!(&format!(
+    if !has_teamtype_directory(&base_dir) {
+        let teamtype_dir = base_dir.join(config::CONFIG_DIR);
+        if directory.is_none() {
+            ui.inform(&format!(
                 "'{}' is the temporary directory that is used as a Teamtype directory.",
-                &directory.display()
+                &base_dir.display()
             ));
-            sandbox::create_dir(directory, &teamtype_dir)?;
+            sandbox::create_dir(&base_dir, &teamtype_dir)?;
         } else {
             ui.inform(&format!(
                 "'{}' hasn't been used as a Teamtype directory before.",
-                directory.display(),
+                base_dir.display(),
             ));
             if ui.confirm(&format!(
                 "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
                 config::CONFIG_DIR
             ))? {
-                sandbox::create_dir(directory, &teamtype_dir)?;
+                sandbox::create_dir(&base_dir, &teamtype_dir)?;
                 info!("Created! Resuming launch.");
             } else {
                 bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
             }
         }
     }
-    Ok(())
+    Ok((base_dir, temp_dir))
 }
 
 fn has_ethersync_directory(dir: &Path) -> bool {

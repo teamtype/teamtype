@@ -17,9 +17,7 @@ use teamtype::config::{self, AppConfig};
 use teamtype::daemon::run_daemon;
 use teamtype::logging;
 use teamtype::setup::setup_teamtype_directory;
-use teamtype::setup::setup_temporary_directory;
 use teamtype::types::UserInterface;
-use tempfile::TempDir;
 use tokio::signal;
 use tracing::info;
 
@@ -48,9 +46,14 @@ async fn main() -> Result<()> {
 
     let ui = &UserInterface::wrap(ConsoleInteractions {});
 
-    let temporary_directory = get_temporary_directory(&cli)?;
-    let directory = get_directory(temporary_directory.as_ref(), &cli)?;
-    setup_teamtype_directory(&directory, temporary_directory.as_ref(), ui)
+    // Determine if the CLI flags request proceeding with a temporary directory, some user
+    // specified directory, or fallback to just the current directory.
+    let directory = parse_directory_config(&cli)?;
+
+    // Now that we know what the base directory is going to be, either validate our access to it and
+    // an existing config therein or setup a new config. In the event this step creates a temporary
+    // directory we need to hang onto the handle as long as we're running.
+    let (base_dir, _tempdir) = setup_teamtype_directory(directory.as_deref(), ui)
         .context("Failed to find .teamtype/ directory")?;
 
     // TODO: If the result of this joined future handles were to go out of scope and hence be
@@ -59,13 +62,13 @@ async fn main() -> Result<()> {
     // with the daemon module and merits refactoring so the long running socket and network
     // listeners properly listen to the mpsc channel or receive and process a cancellation token.
     let _handle = match cli.command {
-        Commands::Client => return run_client(directory.clone()).await,
+        Commands::Client => return run_client(base_dir).await,
         Commands::Join { .. } => {
-            let join_config = parse_join_config(cli.command, directory.clone(), ui).await?;
+            let join_config = parse_join_config(cli.command, base_dir, ui).await?;
             run_daemon(join_config, false, ui).await
         }
         Commands::Share { init, .. } => {
-            let share_config = parse_share_config(cli.command, directory.clone(), ui);
+            let share_config = parse_share_config(cli.command, base_dir, ui);
             run_daemon(share_config, init, ui).await
         }
     }?;
@@ -77,7 +80,7 @@ async fn main() -> Result<()> {
 
 async fn parse_join_config(
     command: Commands,
-    directory: PathBuf,
+    base_dir: PathBuf,
     ui: &UserInterface,
 ) -> Result<AppConfig> {
     if let Commands::Join {
@@ -96,7 +99,7 @@ async fn parse_join_config(
     } = command
     {
         let app_config_cli = AppConfig {
-            base_dir: directory,
+            base_dir,
             peer: join_code.map(config::Peer::JoinCode),
             emit_join_code: false,
             emit_secret_address: false,
@@ -118,7 +121,7 @@ async fn parse_join_config(
     }
 }
 
-fn parse_share_config(command: Commands, directory: PathBuf, ui: &UserInterface) -> AppConfig {
+fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterface) -> AppConfig {
     if let Commands::Share {
         no_join_code,
         shared_flags:
@@ -136,7 +139,7 @@ fn parse_share_config(command: Commands, directory: PathBuf, ui: &UserInterface)
     } = command
     {
         let app_config_cli = AppConfig {
-            base_dir: directory,
+            base_dir,
             peer: None,
             emit_join_code: !no_join_code,
             emit_secret_address: show_secret_address,
@@ -154,6 +157,37 @@ fn parse_share_config(command: Commands, directory: PathBuf, ui: &UserInterface)
     } else {
         unreachable!("Only Share commands beget Share configs.")
     }
+}
+
+fn parse_directory_config(cli: &Cli) -> Result<Option<PathBuf>> {
+    match cli.command {
+        Commands::Share {
+            shared_flags:
+                ShareJoinFlags {
+                    temporary_directory,
+                    ..
+                },
+            ..
+        }
+        | Commands::Join {
+            shared_flags:
+                ShareJoinFlags {
+                    temporary_directory,
+                    ..
+                },
+            ..
+        } => {
+            if temporary_directory {
+                return Ok(None);
+            }
+        }
+        Commands::Client => {}
+    }
+    let directory = match cli.directory {
+        Some(ref directory) => directory,
+        None => &current_dir().context("Could not access current directory")?,
+    };
+    Ok(Some(directory.clone()))
 }
 
 async fn trap_shutdown() {
@@ -182,49 +216,4 @@ async fn trap_shutdown() {
             info!("Got SIGTERM, shutting down");
         }
     }
-}
-
-fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
-    match cli.command {
-        Commands::Share {
-            shared_flags:
-                ShareJoinFlags {
-                    temporary_directory,
-                    ..
-                },
-            ..
-        }
-        | Commands::Join {
-            shared_flags:
-                ShareJoinFlags {
-                    temporary_directory,
-                    ..
-                },
-            ..
-        } => {
-            if temporary_directory {
-                Ok(Some(setup_temporary_directory()?))
-            } else {
-                Ok(None)
-            }
-        }
-        Commands::Client => Ok(None),
-    }
-}
-
-fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<PathBuf> {
-    let directory = match temporary_directory {
-        Some(temporary_directory) => &temporary_directory.path().to_path_buf(),
-        None => match cli.directory {
-            Some(ref directory) => directory,
-            None => &current_dir().context("Could not access current directory")?,
-        },
-    };
-    let directory = directory.canonicalize().with_context(|| {
-        format!(
-            "Could not compute the absolute, canonical form of the path of directory {}",
-            directory.display(),
-        )
-    })?;
-    Ok(directory)
 }
