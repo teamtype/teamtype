@@ -7,23 +7,21 @@
 
 use std::env::current_dir;
 use std::panic;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::exit;
 
-use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
-use microxdg::XdgApp;
 use teamtype::client::run_client;
+use teamtype::config::{self, AppConfig};
 use teamtype::daemon::run_daemon;
+use teamtype::logging;
+use teamtype::setup::setup_teamtype_directory;
+use teamtype::setup::setup_temporary_directory;
 use teamtype::types::UserInterface;
-use teamtype::{
-    config::{self, AppConfig},
-    logging, sandbox,
-};
-use tempfile::{TempDir, tempdir_in};
+use tempfile::TempDir;
 use tokio::signal;
-use tracing::{info};
+use tracing::info;
 
 use self::cli::{Cli, Commands, ShareJoinFlags};
 
@@ -31,23 +29,6 @@ mod cli;
 mod cli_ui;
 
 use cli_ui::ConsoleInteractions;
-
-// TODO: Remove this after a while.
-const LEGACY_CONFIG_DIR: &str = ".ethersync";
-
-fn has_ethersync_directory(dir: &Path) -> bool {
-    let ethersync_dir = dir.join(LEGACY_CONFIG_DIR);
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
-}
-
-fn has_teamtype_directory(dir: &Path) -> bool {
-    let teamtype_dir = dir.join(config::CONFIG_DIR);
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -222,36 +203,13 @@ fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
             ..
         } => {
             if temporary_directory {
-                let temporary_directory_parent_directory = &get_app_cache_dir()?;
-                Ok(Some(
-                    tempdir_in(temporary_directory_parent_directory).with_context(|| {
-                        format!(
-                            "Failed to create a temporary directory in the directory {}",
-                            temporary_directory_parent_directory.display()
-                        )
-                    })?,
-                ))
+                Ok(Some(setup_temporary_directory()?))
             } else {
                 Ok(None)
             }
         }
         Commands::Client => Ok(None),
     }
-}
-
-fn get_app_cache_dir() -> Result<PathBuf> {
-    let xdg = XdgApp::new("teamtype")?;
-    let app_cache_dir = xdg.app_cache()?;
-    let app_cache_dir_parent = app_cache_dir.parent().with_context(|| {
-        format!(
-            "Failed to get parent directory of the directory {}",
-            app_cache_dir.display()
-        )
-    })?;
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
-    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)?;
-    Ok(app_cache_dir)
 }
 
 fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<PathBuf> {
@@ -269,59 +227,4 @@ fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<Pat
         )
     })?;
     Ok(directory)
-}
-
-fn setup_teamtype_directory(
-    directory: &Path,
-    temporary_directory: Option<&TempDir>,
-    ui: &UserInterface,
-) -> Result<()> {
-    if has_ethersync_directory(directory) {
-        let old_directory = directory.join(LEGACY_CONFIG_DIR);
-
-        ui.error(&format!(
-            "You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.",
-            &old_directory.display()
-        ));
-
-        if ui.confirm(&format!(
-            "Do you want to rename {}/ to {}/?",
-            LEGACY_CONFIG_DIR,
-            config::CONFIG_DIR,
-        ))? {
-            let new_directory = directory.join(config::CONFIG_DIR);
-            sandbox::rename_file(directory, &old_directory, &new_directory)?;
-        } else {
-            bail!(
-                "Aborting launch. Rename or remove the {} directory yourself to continue.",
-                LEGACY_CONFIG_DIR
-            );
-        }
-    }
-    if !has_teamtype_directory(directory) {
-        let teamtype_dir = directory.join(config::CONFIG_DIR);
-        let directory_is_temporary_directory = temporary_directory.is_some();
-        if directory_is_temporary_directory {
-            ui.inform(&format!(
-                "'{}' is the temporary directory that is used as a Teamtype directory.",
-                &directory.display()
-            ));
-            sandbox::create_dir(directory, &teamtype_dir)?;
-        } else {
-            ui.inform(&format!(
-                "'{}' hasn't been used as a Teamtype directory before.",
-                directory.display(),
-            ));
-            if ui.confirm(&format!(
-                "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
-                config::CONFIG_DIR
-            ))? {
-                sandbox::create_dir(directory, &teamtype_dir)?;
-                info!("Created! Resuming launch.");
-            } else {
-                bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
-            }
-        }
-    }
-    Ok(())
 }
