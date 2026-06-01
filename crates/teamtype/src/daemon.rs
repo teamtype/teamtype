@@ -162,7 +162,6 @@ impl DocumentActor {
         app_config: AppConfig,
         ui: &UserInterface,
         init: bool,
-        is_host: bool,
         persist: bool,
     ) -> Self {
         // If there is a persisted version in base_dir/.teamtype/doc, load it.
@@ -199,7 +198,7 @@ impl DocumentActor {
 
         if persistence_file_exists && persist {
             s.read_current_content_from_dir(init);
-        } else if is_host {
+        } else if s.app_config.is_host() {
             s.read_current_content_from_dir(true);
         }
 
@@ -918,7 +917,6 @@ impl DocumentActorHandle {
         app_config: &AppConfig,
         ui: &UserInterface,
         init: bool,
-        is_host: bool,
         persist: bool,
     ) -> Self {
         // The document task will receive messages on this channel.
@@ -939,7 +937,6 @@ impl DocumentActorHandle {
             app_config.clone(),
             ui,
             init,
-            is_host,
             persist,
         );
 
@@ -1012,9 +1009,7 @@ impl Daemon {
     ) -> Result<Self> {
         debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
-        let is_host = app_config.is_host();
-
-        let document_handle = DocumentActorHandle::new(&app_config, ui, init, is_host, persist);
+        let document_handle = DocumentActorHandle::new(&app_config, ui, init, persist);
 
         let base_dir = &app_config.base_dir;
 
@@ -1189,7 +1184,6 @@ mod tests {
                         ..Default::default()
                     },
                     ui,
-                    true,
                     true,
                     false,
                 )
