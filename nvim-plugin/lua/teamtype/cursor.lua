@@ -1,6 +1,7 @@
 -- SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 -- SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 -- SPDX-FileCopyrightText: 2025 mbitard <code@bitard.fr>
+-- SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 --
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -159,15 +160,15 @@ function M.track_cursor(bufnr, callback)
             local ranges = {}
 
             -- TODO: Split this code into multiple functions.
-            local visualSelection = vim.fn.mode() == "v" or vim.fn.mode() == "V" or vim.fn.mode() == ""
+            local visual_selection = vim.fn.mode() == "v" or vim.fn.mode() == "V" or vim.fn.mode() == ""
 
             -- We only care about "ModeChanged" if we were in visual mode to clear the range seen by the peer.
             if ev.event == "ModeChanged" and not was_visual_selection then
                 return
             end
-            was_visual_selection = visualSelection
+            was_visual_selection = visual_selection
 
-            if visualSelection then
+            if visual_selection then
                 -- This is the "active end" that the protocol talks about.
                 local end_row, end_col = unpack(vim.api.nvim_win_get_cursor(0))
                 -- Whereas this corresponds the the "anchor" in other range data structures.

@@ -1,5 +1,6 @@
 -- SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 -- SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
+-- SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 --
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -14,12 +15,12 @@ function M.find_directory(filename, marker)
             if vim.fn.isdirectory(path .. "/" .. marker) == 1 then
                 return path
             end
-            local parentPath = vim.fn.fnamemodify(path, ":h")
-            if parentPath == path then
+            local parent_path = vim.fn.fnamemodify(path, ":h")
+            if parent_path == path then
                 -- We can't progress further like this.
                 return nil
             else
-                path = parentPath
+                path = parent_path
             end
         end
     else
