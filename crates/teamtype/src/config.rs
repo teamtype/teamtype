@@ -21,7 +21,7 @@ use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
 pub(crate) const DEFAULT_SOCKET_NAME: &str = "socket";
-pub const CONFIG_DIR: &str = ".teamtype";
+pub(crate) const CONFIG_DIR: &str = ".teamtype";
 pub(crate) const CONFIG_FILE: &str = "config";
 
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
@@ -172,7 +172,7 @@ fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) -> Res
 }
 
 #[must_use]
-pub fn has_git_remote(path: &Path) -> bool {
+pub(crate) fn has_git_remote(path: &Path) -> bool {
     if let Ok(repo) = find_git_repo(path)
         && let Ok(remotes) = repo.remotes()
     {
@@ -193,7 +193,7 @@ fn teamtype_directory_should_be_ignored_but_isnt(path: &Path) -> bool {
 }
 
 /// Test if the local Git config has *any* user config.
-pub fn has_local_user_config(base_dir: &Path) -> Result<bool> {
+pub(crate) fn has_local_user_config(base_dir: &Path) -> Result<bool> {
     let snapshot = find_git_repo(base_dir)?.config()?.snapshot()?;
     let mut entries = snapshot.entries(Some("user\\."))?;
     while let Some(Ok(entry)) = entries.next() {
@@ -316,7 +316,7 @@ fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn ensure_teamtype_is_ignored(directory: &Path) -> Result<()> {
+pub(crate) fn ensure_teamtype_is_ignored(directory: &Path) -> Result<()> {
     if teamtype_directory_should_be_ignored_but_isnt(directory) {
         add_teamtype_to_local_gitignore(directory)?;
     }
