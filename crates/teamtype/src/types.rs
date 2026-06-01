@@ -201,7 +201,7 @@ impl FileTextDelta {
     }
 }
 
-pub type CursorId = String;
+pub(crate) type CursorId = String;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct CursorState {
