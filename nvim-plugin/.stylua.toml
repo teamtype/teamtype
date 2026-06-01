@@ -4,3 +4,4 @@
 
 indent_type = "Spaces"
 quote_style = "ForceDouble"
+space_after_function_names = "Definitions"
