@@ -159,7 +159,6 @@ impl DocumentActor {
         ephemeral_message_tx: EphemeralMessageSender,
         app_config: AppConfig,
         init: bool,
-        is_host: bool,
         persist: bool,
     ) -> Self {
         // If there is a persisted version in base_dir/.teamtype/doc, load it.
@@ -195,7 +194,7 @@ impl DocumentActor {
 
         if persistence_file_exists && persist {
             s.read_current_content_from_dir(init);
-        } else if is_host {
+        } else if s.app_config.is_host() {
             s.read_current_content_from_dir(true);
         }
 
@@ -902,7 +901,7 @@ pub struct DocumentActorHandle {
 }
 
 impl DocumentActorHandle {
-    fn new(app_config: &AppConfig, init: bool, is_host: bool, persist: bool) -> Self {
+    fn new(app_config: &AppConfig, init: bool, persist: bool) -> Self {
         // The document task will receive messages on this channel.
         let (doc_message_tx, doc_message_rx) = mpsc::channel(1);
 
@@ -920,7 +919,6 @@ impl DocumentActorHandle {
             ephemeral_message_tx.clone(),
             app_config.clone(),
             init,
-            is_host,
             persist,
         );
 
@@ -991,9 +989,7 @@ impl Daemon {
         persist: bool,
         ui: &UserInterface,
     ) -> Result<Self> {
-        let is_host = app_config.is_host();
-
-        let document_handle = DocumentActorHandle::new(&app_config, init, is_host, persist);
+        let document_handle = DocumentActorHandle::new(&app_config, init, persist);
 
         let base_dir = &app_config.base_dir;
 
@@ -1165,7 +1161,6 @@ mod tests {
                         base_dir: directory.path().to_path_buf(),
                         ..Default::default()
                     },
-                    true,
                     true,
                     false,
                 )
