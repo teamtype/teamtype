@@ -47,19 +47,6 @@ path = "crates/teamtype"
 strip = true
 opt-level = 3
 
-# 2-3x slower to compile, but produces a ~1.2x smaller binary.
-[profile.release-lto]
-inherits = "release"
-lto = true
-codegen-units = 1
-
-# Also quite slow to compile, but produces a ~1.6x smaller binary.
-[profile.release-size]
-inherits = "release"
-lto = true
-codegen-units = 1
-opt-level = "s"
-
 # The fuzzer in the e2e-tests crate will time out without optimizations enabled.
 # It is ignored by default, to run it one must use `cargo test --test fuzzer`.
 # Only the fuzzer tests actually time out without optimizations, and yes
