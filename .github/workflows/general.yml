@@ -68,6 +68,12 @@ jobs:
       - if: ${{ matrix.nvim-version == 'v0.11.2' && matrix.os != 'windows-latest' }}
         name: Run e2e fuzzer
         run: cargo test --locked --no-default-features -p e2e-tests --test fuzzer
+      - if: ${{ matrix.nvim-version == 'v0.11.2' }}
+        name: Upload test artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: teamtype-${{ matrix.os }}
+          path: target/debug/teamtype${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   check_formatting:
     name: Check Rust formatting
