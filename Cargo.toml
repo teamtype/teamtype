@@ -38,15 +38,6 @@ default-features = false
 [workspace.dependencies.teamtype]
 path = "crates/teamtype"
 
-# Stripping symbols (not debuginfo) reduces binary size by ~1.5x.
-# This is the default profile for `cargo install`:
-# https://doc.rust-lang.org/cargo/reference/profiles.html#profile-selection.
-# TODO: We may want to make [profile.release-size] the default
-# once we're out of the fast iteration development phase.
-[profile.release]
-strip = true
-opt-level = 3
-
 # The fuzzer in the e2e-tests crate will time out without optimizations enabled.
 # It is ignored by default, to run it one must use `cargo test --test fuzzer`.
 # Only the fuzzer tests actually time out without optimizations, and yes
