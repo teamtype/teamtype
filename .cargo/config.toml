@@ -14,3 +14,11 @@ TEAMTYPE_DEBUG_BINARY = { value = "target/debug/teamtype", relative = true }
 
 [target.'cfg(all(windows, target_env = "msvc"))']
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# Cross-compiling builds dependencies (e.g. Iroh) as DLLs that re-export
+# their entire entire API. Attempting to link these into the final build
+# ends up exceeding 65,000 symbols — killing GNU's ld argument parsing.
+# We don't actually need the symbols to be re-exported in the first place
+# since we aren't shipping the intermediary DLLs.
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-arg=-Wl,--exclude-all-symbols"]
