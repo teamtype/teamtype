@@ -18,8 +18,6 @@ reuse := require('reuse')
 stylua := require('stylua')
 typos := require('typos')
 
-export TEAMTYPE_BINARY := justfile_directory() + "/target/debug/teamtype"
-
 # By default Just will re-use the user's $SHELL. In order to make use of script
 # rules and more advanced shell features we need a more predictable runtime
 # environment. This setup is a little more strict than the default shell options
@@ -39,6 +37,9 @@ target := "host-tuple"
 profile := "dev"
 default-remote := "origin"
 default-branch := "main"
+
+resolve-target(target) := if target == "host-tuple" { `rustc --print host-tuple` } else { target }
+export TEAMTYPE_DEBUG_BINARY := justfile_directory() + f"/target/{{ resolve-target(target) }}/debug/teamtype"
 
 # With positional arguments enabled, we can pass all the arguments to the bash
 # shell in a way that will get expanded to the original 'word' breakdown. However,
@@ -77,11 +78,11 @@ build *ARGS:
 
 [group('build')]
 build-release *ARGS:
-    {{ just }} --set profile release build {{ ARGS }}
+    {{ just }} --set profile release --set target {{ target }} build {{ ARGS }}
 
 [group('build')]
 build-test *ARGS:
-    {{ just }} --set profile test build {{ ARGS }}
+    {{ just }} --set profile test --set target {{ target }} build {{ ARGS }}
 
 [group('format')]
 [parallel]
@@ -188,7 +189,7 @@ nvim *ARGS: build-test
 # Build and run Teamtype for testing (can be used from outside the project).
 [no-cd]
 teamtype *ARGS: build-test
-    $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
+    $TEAMTYPE_DEBUG_BINARY {{ maybe-pass(ARGS) }}
 
 # Get an early look at what the changelog draft would look like for a release.
 [group('release')]
