@@ -29,7 +29,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        nvim-version: [v0.9.5, v0.10.4, v0.11.2]
+        nvim-version: [v0.12.2]
+        include:
+          - os: ubuntu-latest
+            nvim-version: v0.9.5
+          - os: ubuntu-latest
+            nvim-version: v0.10.4
+          - os: ubuntu-latest
+            nvim-version: v0.11.7
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
