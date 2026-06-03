@@ -25,6 +25,18 @@ set unstable
 
 profile := "dev"
 
+# With positional arguments enabled, we can pass all the arguments to the bash
+# shell in a way that will get expanded to the original 'word' breakdown. However,
+# when we do this blindly in all cases and the job's positional arguments happen
+# to be empty the shell decides we must have wanted a placeholder for an empty
+# string argument — a construct that is invalid for many of our commands. The
+# solution is to decide up front whether we have any positional arguments at all
+# and then either not pass anything or pass them in a way that will get expanded
+# properly. As a caveat we can't use this workaround for nested jobs that pass
+# positional arguments to other jobs since one layer of quoting is lost, but we
+# don't need to because none of those happen to use spaces in arguments anyway.
+maybe-pass(args) := if args != "" { '"$@"' } else { "" }
+
 [group('check')]
 [parallel]
 check *ARGS: (check-cargo ARGS) check-typos
@@ -123,12 +135,13 @@ perfect: check lint test fuzz
 #     alias nvim='just --justfile ~/path/to/teamtype/Justfile nvim'
 #
 # Run Neovim with the plug-in for testing (can be used from outside the project).
+[script]
 [no-cd]
 nvim *ARGS: build-test
     {{ nvim }} --clean \
         --cmd {{ quote("let &runtimepath=\"" + justfile_directory() + "/nvim-plugin,\" . &runtimepath") }} \
         --cmd 'runtime plugin/teamtype.lua' \
-        {{ ARGS }}
+        {{ maybe-pass(ARGS) }}
 
 # This task will build (if necessary) and run the Teamtype CLI via the development version from this repository.
 # This is especially useful for manual testing and can be used from anywhere by invoking the Justfile externally,
@@ -137,6 +150,7 @@ nvim *ARGS: build-test
 #     alias teamtype='just --justfile ~/path/to/teamtype/Justfile teamtype'
 #
 # Build and run Teamtype for testing (can be used from outside the project).
+[script]
 [no-cd]
 teamtype *ARGS: build-test
-    $TEAMTYPE_BINARY {{ ARGS }}
+    $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
