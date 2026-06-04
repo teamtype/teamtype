@@ -22,6 +22,9 @@ use tracing::{debug, warn};
 use crate::path::RelativePath;
 use crate::traits::Interactions;
 
+/// A UI for Teamype is any thread-safe reference-counting pointer to a struct that implements the
+/// [`Interactions`] trait. Running any of the listening modes will require a UI. This can be setup
+/// early before attempting any configuration or running any actions.
 pub type UserInterface = Arc<dyn Interactions>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
