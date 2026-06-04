@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -9,7 +10,7 @@ use anyhow::Result;
 use docstr::docstr;
 use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transfer};
 use tokio::time::sleep;
-use tracing::{info, warn};
+use tracing::{error, info};
 
 const NETWORK_RETRY: Duration = Duration::from_mins(5);
 
@@ -29,10 +30,9 @@ pub async fn put_secret_address_into_wormhole(
             loop {
                 let Ok(mailbox_connection) = MailboxConnection::create(config.clone(), 2).await
                 else {
-                    warn!(
-                        "Failed to register a new join code via Magic Wormhole. Automatic retry in {:?}. Peers who joined before can still re-connect without a code.",
-                        NETWORK_RETRY
-                    );
+                    ui.error(&format!(
+                        "Failed to register a new join code via Magic Wormhole. Automatic retry in {NETWORK_RETRY:?}. Peers who joined before can still re-connect without a code."
+                    ));
                     sleep(NETWORK_RETRY).await;
                     continue;
                 };
@@ -50,7 +50,10 @@ pub async fn put_secret_address_into_wormhole(
                 if let Ok(mut wormhole) = Wormhole::connect(mailbox_connection).await {
                     let _ = wormhole.send(payload.clone()).await;
                 } else {
-                    warn!("Failed to share secret address. Did your peer mistype the join code?");
+                    error!("Failed to share secret address.");
+                    ui.error(
+                        "Failed to share secret address. Did your peer mistype the join code?",
+                    );
                 }
 
                 // Print a new join code in the next iteration of the for loop, to allow more people
