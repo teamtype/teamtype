@@ -7,7 +7,6 @@
 
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::sync::Arc;
 use std::{env, panic};
 
 use anyhow::bail;
@@ -63,11 +62,11 @@ async fn main() -> Result<()> {
 
     logging::initialize(cli.verbose).context("Failed to initialize logging")?;
 
-    let ui: UserInterface = Arc::new(ConsoleInteractions {});
+    let ui = &UserInterface::wrap(ConsoleInteractions {});
 
     let temporary_directory = get_temporary_directory(&cli)?;
     let directory = get_directory(temporary_directory.as_ref(), &cli)?;
-    setup_teamtype_directory(&directory, temporary_directory.as_ref(), &ui)
+    setup_teamtype_directory(&directory, temporary_directory.as_ref(), ui)
         .context("Failed to find .teamtype/ directory")?;
 
     // TODO: If the result of this joined future handles were to go out of scope and hence be
@@ -78,12 +77,12 @@ async fn main() -> Result<()> {
     let _handle = match cli.command {
         Commands::Client => return run_client(directory.clone()).await,
         Commands::Join { .. } => {
-            let join_config = parse_join_config(cli.command, directory.clone(), ui.clone()).await?;
-            run_daemon(join_config, false, ui.clone()).await
+            let join_config = parse_join_config(cli.command, directory.clone(), ui).await?;
+            run_daemon(join_config, false, ui).await
         }
         Commands::Share { init, .. } => {
-            let share_config = parse_share_config(cli.command, directory.clone(), &ui);
-            run_daemon(share_config, init, ui.clone()).await
+            let share_config = parse_share_config(cli.command, directory.clone(), ui);
+            run_daemon(share_config, init, ui).await
         }
     }?;
 
@@ -92,7 +91,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: UserInterface) -> Result<Daemon> {
+async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: &UserInterface) -> Result<Daemon> {
     let persist = !config::has_git_remote(&app_config.base_dir);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
@@ -125,7 +124,7 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: UserInterface) ->
 async fn parse_join_config(
     command: Commands,
     directory: PathBuf,
-    ui: UserInterface,
+    ui: &UserInterface,
 ) -> Result<AppConfig> {
     if let Commands::Join {
         join_code,
@@ -154,7 +153,7 @@ async fn parse_join_config(
             sync_vcs,
             username,
         };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli, &ui);
+        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli, ui);
         app_config = app_config
             .resolve_peer()
             .await

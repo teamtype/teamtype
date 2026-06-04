@@ -957,7 +957,7 @@ impl Daemon {
         app_config: AppConfig,
         init: bool,
         persist: bool,
-        ui: UserInterface,
+        ui: &UserInterface,
     ) -> Result<Self> {
         let is_host = app_config.is_host();
 
@@ -969,7 +969,7 @@ impl Daemon {
         let socket_path = base_dir
             .join(config::CONFIG_DIR)
             .join(config::DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), &ui)?;
+        editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
 
         // Start file watcher.
         spawn_file_watcher(&app_config, document_handle.clone());
@@ -980,14 +980,10 @@ impl Daemon {
         }
 
         // Start connection manager.
-        let connection_manager = peer::ConnectionManager::new(
-            &app_config,
-            document_handle.clone(),
-            base_dir,
-            ui.clone(),
-        )
-        .await
-        .expect("Failed to start connection manager");
+        let connection_manager =
+            peer::ConnectionManager::new(&app_config, document_handle.clone(), base_dir, ui)
+                .await
+                .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {
@@ -1000,12 +996,8 @@ impl Daemon {
             ));
         }
         if app_config.emit_join_code {
-            put_secret_address_into_wormhole(
-                address,
-                app_config.magic_wormhole_relay.clone(),
-                ui.clone(),
-            )
-            .await;
+            put_secret_address_into_wormhole(address, app_config.magic_wormhole_relay.clone(), ui)
+                .await;
         }
         if let Some(config::Peer::SecretAddress(ref secret_address)) = app_config.peer {
             connection_manager
