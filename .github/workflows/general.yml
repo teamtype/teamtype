@@ -7,16 +7,8 @@ name: General tests
 on:
   push:
     branches:
-      - 'main'
-    paths:
-      - 'crates/**'
-      - 'nvim-plugin/**'
-      - '.github/workflows/general.yml'
+      - main
   pull_request:
-    paths:
-      - 'crates/**'
-      - 'nvim-plugin/**'
-      - '.github/workflows/general.yml'
 
 env:
   CARGO_TERM_COLOR: always
