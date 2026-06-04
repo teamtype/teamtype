@@ -54,6 +54,8 @@ impl Interactions for FuzzerInteractions {
     }
 
     fn inform(&self, _message: &str) {}
+
+    fn error(&self, _message: &str) {}
 }
 
 #[tokio::main]

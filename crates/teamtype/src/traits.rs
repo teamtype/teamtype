@@ -19,4 +19,7 @@ pub trait Interactions: Send + Sync {
     /// Give a status update about the daemon. This includes messages about join codes, peer
     /// connection and disconnection notices, etc.
     fn inform(&self, message: &str);
+
+    /// Raise an error message to the users attention in the event that something went sideways.
+    fn error(&self, message: &str);
 }
