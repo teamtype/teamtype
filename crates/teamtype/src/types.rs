@@ -5,8 +5,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::borrow::Cow;
+use std::fmt::{self, Display, Formatter};
 use std::sync::Arc;
-use std::{fmt, vec};
+use std::vec::{IntoIter, Vec};
 
 use anyhow::bail;
 use anyhow::{Context, Error, Result};
@@ -27,7 +28,7 @@ use crate::traits::Interactions;
 pub struct InteractionsHandle(Arc<dyn Interactions>);
 
 impl fmt::Debug for InteractionsHandle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(self.0.type_name())
     }
 }
@@ -73,8 +74,8 @@ impl UserInterface {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);
 
-impl fmt::Display for TextDelta {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for TextDelta {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let op_strings: Vec<String> = self.0.iter().map(|op| format!("{op}")).collect();
         write!(f, "[{}]", op_strings.join(", "))
     }
@@ -114,7 +115,7 @@ impl TextDelta {
 }
 
 impl IntoIterator for TextDelta {
-    type IntoIter = vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     type Item = TextOp;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -129,8 +130,8 @@ pub enum TextOp {
     Delete(usize),
 }
 
-impl fmt::Display for TextOp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for TextOp {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Retain(n) => write!(f, "{n}"),
             Self::Insert(str) => write!(f, "\"{str}\""),
@@ -143,7 +144,7 @@ impl fmt::Display for TextOp {
 pub struct EditorTextDelta(pub Vec<EditorTextOp>);
 
 impl IntoIterator for EditorTextDelta {
-    type IntoIter = vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     type Item = EditorTextOp;
 
     fn into_iter(self) -> Self::IntoIter {
