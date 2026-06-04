@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::collections::{HashMap, HashSet};
-use std::fmt;
+use std::fmt::{self, Debug, Formatter};
 use std::iter::repeat_with;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -110,8 +110,8 @@ pub(crate) enum DocMessage {
     ReceiveEphemeral(EphemeralMessage),
 }
 
-impl fmt::Debug for DocMessage {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Debug for DocMessage {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let repr = match self {
             Self::GetContent { .. } => "GetContent".to_string(),
             Self::FromEditor(id, m) => format!("FromEditor({id}, {m:?})"),
