@@ -18,16 +18,15 @@ use teamtype::types::UserInterface;
 use tokio::signal;
 use tracing::info;
 
-use self::cli::{Cli, Commands};
-
 mod cli;
 mod cli_config;
 mod cli_ui;
 
-use cli_config::parse_directory_config;
-use cli_config::parse_join_config;
-use cli_config::parse_share_config;
-use cli_ui::ConsoleInteractions;
+use self::cli::{Cli, Commands};
+use self::cli_config::parse_directory_config;
+use self::cli_config::parse_join_config;
+use self::cli_config::parse_share_config;
+use self::cli_ui::ConsoleInteractions;
 
 #[tokio::main]
 async fn main() -> Result<()> {
