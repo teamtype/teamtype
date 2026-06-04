@@ -75,7 +75,7 @@ impl ConnectionManager {
         app_config: &AppConfig,
         document_handle: DocumentActorHandle,
         base_dir: &Path,
-        ui: UserInterface,
+        ui: &UserInterface,
     ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
@@ -316,7 +316,7 @@ impl EndpointActor {
                         {
                             debug!("Error while handling a peer: {:?}", err);
                         }
-                        Self::reconnect(message_tx_clone, secret_address, 0, ui.clone())
+                        Self::reconnect(message_tx_clone, secret_address, 0, ui)
                             .await
                             .expect("Failed to initiate reconnection");
                     }

@@ -6,7 +6,6 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use anyhow::Result;
 use e2e_tests::actors::{Actor, Neovim};
@@ -18,6 +17,7 @@ use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
 use teamtype::traits::Interactions;
+use teamtype::types::UserInterface;
 use tempfile::{TempDir, tempdir};
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
 
     logging::initialize(true)?;
 
-    let ui = Arc::new(FuzzerInteractions {});
+    let ui = &UserInterface::wrap(FuzzerInteractions {});
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
     // Set up the actors.
     let mut app_config = AppConfig::default();
     app_config.base_dir = dir1;
-    let daemon = Daemon::new(app_config, true, false, ui.clone()).await?;
+    let daemon = Daemon::new(app_config, true, false, &ui.clone()).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
     let mut app_config2 = AppConfig::default();
     app_config2.base_dir = dir2;
     app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false, ui.clone()).await?;
+    let peer = Daemon::new(app_config2, false, false, &ui.clone()).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {
