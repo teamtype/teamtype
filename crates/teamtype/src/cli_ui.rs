@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use anyhow::{Context, Result};
+use console::style;
 use dialoguer::Confirm;
 use teamtype::traits::Interactions;
 
@@ -20,5 +21,9 @@ impl Interactions for ConsoleInteractions {
 
     fn inform(&self, message: &str) {
         println!("{message}");
+    }
+
+    fn error(&self, message: &str) {
+        eprintln!("{}", style(message).yellow());
     }
 }
