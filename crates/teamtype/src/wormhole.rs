@@ -8,7 +8,9 @@ use std::{borrow::Cow, str::FromStr, time::Duration};
 use anyhow::Result;
 use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transfer};
 use tokio::time::sleep;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
+
+const NETWORK_RETRY: Duration = Duration::from_secs(300);
 
 pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_relay: Option<String>) {
     let payload: Vec<u8> = address.into();
@@ -17,10 +19,12 @@ pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_rela
     tokio::spawn(async move {
         loop {
             let Ok(mailbox_connection) = MailboxConnection::create(config.clone(), 2).await else {
-                error!(
-                    "Failed to share join code via Magic Wormhole. Restart Teamtype to try again."
+                warn!(
+                    "Failed to register a new join code via Magic Wormhole. Automatic retry in {:?}. Peers who joined before can still re-connect without a code.",
+                    NETWORK_RETRY
                 );
-                return;
+                sleep(NETWORK_RETRY).await;
+                continue;
             };
             let code = mailbox_connection.code().clone();
 
