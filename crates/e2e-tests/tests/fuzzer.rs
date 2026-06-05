@@ -12,7 +12,7 @@ use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
-use teamtype::config::{self, AppConfig};
+use teamtype::config::{self, Config};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
@@ -76,21 +76,21 @@ async fn main() -> Result<()> {
     let (_handle2, dir2, file2) = initialize_directory();
 
     // Set up the actors.
-    let mut app_config = AppConfig::default();
-    app_config.base_dir = dir1;
-    let daemon = Daemon::new(app_config, true, false, &ui.clone()).await?;
+    let mut config = Config::default();
+    config.base_dir = dir1;
+    let daemon = Daemon::new(config, true, false, &ui.clone()).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
     let nvim = Neovim::new(Some(file1)).await;
 
-    let mut app_config2 = AppConfig::default();
-    app_config2.base_dir = dir2;
-    app_config2.peer = Some(config::Peer::SecretAddress(
+    let mut config2 = Config::default();
+    config2.base_dir = dir2;
+    config2.peer = Some(config::Peer::SecretAddress(
         daemon.secret_address().to_string(),
     ));
-    let peer = Daemon::new(app_config2, false, false, &ui.clone()).await?;
+    let peer = Daemon::new(config2, false, false, &ui.clone()).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {

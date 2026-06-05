@@ -37,7 +37,7 @@ pub enum Peer {
 
 #[derive(Clone, Default, Debug)]
 #[must_use]
-pub struct AppConfig {
+pub struct Config {
     pub base_dir: PathBuf,
     pub peer: Option<Peer>,
     pub emit_join_code: bool,
@@ -51,15 +51,15 @@ pub struct AppConfig {
     pub username: Option<String>,
 }
 
-impl AppConfig {
+impl Config {
     // Merges the app config from file with the CLI app config by taking the "superset" of them.
     //
     // It depends on the attribute how we're merging it:
     // - For strings, the CLI app config attribute has precedence.
     // - For booleans, if a value deviates from the default, it "wins".
     // - The `base_dir` will be taken from the CLI app config.
-    pub fn from_config_file_and_cli(app_config_cli: Self, ui: &UserInterface) -> Self {
-        let base_dir = app_config_cli.base_dir;
+    pub fn from_config_file_and_cli(config_cli: Self, ui: &UserInterface) -> Self {
+        let base_dir = config_cli.base_dir;
         let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
         let empty_properties_section = Properties::new();
         let conf;
@@ -73,24 +73,24 @@ impl AppConfig {
 
         // we do the computation of username before initializing the struct, because we need to
         // reference base_dir, which gets moved during the initialization of the struct
-        let username = get_username(app_config_cli.username, &base_dir, general_section, ui);
+        let username = get_username(config_cli.username, &base_dir, general_section, ui);
         Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that base_dir won't ever be in the config file.
             base_dir,
-            peer: app_config_cli.peer.or_else(|| {
+            peer: config_cli.peer.or_else(|| {
                 general_section
                     .get("peer")
                     .map(|p| Peer::SecretAddress(p.to_string()))
             }),
-            emit_join_code: app_config_cli.emit_join_code
+            emit_join_code: config_cli.emit_join_code
                 && general_section
                     .get("emit_join_code")
                     .map_or(EMIT_JOIN_CODE_DEFAULT, |ejc| {
                         ejc.parse()
                             .expect("Failed to parse config parameter `emit_join_code` as bool")
                     }),
-            emit_secret_address: app_config_cli.emit_secret_address
+            emit_secret_address: config_cli.emit_secret_address
                 || general_section.get("emit_secret_address").map_or(
                     EMIT_SECRET_ADDRESS_DEFAULT,
                     |esa| {
@@ -99,25 +99,25 @@ impl AppConfig {
                         )
                     },
                 ),
-            magic_wormhole_relay: app_config_cli.magic_wormhole_relay.or_else(|| {
+            magic_wormhole_relay: config_cli.magic_wormhole_relay.or_else(|| {
                 general_section
                     .get("magic_wormhole_relay")
                     .map(ToString::to_string)
             }),
-            iroh_relay: app_config_cli
+            iroh_relay: config_cli
                 .iroh_relay
                 .or_else(|| general_section.get("iroh_relay").map(ToString::to_string)),
-            iroh_dns_domain: app_config_cli.iroh_dns_domain.or_else(|| {
+            iroh_dns_domain: config_cli.iroh_dns_domain.or_else(|| {
                 general_section
                     .get("iroh_dns_domain")
                     .map(ToString::to_string)
             }),
-            iroh_pkarr_relay: app_config_cli.iroh_pkarr_relay.or_else(|| {
+            iroh_pkarr_relay: config_cli.iroh_pkarr_relay.or_else(|| {
                 general_section
                     .get("iroh_pkarr_relay")
                     .map(ToString::to_string)
             }),
-            sync_vcs: app_config_cli.sync_vcs,
+            sync_vcs: config_cli.sync_vcs,
             username: Some(username),
         }
     }
@@ -206,12 +206,12 @@ pub(crate) fn has_local_user_config(base_dir: &Path) -> Result<bool> {
 }
 
 fn get_username(
-    app_config_cli_username: Option<String>,
+    config_cli_username: Option<String>,
     base_dir: &Path,
     general_section: &Properties,
     ui: &UserInterface,
 ) -> String {
-    app_config_cli_username
+    config_cli_username
         .map(|u| get_username_from_cli(u, ui))
         .or_else(|| get_username_from_config_file(general_section, ui))
         .or_else(|| get_username_from_git(base_dir, ui))
