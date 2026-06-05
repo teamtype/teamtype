@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use tracing::debug;
 
 use crate::{
-    config::AppConfig,
+    config::Config,
     editor_protocol::{
         EditorProtocolMessageError, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
     },
@@ -25,7 +25,7 @@ use crate::{
 pub struct EditorConnection {
     id: String,
     // TODO: Feels duplicated here?
-    app_config: AppConfig,
+    config: Config,
     /// There's one [`OTServer`] per open buffer.
     ot_servers: HashMap<RelativePath, OTServer>,
     /// The name other people see.
@@ -33,11 +33,11 @@ pub struct EditorConnection {
 }
 
 impl EditorConnection {
-    pub fn new(id: String, app_config: AppConfig) -> Self {
+    pub fn new(id: String, config: Config) -> Self {
         Self {
             id,
-            username: app_config.username.clone(),
-            app_config,
+            username: config.username.clone(),
+            config,
             ot_servers: HashMap::new(),
         }
     }
@@ -60,7 +60,7 @@ impl EditorConnection {
                     debug!("Applying incoming CRDT patch for {file_path}");
                     let rev_text_delta_for_editor = ot_server.apply_crdt_change(delta).expect("Failed to apply delta originating from another component to OT Server. Probably the delta is invalid.");
 
-                    let uri = AbsolutePath::from_parts(&self.app_config.base_dir, file_path)
+                    let uri = AbsolutePath::from_parts(&self.config.base_dir, file_path)
                         .expect("Should be able to construct absolute URI")
                         .to_file_uri();
 
@@ -78,10 +78,9 @@ impl EditorConnection {
                 cursor_id,
                 cursor_state,
             } => {
-                let uri =
-                    AbsolutePath::from_parts(&self.app_config.base_dir, &cursor_state.file_path)
-                        .expect("Should be able to construct absolute URI")
-                        .to_file_uri();
+                let uri = AbsolutePath::from_parts(&self.config.base_dir, &cursor_state.file_path)
+                    .expect("Should be able to construct absolute URI")
+                    .to_file_uri();
 
                 vec![EditorProtocolMessageToEditor::Cursor {
                     userid: cursor_id.clone(),
@@ -119,21 +118,21 @@ impl EditorConnection {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
                 let relative_path =
-                    RelativePath::try_from_absolute(&self.app_config.base_dir, &absolute_path)
+                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
                         .map_err(anyhow_err_to_protocol_err)?;
 
                 debug!("Got an 'open' message for {relative_path}");
-                if !sandbox::exists(&self.app_config.base_dir, &absolute_path)
+                if !sandbox::exists(&self.config.base_dir, &absolute_path)
                     .map_err(anyhow_err_to_protocol_err)?
                 {
                     // Creating nonexisting files allows us to traverse this file for whether it's
                     // ignored, which is needed to even be allowed to open it.
-                    sandbox::write_file(&self.app_config.base_dir, &absolute_path, b"")
+                    sandbox::write_file(&self.config.base_dir, &absolute_path, b"")
                         .map_err(anyhow_err_to_protocol_err)?;
                 }
 
                 // We only want to process these messages for files that are not ignored.
-                if sandbox::ignored(&self.app_config, &absolute_path)
+                if sandbox::ignored(&self.config, &absolute_path)
                     .expect("Could not check ignore status of opened file")
                 {
                     return Err(EditorProtocolMessageError {
@@ -158,7 +157,7 @@ impl EditorConnection {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
                 let relative_path =
-                    RelativePath::try_from_absolute(&self.app_config.base_dir, &absolute_path)
+                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
                         .map_err(anyhow_err_to_protocol_err)?;
 
                 debug!("Got a 'close' message for {relative_path}");
@@ -184,7 +183,7 @@ impl EditorConnection {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
                 let relative_path =
-                    RelativePath::try_from_absolute(&self.app_config.base_dir, &absolute_path)
+                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
                         .map_err(anyhow_err_to_protocol_err)?;
 
                 if self.ot_servers.get_mut(&relative_path).is_none() {
@@ -219,7 +218,7 @@ impl EditorConnection {
                     });
                 };
 
-                let uri = AbsolutePath::from_parts(&self.app_config.base_dir, &relative_path)
+                let uri = AbsolutePath::from_parts(&self.config.base_dir, &relative_path)
                     .expect("Should be able to construct absolute URI")
                     .to_file_uri();
 
@@ -244,7 +243,7 @@ impl EditorConnection {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
                 let relative_path =
-                    RelativePath::try_from_absolute(&self.app_config.base_dir, &absolute_path)
+                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
                         .map_err(anyhow_err_to_protocol_err)?;
 
                 Ok((
@@ -277,12 +276,12 @@ mod tests {
     fn opening_file_in_wrong_dir_fails() {
         let dir = tempdir().expect("Failed to create temp directory");
 
-        let app_config = AppConfig {
+        let config = Config {
             base_dir: dir.path().to_path_buf(),
             ..Default::default()
         };
 
-        let mut editor_connection = EditorConnection::new("1".to_string(), app_config);
+        let mut editor_connection = EditorConnection::new("1".to_string(), config);
 
         let result =
             editor_connection.message_from_editor(&EditorProtocolMessageFromEditor::Open {
@@ -299,12 +298,12 @@ mod tests {
         let file = dir.path().join("file");
         fs::write(&file, "hello").expect("Failed to write file");
 
-        let app_config = AppConfig {
+        let config = Config {
             base_dir: dir.path().to_path_buf(),
             ..Default::default()
         };
 
-        let mut editor_connection = EditorConnection::new("1".to_string(), app_config);
+        let mut editor_connection = EditorConnection::new("1".to_string(), config);
 
         // Editor opens the file.
         let result =

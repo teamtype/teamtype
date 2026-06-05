@@ -28,7 +28,7 @@ use tracing::{debug, info, warn};
 use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
-use crate::config::AppConfig;
+use crate::config::Config;
 use crate::daemon::DocumentActorHandle;
 use crate::types::UserInterface;
 
@@ -72,14 +72,14 @@ pub struct ConnectionManager {
 
 impl ConnectionManager {
     pub async fn new(
-        app_config: &AppConfig,
+        config: &Config,
         document_handle: DocumentActorHandle,
         base_dir: &Path,
         ui: &UserInterface,
     ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(app_config, base_dir).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(config, base_dir).await?;
 
         let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
 
@@ -122,23 +122,20 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(
-        app_config: &AppConfig,
-        base_dir: &Path,
-    ) -> Result<(Endpoint, SecretKey)> {
+    async fn build_endpoint(config: &Config, base_dir: &Path) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
         let mut builder = Endpoint::builder()
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()]);
 
-        if let Some(iroh_relay) = &app_config.iroh_relay {
+        if let Some(iroh_relay) = &config.iroh_relay {
             let relay_url = RelayUrl::from_str(iroh_relay)?;
             let relay_map = RelayMap::from(relay_url);
             builder = builder.relay_mode(RelayMode::Custom(relay_map));
         }
 
-        if let Some(iroh_dns_domain) = &app_config.iroh_dns_domain {
+        if let Some(iroh_dns_domain) = &config.iroh_dns_domain {
             let iroh_dns_domain_clone = iroh_dns_domain.clone();
             builder =
                 builder.add_discovery(move |_| Some(DnsDiscovery::new(iroh_dns_domain_clone)));
@@ -146,7 +143,7 @@ impl ConnectionManager {
             builder = builder.add_discovery(move |_| Some(DnsDiscovery::n0_dns()));
         }
 
-        if let Some(iroh_pkarr_relay) = &app_config.iroh_pkarr_relay {
+        if let Some(iroh_pkarr_relay) = &config.iroh_pkarr_relay {
             let iroh_pkarr_relay_url = Url::parse(iroh_pkarr_relay)?;
             builder = builder.add_discovery(|secret_key| {
                 Some(PkarrPublisher::new(

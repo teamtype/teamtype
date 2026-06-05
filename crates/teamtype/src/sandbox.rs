@@ -20,7 +20,7 @@ use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
-use crate::config::AppConfig;
+use crate::config::Config;
 
 pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -105,13 +105,13 @@ pub fn exists(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<boo
     Ok(canonical_file_path.exists())
 }
 
-pub(crate) fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf> {
+pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
     let mut ignored_things = vec![".teamtype"];
-    if !app_config.sync_vcs {
+    if !config.sync_vcs {
         ignored_things.extend([".teamtype", ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
     }
 
-    let walk = WalkBuilder::new(&app_config.base_dir)
+    let walk = WalkBuilder::new(&config.base_dir)
         .add_custom_ignore_filename(".teamtypeignore")
         .standard_filters(true)
         .hidden(false)
@@ -144,15 +144,15 @@ pub(crate) fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf
     // doesn't seem to allow for that - as soon as we positive-list something, everything else gets
     // ignored.
     // So do a second walk, and merge the results.
-    if app_config.sync_vcs {
-        let overrides = OverrideBuilder::new(app_config.base_dir.clone())
+    if config.sync_vcs {
+        let overrides = OverrideBuilder::new(config.base_dir.clone())
             .add(".jj/")
             .expect("Failed to add pattern to OverrideBuilder")
             .add(".jj/**")
             .expect("Failed to add pattern to OverrideBuilder")
             .build()
             .expect("Failed to build Overrides");
-        let walk = WalkBuilder::new(&app_config.base_dir)
+        let walk = WalkBuilder::new(&config.base_dir)
             .overrides(overrides)
             .build();
         let jj_files: Vec<PathBuf> = walk
@@ -175,11 +175,11 @@ pub(crate) fn enumerate_non_ignored_files(app_config: &AppConfig) -> Vec<PathBuf
 
 // TODO: Don't build the list of ignored files on every call.
 // TODO: Allow calling this for non-existing files.
-pub(crate) fn ignored(app_config: &AppConfig, absolute_file_path: &Path) -> Result<bool> {
+pub(crate) fn ignored(config: &Config, absolute_file_path: &Path) -> Result<bool> {
     let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(&app_config.base_dir, absolute_file_path)?;
+        check_inside_base_dir_and_canonicalize(&config.base_dir, absolute_file_path)?;
 
-    Ok(!enumerate_non_ignored_files(app_config)
+    Ok(!enumerate_non_ignored_files(config)
         .into_iter()
         .map(|path_buf| absolute_and_canonicalized(&path_buf))
         .collect::<Result<Vec<_>>>()?
@@ -361,24 +361,24 @@ mod tests {
 
         fs::write(&teamtypeignore, b"a\n").expect("Failed to write .teamtypeignore");
 
-        let app_config = AppConfig {
+        let config = Config {
             base_dir: project_dir.clone(),
             ..Default::default()
         };
 
         assert!(
-            ignored(&app_config, &project_dir.join("a")).unwrap(),
+            ignored(&config, &project_dir.join("a")).unwrap(),
             "a should be ignored"
         );
         assert!(
-            !ignored(&app_config, &project_dir.join("dir/b")).unwrap(),
+            !ignored(&config, &project_dir.join("dir/b")).unwrap(),
             "b should be not ignored"
         );
 
         fs::write(&teamtypeignore, b"a\ndir\n").expect("Failed to write .teamtypeignore");
 
         assert!(
-            ignored(&app_config, &project_dir.join("dir/b")).unwrap(),
+            ignored(&config, &project_dir.join("dir/b")).unwrap(),
             "now b should be ignored"
         );
     }

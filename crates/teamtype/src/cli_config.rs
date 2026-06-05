@@ -6,7 +6,7 @@ use std::env::current_dir;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use teamtype::config::{self, AppConfig};
+use teamtype::config::{self, Config};
 use teamtype::types::UserInterface;
 
 use super::cli::{Cli, Commands, ShareJoinFlags};
@@ -15,7 +15,7 @@ pub async fn parse_join_config(
     command: Commands,
     base_dir: PathBuf,
     ui: &UserInterface,
-) -> Result<AppConfig> {
+) -> Result<Config> {
     if let Commands::Join {
         join_code,
         shared_flags:
@@ -31,7 +31,7 @@ pub async fn parse_join_config(
         ..
     } = command
     {
-        let app_config_cli = AppConfig {
+        let config_cli = Config {
             base_dir,
             peer: join_code.map(config::Peer::JoinCode),
             emit_join_code: false,
@@ -43,18 +43,18 @@ pub async fn parse_join_config(
             sync_vcs,
             username,
         };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli, ui);
-        app_config = app_config
+        let mut config = Config::from_config_file_and_cli(config_cli, ui);
+        config = config
             .resolve_peer()
             .await
             .context("Failed to resolve peer")?;
-        Ok(app_config)
+        Ok(config)
     } else {
         unreachable!("Only Join commands beget Join configs.")
     }
 }
 
-pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterface) -> AppConfig {
+pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterface) -> Config {
     if let Commands::Share {
         no_join_code,
         shared_flags:
@@ -71,7 +71,7 @@ pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterfa
         ..
     } = command
     {
-        let app_config_cli = AppConfig {
+        let config_cli = Config {
             base_dir,
             peer: None,
             emit_join_code: !no_join_code,
@@ -83,10 +83,10 @@ pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterfa
             sync_vcs,
             username,
         };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli, ui);
+        let mut config = Config::from_config_file_and_cli(config_cli, ui);
         // Because of the "share" subcommand, explicitly don't connect anywhere.
-        app_config.peer = None;
-        app_config
+        config.peer = None;
+        config
     } else {
         unreachable!("Only Share commands beget Share configs.")
     }
