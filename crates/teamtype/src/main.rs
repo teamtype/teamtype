@@ -13,7 +13,6 @@ use clap::{CommandFactory as _, FromArgMatches as _};
 use teamtype::client::run_client;
 use teamtype::daemon::run_daemon;
 use teamtype::logging;
-use teamtype::setup::setup_teamtype_directory;
 use teamtype::types::UserInterface;
 use tokio::signal;
 use tracing::info;
@@ -23,7 +22,7 @@ mod cli_config;
 mod cli_ui;
 
 use self::cli::{Cli, Commands};
-use self::cli_config::parse_directory_config;
+use self::cli_config::parse_client_config;
 use self::cli_config::parse_join_config;
 use self::cli_config::parse_share_config;
 use self::cli_ui::ConsoleInteractions;
@@ -46,29 +45,22 @@ async fn main() -> Result<()> {
 
     let ui = &UserInterface::wrap(ConsoleInteractions {});
 
-    // Determine if the CLI flags request proceeding with a temporary directory, some user
-    // specified directory, or fallback to just the current directory.
-    let directory = parse_directory_config(&cli)?;
-
-    // Now that we know what the base directory is going to be, either validate our access to it and
-    // an existing config therein or setup a new config. In the event this step creates a temporary
-    // directory we need to hang onto the handle as long as we're running.
-    let (base_dir, _tempdir) = setup_teamtype_directory(directory.as_deref(), ui)
-        .context("Failed to find .teamtype/ directory")?;
-
     // TODO: If the result of this joined future handles were to go out of scope and hence be
     // dropped, *some* but not all parts of the daemon would shut down. Notably the local socket
     // will go away but the remote networking connections would stay up! This is a fundamental issue
     // with the daemon module and merits refactoring so the long running socket and network
     // listeners properly listen to the mpsc channel or receive and process a cancellation token.
     let _handle = match cli.command {
-        Commands::Client => return run_client(base_dir).await,
+        Commands::Client => {
+            let client_config = parse_client_config(cli, ui)?;
+            return run_client(client_config).await;
+        }
         Commands::Join { .. } => {
-            let join_config = parse_join_config(cli.command, base_dir, ui).await?;
+            let join_config = parse_join_config(cli, ui)?;
             run_daemon(join_config, false, ui).await
         }
         Commands::Share { init, .. } => {
-            let share_config = parse_share_config(cli.command, base_dir, ui);
+            let share_config = parse_share_config(cli, ui)?;
             run_daemon(share_config, init, ui).await
         }
     }?;

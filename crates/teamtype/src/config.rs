@@ -12,11 +12,12 @@ use std::path::{Path, PathBuf};
 use anyhow::bail;
 use anyhow::{Context, Result};
 use docstr::docstr;
-use git2::{Config as GitConfig, ConfigLevel, Error as GitError, Repository};
+use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
 use tracing::info;
 
 use crate::sandbox;
+use crate::setup::find_git_repo;
 use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
@@ -36,9 +37,9 @@ pub enum Peer {
 }
 
 #[derive(Clone, Default, Debug)]
-#[must_use]
+// #[must_use]
 pub struct Config {
-    pub base_dir: PathBuf,
+    pub base_dir: Option<PathBuf>,
     pub peer: Option<Peer>,
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
@@ -58,23 +59,32 @@ impl Config {
     // - For strings, the CLI app config attribute has precedence.
     // - For booleans, if a value deviates from the default, it "wins".
     // - The `base_dir` will be taken from the CLI app config.
-    pub fn from_config_file_and_cli(config_cli: Self, ui: &UserInterface) -> Self {
-        let base_dir = config_cli.base_dir;
-        let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+    pub fn from_config_file_and_cli(config_cli: Self, ui: &UserInterface) -> Result<Self> {
         let empty_properties_section = Properties::new();
+        let base_dir = config_cli.base_dir;
         let conf;
-        let general_section = if config_file.exists() {
-            conf = Ini::load_from_file(config_file)
-                .expect("Could not access config file, even though it exists");
-            conf.general_section()
+        let general_section = if let Some(ref base_dir) = base_dir {
+            let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+            if config_file.exists() {
+                conf = Ini::load_from_file(config_file)
+                    .context("Could not access config file, even though it exists")?;
+                conf.general_section()
+            } else {
+                &empty_properties_section
+            }
         } else {
             &empty_properties_section
         };
 
         // we do the computation of username before initializing the struct, because we need to
-        // reference base_dir, which gets moved during the initialization of the struct
-        let username = get_username(config_cli.username, &base_dir, general_section, ui);
-        Self {
+        // reference base_dir, which gets moved into the struct
+        let username = get_username(
+            config_cli.username,
+            base_dir.as_deref(),
+            general_section,
+            ui,
+        );
+        Ok(Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that base_dir won't ever be in the config file.
             base_dir,
@@ -119,11 +129,13 @@ impl Config {
             }),
             sync_vcs: config_cli.sync_vcs,
             username: Some(username),
-        }
+        })
     }
 
-    fn config_file(&self) -> PathBuf {
-        self.base_dir.join(CONFIG_DIR).join(CONFIG_FILE)
+    fn config_file(&self) -> Option<PathBuf> {
+        self.base_dir
+            .as_ref()
+            .map(|base_dir| base_dir.join(CONFIG_DIR).join(CONFIG_FILE))
     }
 
     /// If we have a join code, try to use that and overwrite the config file.
@@ -142,7 +154,7 @@ impl Config {
                 info!(
                     "Derived peer from join code. Storing in config (overwriting previous config)."
                 );
-                store_peer_in_config(&self.base_dir, &self.config_file(), &secret_address)?;
+                store_peer_in_config(self, &secret_address)?;
                 Peer::SecretAddress(secret_address)
             }
             Some(Peer::SecretAddress(secret_address)) => {
@@ -163,12 +175,21 @@ impl Config {
     }
 }
 
-fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) -> Result<()> {
-    info!("Storing peer's address in .teamtype/config.");
+fn store_peer_in_config(config: Config, peer: &str) -> Result<()> {
+    let config_file = config
+        .config_file()
+        .context("Why storing in a config that doesn't exist yet?")?;
+    info!("Storing peer's address in {}", config_file.display());
 
     let content = format!("peer={peer}\n");
-    sandbox::write_file(directory, config_file, content.as_bytes())
-        .context("Failed to write to config file")
+    sandbox::write_file(
+        &config
+            .base_dir
+            .context("Why storing in a config that doesn't exist yet?")?,
+        &config_file,
+        content.as_bytes(),
+    )
+    .context("Failed to write to config file")
 }
 
 #[must_use]
@@ -177,17 +198,6 @@ pub(crate) fn has_git_remote(path: &Path) -> bool {
         && let Ok(remotes) = repo.remotes()
     {
         return !remotes.is_empty();
-    }
-    false
-}
-
-#[must_use]
-fn teamtype_directory_should_be_ignored_but_isnt(path: &Path) -> bool {
-    if let Ok(repo) = find_git_repo(path) {
-        let teamtype_dir = path.join(CONFIG_DIR);
-        return !repo
-            .is_path_ignored(teamtype_dir)
-            .expect("Should have been able to determine ignore state of path");
     }
     false
 }
@@ -207,7 +217,7 @@ pub(crate) fn has_local_user_config(base_dir: &Path) -> Result<bool> {
 
 fn get_username(
     config_cli_username: Option<String>,
-    base_dir: &Path,
+    base_dir: Option<&Path>,
     general_section: &Properties,
     ui: &UserInterface,
 ) -> String {
@@ -242,18 +252,20 @@ fn get_username_from_config_file(
         })
 }
 
-fn get_username_from_git(base_dir: &Path, ui: &UserInterface) -> Option<String> {
-    let username = get_git_username(base_dir);
-    if let Some(ref username) = username {
-        info!("Using the Git username '{username}' as username");
-        ui.inform(&docstr!(format!
-            /// Using the Git username '{username}' as username, to display next to the cursors other people see.
-            /// Teamtype uses the Git username as username by default.
-            /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
-            /// You can also use the flag `--username` when using the `share`/`join` subcommands.
-        ));
-    }
-    username
+fn get_username_from_git(base_dir: Option<&Path>, ui: &UserInterface) -> Option<String> {
+    base_dir.and_then(|base_dir| {
+        let username = get_git_username(base_dir);
+        if let Some(ref username) = username {
+            info!("Using the Git username '{username}' as username");
+            ui.inform(&docstr!(format!
+                    /// Using the Git username '{username}' as username, to display next to the cursors other people see.
+                    /// Teamtype uses the Git username as username by default.
+                    /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+                    /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+            ));
+        }
+        username
+    })
 }
 
 fn get_username_from_fallback_value(ui: &UserInterface) -> String {
@@ -290,35 +302,4 @@ fn global_git_username() -> Result<String> {
         .snapshot()?
         .get_str("user.name")?
         .to_string())
-}
-
-fn find_git_repo(path: &Path) -> Result<Repository, GitError> {
-    Repository::discover(path)
-}
-
-fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
-    let mut ignore_file_path = directory.join(CONFIG_DIR);
-    ignore_file_path.push(".gitignore");
-
-    // It's very unlikely that .teamtype/.gitignore will already contain something, but let's
-    // still append.
-    let bytes_in = sandbox::read_file(directory, &ignore_file_path).unwrap_or_default();
-    // TODO: use String::from_utf8
-    let mut content = std::str::from_utf8(&bytes_in)?.to_string();
-
-    if !content.is_empty() && !content.ends_with('\n') {
-        content.push('\n');
-    }
-    content.push_str("/*\n");
-    let bytes_out = content.as_bytes();
-    sandbox::write_file(directory, &ignore_file_path, bytes_out)?;
-
-    Ok(())
-}
-
-pub(crate) fn ensure_teamtype_is_ignored(directory: &Path) -> Result<()> {
-    if teamtype_directory_should_be_ignored_but_isnt(directory) {
-        add_teamtype_to_local_gitignore(directory)?;
-    }
-    Ok(())
 }
