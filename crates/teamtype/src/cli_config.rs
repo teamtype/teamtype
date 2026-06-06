@@ -11,11 +11,23 @@ use teamtype::types::UserInterface;
 
 use super::cli::{Cli, Commands, ShareJoinFlags};
 
-pub async fn parse_join_config(
-    command: Commands,
-    base_dir: PathBuf,
-    ui: &UserInterface,
-) -> Result<Config> {
+#[expect(clippy::needless_pass_by_value)]
+pub fn parse_client_config(cli: Cli, _ui: &UserInterface) -> Result<Config> {
+    let base_dir = resolve_directory(&cli)?;
+    if matches!(cli.command, Commands::Client) {
+        // The only thing the client can configure at runtime is where to find the socket.
+        let conf = Config {
+            base_dir,
+            ..Default::default()
+        };
+        Ok(conf)
+    } else {
+        unreachable!("Only Client commands beget Client configs.")
+    }
+}
+
+pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
+    let base_dir = resolve_directory(&cli)?;
     if let Commands::Join {
         join_code,
         shared_flags:
@@ -29,7 +41,7 @@ pub async fn parse_join_config(
                 ..
             },
         ..
-    } = command
+    } = cli.command
     {
         let config_cli = Config {
             base_dir,
@@ -43,18 +55,15 @@ pub async fn parse_join_config(
             sync_vcs,
             username,
         };
-        let mut config = Config::from_config_file_and_cli(config_cli, ui);
-        config = config
-            .resolve_peer()
-            .await
-            .context("Failed to resolve peer")?;
+        let config = Config::from_config_file_and_cli(config_cli, ui)?;
         Ok(config)
     } else {
         unreachable!("Only Join commands beget Join configs.")
     }
 }
 
-pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterface) -> Config {
+pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
+    let base_dir = resolve_directory(&cli)?;
     if let Commands::Share {
         no_join_code,
         shared_flags:
@@ -69,7 +78,7 @@ pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterfa
             },
         show_secret_address,
         ..
-    } = command
+    } = cli.command
     {
         let config_cli = Config {
             base_dir,
@@ -83,16 +92,18 @@ pub fn parse_share_config(command: Commands, base_dir: PathBuf, ui: &UserInterfa
             sync_vcs,
             username,
         };
-        let mut config = Config::from_config_file_and_cli(config_cli, ui);
+        let mut config = Config::from_config_file_and_cli(config_cli, ui)?;
         // Because of the "share" subcommand, explicitly don't connect anywhere.
         config.peer = None;
-        config
+        Ok(config)
     } else {
         unreachable!("Only Share commands beget Share configs.")
     }
 }
 
-pub fn parse_directory_config(cli: &Cli) -> Result<Option<PathBuf>> {
+// Determine if the CLI flags request proceeding with a temporary directory, some user
+// specified directory, or fallback to just the current directory.
+fn resolve_directory(cli: &Cli) -> Result<Option<PathBuf>> {
     match cli.command {
         Commands::Share {
             shared_flags:

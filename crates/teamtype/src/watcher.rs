@@ -66,8 +66,12 @@ impl Watcher {
         })
         .expect("Could not construct watcher");
 
+        let base_dir = &config
+            .base_dir
+            .clone()
+            .expect("Temp directories should exist by now");
         watcher
-            .watch(&config.base_dir, RecursiveMode::Recursive)
+            .watch(base_dir, RecursiveMode::Recursive)
             .expect("Failed to watch directory");
 
         let mut watcher = Self {
@@ -87,6 +91,11 @@ impl Watcher {
     }
 
     async fn run(&mut self) {
+        let base_dir = self
+            .config
+            .base_dir
+            .clone()
+            .expect("Temp directories should exist by now");
         loop {
             let timeout_maybe = self.upcoming_timeout();
             tokio::select! {
@@ -129,7 +138,7 @@ impl Watcher {
                         )) => {
                             assert_eq!(event.paths.len(), 1);
                             let file_path = event.paths[0].clone();
-                            match sandbox::exists(&self.config.base_dir, &file_path) {
+                            match sandbox::exists(&base_dir, &file_path) {
                                 Ok(path_exists) => {
                                     if path_exists {
                                         self.maybe_created(&file_path);
@@ -289,7 +298,7 @@ mod tests {
         let dir_path = dir.path().canonicalize().unwrap();
 
         let config = Config {
-            base_dir: dir_path.clone(),
+            base_dir: Some(dir_path.clone()),
             ..Default::default()
         };
 
