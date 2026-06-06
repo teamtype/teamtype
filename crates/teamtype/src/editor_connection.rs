@@ -54,13 +54,18 @@ impl EditorConnection {
         &mut self,
         message: &ComponentMessage,
     ) -> Vec<EditorProtocolMessageToEditor> {
+        let base_dir = &self
+            .config
+            .base_dir
+            .clone()
+            .expect("Temporary directory not initialized");
         match message {
             ComponentMessage::Edit { file_path, delta } => {
-                if let Some(ot_server) = self.ot_servers.get_mut(file_path) {
+                self.ot_servers.get_mut(file_path).map_or_else(Vec::new, |ot_server| {
                     debug!("Applying incoming CRDT patch for {file_path}");
                     let rev_text_delta_for_editor = ot_server.apply_crdt_change(delta).expect("Failed to apply delta originating from another component to OT Server. Probably the delta is invalid.");
 
-                    let uri = AbsolutePath::from_parts(&self.config.base_dir, file_path)
+                    let uri = AbsolutePath::from_parts(base_dir, file_path)
                         .expect("Should be able to construct absolute URI")
                         .to_file_uri();
 
@@ -69,16 +74,13 @@ impl EditorConnection {
                         delta: rev_text_delta_for_editor.delta,
                         revision: rev_text_delta_for_editor.revision,
                     }]
-                } else {
-                    // We don't have the file open, just do nothing.
-                    vec![]
-                }
+                })
             }
             ComponentMessage::Cursor {
                 cursor_id,
                 cursor_state,
             } => {
-                let uri = AbsolutePath::from_parts(&self.config.base_dir, &cursor_state.file_path)
+                let uri = AbsolutePath::from_parts(base_dir, &cursor_state.file_path)
                     .expect("Should be able to construct absolute URI")
                     .to_file_uri();
 
@@ -113,21 +115,24 @@ impl EditorConnection {
             }
         }
 
+        let base_dir = &self
+            .config
+            .base_dir
+            .clone()
+            .expect("Temporary directory not initialized");
+
         match message {
             EditorProtocolMessageFromEditor::Open { uri, content } => {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
-                let relative_path =
-                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
-                        .map_err(anyhow_err_to_protocol_err)?;
+                let relative_path = RelativePath::try_from_absolute(base_dir, &absolute_path)
+                    .map_err(anyhow_err_to_protocol_err)?;
 
                 debug!("Got an 'open' message for {relative_path}");
-                if !sandbox::exists(&self.config.base_dir, &absolute_path)
-                    .map_err(anyhow_err_to_protocol_err)?
-                {
+                if !sandbox::exists(base_dir, &absolute_path).map_err(anyhow_err_to_protocol_err)? {
                     // Creating nonexisting files allows us to traverse this file for whether it's
                     // ignored, which is needed to even be allowed to open it.
-                    sandbox::write_file(&self.config.base_dir, &absolute_path, b"")
+                    sandbox::write_file(base_dir, &absolute_path, b"")
                         .map_err(anyhow_err_to_protocol_err)?;
                 }
 
@@ -156,9 +161,8 @@ impl EditorConnection {
             EditorProtocolMessageFromEditor::Close { uri } => {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
-                let relative_path =
-                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
-                        .map_err(anyhow_err_to_protocol_err)?;
+                let relative_path = RelativePath::try_from_absolute(base_dir, &absolute_path)
+                    .map_err(anyhow_err_to_protocol_err)?;
 
                 debug!("Got a 'close' message for {relative_path}");
                 self.ot_servers.remove(&relative_path);
@@ -182,9 +186,8 @@ impl EditorConnection {
 
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
-                let relative_path =
-                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
-                        .map_err(anyhow_err_to_protocol_err)?;
+                let relative_path = RelativePath::try_from_absolute(base_dir, &absolute_path)
+                    .map_err(anyhow_err_to_protocol_err)?;
 
                 if self.ot_servers.get_mut(&relative_path).is_none() {
                     return Err(EditorProtocolMessageError {
@@ -218,7 +221,7 @@ impl EditorConnection {
                     });
                 };
 
-                let uri = AbsolutePath::from_parts(&self.config.base_dir, &relative_path)
+                let uri = AbsolutePath::from_parts(base_dir, &relative_path)
                     .expect("Should be able to construct absolute URI")
                     .to_file_uri();
 
@@ -242,9 +245,8 @@ impl EditorConnection {
             EditorProtocolMessageFromEditor::Cursor { uri, ranges } => {
                 let uri = FileUri::try_from(uri.clone()).map_err(anyhow_err_to_protocol_err)?;
                 let absolute_path = uri.to_absolute_path();
-                let relative_path =
-                    RelativePath::try_from_absolute(&self.config.base_dir, &absolute_path)
-                        .map_err(anyhow_err_to_protocol_err)?;
+                let relative_path = RelativePath::try_from_absolute(base_dir, &absolute_path)
+                    .map_err(anyhow_err_to_protocol_err)?;
 
                 Ok((
                     ComponentMessage::Cursor {
@@ -277,7 +279,7 @@ mod tests {
         let dir = tempdir().expect("Failed to create temp directory");
 
         let config = Config {
-            base_dir: dir.path().to_path_buf(),
+            base_dir: Some(dir.path().to_path_buf()),
             ..Default::default()
         };
 
@@ -299,7 +301,7 @@ mod tests {
         fs::write(&file, "hello").expect("Failed to write file");
 
         let config = Config {
-            base_dir: dir.path().to_path_buf(),
+            base_dir: Some(dir.path().to_path_buf()),
             ..Default::default()
         };
 
