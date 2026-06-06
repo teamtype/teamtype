@@ -111,7 +111,11 @@ pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
         ignored_things.extend([".teamtype", ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
     }
 
-    let walk = WalkBuilder::new(&config.base_dir)
+    let base_dir = &config
+        .base_dir
+        .clone()
+        .expect("Temporary directory not initialized");
+    let walk = WalkBuilder::new(base_dir)
         .add_custom_ignore_filename(".teamtypeignore")
         .standard_filters(true)
         .hidden(false)
@@ -145,16 +149,14 @@ pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
     // ignored.
     // So do a second walk, and merge the results.
     if config.sync_vcs {
-        let overrides = OverrideBuilder::new(config.base_dir.clone())
+        let overrides = OverrideBuilder::new(base_dir)
             .add(".jj/")
             .expect("Failed to add pattern to OverrideBuilder")
             .add(".jj/**")
             .expect("Failed to add pattern to OverrideBuilder")
             .build()
             .expect("Failed to build Overrides");
-        let walk = WalkBuilder::new(&config.base_dir)
-            .overrides(overrides)
-            .build();
+        let walk = WalkBuilder::new(base_dir).overrides(overrides).build();
         let jj_files: Vec<PathBuf> = walk
             .filter_map(Result::ok)
             .filter(|dir_entry| {
@@ -176,8 +178,13 @@ pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
 // TODO: Don't build the list of ignored files on every call.
 // TODO: Allow calling this for non-existing files.
 pub(crate) fn ignored(config: &Config, absolute_file_path: &Path) -> Result<bool> {
-    let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(&config.base_dir, absolute_file_path)?;
+    let canonical_file_path = check_inside_base_dir_and_canonicalize(
+        &config
+            .base_dir
+            .clone()
+            .context("Temporary directory not initialized")?,
+        absolute_file_path,
+    )?;
 
     Ok(!enumerate_non_ignored_files(config)
         .into_iter()
@@ -362,7 +369,7 @@ mod tests {
         fs::write(&teamtypeignore, b"a\n").expect("Failed to write .teamtypeignore");
 
         let config = Config {
-            base_dir: project_dir.clone(),
+            base_dir: Some(project_dir.clone()),
             ..Default::default()
         };
 

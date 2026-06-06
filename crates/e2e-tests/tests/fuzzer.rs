@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
 
     // Set up the actors.
     let mut config = Config::default();
-    config.base_dir = dir1;
+    config.base_dir = Some(dir1);
     let daemon = Daemon::new(config, true, false, ui).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
     let nvim = Neovim::new(Some(file1)).await;
 
     let mut config2 = Config::default();
-    config2.base_dir = dir2;
+    config2.base_dir = Some(dir2);
     config2.peer = Some(config::Peer::SecretAddress(
         daemon.secret_address().to_string(),
     ));
