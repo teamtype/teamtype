@@ -28,6 +28,7 @@ use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
+use super::config::BaseDir;
 use super::config::CONFIG_DIR;
 use super::config::DEFAULT_SOCKET_NAME;
 use super::editor::strip_current_dir;
@@ -43,7 +44,7 @@ pub trait JSONRPCForwarder<
         directory: &Path,
     ) -> anyhow::Result<(FramedRead<R, LinesCodec>, FramedWrite<W, LinesCodec>)>;
 
-    async fn connection(&self, base_dir: &Path) -> anyhow::Result<()> {
+    async fn connection(&self, base_dir: &BaseDir) -> anyhow::Result<()> {
         let (mut socket_read, mut socket_write) = self.connect_stream(base_dir).await?;
 
         // Construct stdin/stdout objects, which send/receive messages with a Content-Length header.
