@@ -22,7 +22,8 @@ use tokio::{
 };
 use tracing::debug;
 
-use crate::{config::Config, sandbox};
+use crate::config::BaseDir;
+use crate::sandbox;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct WatcherEvent {
@@ -46,14 +47,15 @@ struct PendingEvent {
 #[must_use]
 pub struct Watcher {
     _inner: RecommendedWatcher,
-    config: Config,
+    base_dir: BaseDir,
+    sync_vcs: bool,
     notify_receiver: Receiver<NotifyResult<Event>>,
     event_tx: Sender<WatcherEvent>,
     pending_events: HashMap<PathBuf, PendingEvent>,
 }
 
 impl Watcher {
-    pub fn spawn(config: Config) -> Receiver<WatcherEvent> {
+    pub fn spawn(base_dir: BaseDir, sync_vcs: bool) -> Receiver<WatcherEvent> {
         let (event_tx, event_rx) = mpsc::channel(1);
 
         let (tx, rx) = mpsc::channel(1);
@@ -66,18 +68,15 @@ impl Watcher {
         })
         .expect("Could not construct watcher");
 
-        let base_dir = &config
-            .base_dir
-            .clone()
-            .expect("Temp directories should exist by now");
         watcher
-            .watch(base_dir, RecursiveMode::Recursive)
+            .watch(&base_dir, RecursiveMode::Recursive)
             .expect("Failed to watch directory");
 
         let mut watcher = Self {
             // Keep the watcher, so that it's not dropped.
             _inner: watcher,
-            config,
+            base_dir,
+            sync_vcs,
             notify_receiver: rx,
             event_tx,
             pending_events: HashMap::default(),
@@ -91,11 +90,6 @@ impl Watcher {
     }
 
     async fn run(&mut self) {
-        let base_dir = self
-            .config
-            .base_dir
-            .clone()
-            .expect("Temp directories should exist by now");
         loop {
             let timeout_maybe = self.upcoming_timeout();
             tokio::select! {
@@ -138,7 +132,7 @@ impl Watcher {
                         )) => {
                             assert_eq!(event.paths.len(), 1);
                             let file_path = event.paths[0].clone();
-                            match sandbox::exists(&base_dir, &file_path) {
+                            match sandbox::exists(&self.base_dir, &file_path) {
                                 Ok(path_exists) => {
                                     if path_exists {
                                         self.maybe_created(&file_path);
@@ -203,7 +197,7 @@ impl Watcher {
     }
 
     fn maybe_created(&mut self, file_path: &Path) {
-        match sandbox::ignored(&self.config, file_path) {
+        match sandbox::ignored(&self.base_dir, self.sync_vcs, file_path) {
             Ok(is_ignored) => {
                 if is_ignored {
                     debug!("Ignoring creation of '{}'", file_path.display());
@@ -230,7 +224,7 @@ impl Watcher {
     }
 
     fn maybe_modified(&mut self, file_path: &Path) {
-        match sandbox::ignored(&self.config, file_path) {
+        match sandbox::ignored(&self.base_dir, self.sync_vcs, file_path) {
             Ok(is_ignored) => {
                 if is_ignored {
                     debug!("Ignoring modification of '{}'", file_path.display());
@@ -285,11 +279,12 @@ impl Watcher {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::{TempDir, tempdir};
+    use tempfile::tempdir;
 
     use super::*;
+    use crate::config::Config;
 
-    fn create_temp_dir_and_config() -> (TempDir, PathBuf, Config) {
+    fn create_temp_dir_and_config() -> (PathBuf, Config) {
         let dir = tempdir().expect("Failed to create temp directory");
 
         // We canonicalize the path here, because on macOS, TempDir gives us paths in /var/, which
@@ -298,21 +293,21 @@ mod tests {
         let dir_path = dir.path().canonicalize().unwrap();
 
         let config = Config {
-            base_dir: Some(dir_path.clone()),
+            base_dir: BaseDir::Temporary(dir),
             ..Default::default()
         };
 
-        (dir, dir_path, config)
+        (dir_path, config)
     }
 
     #[tokio::test]
     async fn create() {
-        let (_dir, dir_path, config) = create_temp_dir_and_config();
+        let (dir_path, config) = create_temp_dir_and_config();
 
         let mut file = dir_path.clone();
         file.push("file");
 
-        let mut watcher = Watcher::spawn(config);
+        let mut watcher = Watcher::spawn(config.base_dir, config.sync_vcs);
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
         assert_eq!(
@@ -327,13 +322,13 @@ mod tests {
     #[tokio::test]
     #[cfg(target_os = "linux")]
     async fn change() {
-        let (_dir, dir_path, config) = create_temp_dir_and_config();
+        let (dir_path, config) = create_temp_dir_and_config();
 
         let mut file = dir_path.clone();
         file.push("file");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config);
+        let mut watcher = Watcher::spawn(config.base_dir, config.sync_vcs);
 
         sandbox::write_file(&dir_path, &file, b"yo").unwrap();
 
@@ -348,13 +343,13 @@ mod tests {
 
     #[tokio::test]
     async fn remove() {
-        let (_dir, dir_path, config) = create_temp_dir_and_config();
+        let (dir_path, config) = create_temp_dir_and_config();
 
         let mut file = dir_path.clone();
         file.push("file");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config);
+        let mut watcher = Watcher::spawn(config.base_dir, config.sync_vcs);
 
         sandbox::remove_file(&dir_path, &file).unwrap();
 
@@ -369,7 +364,7 @@ mod tests {
 
     #[tokio::test]
     async fn rename() {
-        let (_dir, dir_path, config) = create_temp_dir_and_config();
+        let (dir_path, config) = create_temp_dir_and_config();
 
         let mut file = dir_path.clone();
         file.push("file");
@@ -377,7 +372,7 @@ mod tests {
         file_new.push("file2");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config);
+        let mut watcher = Watcher::spawn(config.base_dir, config.sync_vcs);
 
         sandbox::rename_file(&dir_path, &file, &file_new).unwrap();
 
@@ -400,14 +395,14 @@ mod tests {
 
     #[tokio::test]
     async fn ignore() {
-        let (_dir, dir_path, config) = create_temp_dir_and_config();
+        let (dir_path, config) = create_temp_dir_and_config();
 
         let mut gitignore = dir_path.clone();
         gitignore.push(".ignore");
         sandbox::write_file(&dir_path, &gitignore, b"file").unwrap();
 
         sleep(Duration::from_millis(100)).await;
-        let mut watcher = Watcher::spawn(config);
+        let mut watcher = Watcher::spawn(config.base_dir, config.sync_vcs);
 
         let mut file = dir_path.clone();
         file.push("file");
@@ -428,13 +423,13 @@ mod tests {
 
     #[tokio::test]
     async fn remove_then_create() {
-        let (_dir, dir_path, config) = create_temp_dir_and_config();
+        let (dir_path, config) = create_temp_dir_and_config();
 
         let mut file = dir_path.clone();
         file.push("file");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config);
+        let mut watcher = Watcher::spawn(config.base_dir, config.sync_vcs);
 
         sandbox::remove_file(&dir_path, &file).unwrap();
         sandbox::write_file(&dir_path, &file, b"i'm back").unwrap();
