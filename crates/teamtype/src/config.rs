@@ -7,6 +7,8 @@
 
 //! Data structures and helper methods around influencing the configuration of the application.
 
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::bail;
@@ -14,10 +16,12 @@ use anyhow::{Context, Result};
 use docstr::docstr;
 use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
+use tempfile::{TempDir, tempdir_in};
 use tracing::info;
 
 use crate::sandbox;
 use crate::setup::find_git_repo;
+use crate::setup::get_app_cache_dir;
 use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
@@ -36,10 +40,71 @@ pub enum Peer {
     JoinCode(String),
 }
 
-#[derive(Clone, Default, Debug)]
-// #[must_use]
+#[derive(Debug)]
+pub enum BaseDir {
+    Permanent(PathBuf),
+    Temporary(TempDir),
+}
+
+impl BaseDir {
+    pub fn try_from(path: &Path) -> Result<Self> {
+        let base_dir = path.canonicalize().with_context(|| {
+            format!(
+                "Could not compute the absolute, canonical form of the path of directory {}",
+                path.display(),
+            )
+        })?;
+        Ok(Self::Permanent(base_dir))
+    }
+
+    pub fn new_temporary() -> Result<Self> {
+        let parent_dir = get_app_cache_dir()?;
+        let tempdir = tempdir_in(&parent_dir).context(format!(
+            "Failed to create a temporary directory in the directory {}",
+            parent_dir.display()
+        ))?;
+        Ok(Self::Temporary(tempdir))
+    }
+}
+
+impl Deref for BaseDir {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Permanent(path) => path,
+            Self::Temporary(temp_dir) => temp_dir.path(),
+        }
+    }
+}
+
+impl Default for BaseDir {
+    fn default() -> Self {
+        Self::Permanent(PathBuf::from("./"))
+    }
+}
+
+impl Display for BaseDir {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Permanent(path) => write!(f, "{}", path.display()),
+            Self::Temporary(temp_dir) => write!(f, "{}", temp_dir.path().display()),
+        }
+    }
+}
+
+impl Clone for BaseDir {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Permanent(path) => Self::Permanent(path.clone()),
+            Self::Temporary(temp_dir) => Self::Permanent(temp_dir.path().to_path_buf()),
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct Config {
-    pub base_dir: Option<PathBuf>,
+    pub base_dir: BaseDir,
     pub peer: Option<Peer>,
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
@@ -63,27 +128,18 @@ impl Config {
         let empty_properties_section = Properties::new();
         let base_dir = config_cli.base_dir;
         let conf;
-        let general_section = if let Some(ref base_dir) = base_dir {
-            let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
-            if config_file.exists() {
-                conf = Ini::load_from_file(config_file)
-                    .context("Could not access config file, even though it exists")?;
-                conf.general_section()
-            } else {
-                &empty_properties_section
-            }
+        let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+        let general_section = if config_file.exists() {
+            conf = Ini::load_from_file(config_file)
+                .context("Could not access config file, even though it exists")?;
+            conf.general_section()
         } else {
             &empty_properties_section
         };
 
         // we do the computation of username before initializing the struct, because we need to
         // reference base_dir, which gets moved into the struct
-        let username = get_username(
-            config_cli.username,
-            base_dir.as_deref(),
-            general_section,
-            ui,
-        );
+        let username = get_username(config_cli.username, &base_dir, general_section, ui);
         Ok(Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that base_dir won't ever be in the config file.
@@ -132,19 +188,18 @@ impl Config {
         })
     }
 
-    fn config_file(&self) -> Option<PathBuf> {
-        self.base_dir
-            .as_ref()
-            .map(|base_dir| base_dir.join(CONFIG_DIR).join(CONFIG_FILE))
+    fn config_file(&self) -> PathBuf {
+        self.base_dir.join(CONFIG_DIR).join(CONFIG_FILE)
     }
 
     /// If we have a join code, try to use that and overwrite the config file.
     /// If we don't have a join code, try to use the configured peer.
     /// Otherwise, fail.
     pub async fn resolve_peer(self) -> Result<Self> {
-        let mut result = self.clone();
-        let peer = match self.peer {
-            Some(Peer::JoinCode(ref join_code)) => {
+        let config_file = self.config_file();
+        let peer = self.peer;
+        let new_peer = match &peer {
+            Some(Peer::JoinCode(join_code)) => {
                 let secret_address =
                     get_secret_address_from_wormhole(join_code, self.magic_wormhole_relay.clone())
                         .await
@@ -154,19 +209,19 @@ impl Config {
                 info!(
                     "Derived peer from join code. Storing in config (overwriting previous config)."
                 );
-                store_peer_in_config(self, &secret_address)?;
+                store_peer_in_config(&self.base_dir, &config_file, &secret_address)?;
                 Peer::SecretAddress(secret_address)
             }
             Some(Peer::SecretAddress(secret_address)) => {
                 info!("Using peer from config file.");
-                Peer::SecretAddress(secret_address)
+                Peer::SecretAddress(secret_address.clone())
             }
-            None => {
-                bail!("Missing join code, and no peer=<secret address> in .teamtype/config");
-            }
+            None => bail!("Missing join code, and no peer=<secret address> in .teamtype/config"),
         };
-        result.peer = Some(peer);
-        Ok(result)
+        Ok(Self {
+            peer: Some(new_peer),
+            ..self
+        })
     }
 
     #[must_use]
@@ -175,26 +230,17 @@ impl Config {
     }
 }
 
-fn store_peer_in_config(config: Config, peer: &str) -> Result<()> {
-    let config_file = config
-        .config_file()
-        .context("Why storing in a config that doesn't exist yet?")?;
+fn store_peer_in_config(base_dir: &BaseDir, config_file: &Path, peer: &str) -> Result<()> {
     info!("Storing peer's address in {}", config_file.display());
 
     let content = format!("peer={peer}\n");
-    sandbox::write_file(
-        &config
-            .base_dir
-            .context("Why storing in a config that doesn't exist yet?")?,
-        &config_file,
-        content.as_bytes(),
-    )
-    .context("Failed to write to config file")
+    sandbox::write_file(base_dir, config_file, content.as_bytes())
+        .context("Failed to write to config file")
 }
 
 #[must_use]
-pub(crate) fn has_git_remote(path: &Path) -> bool {
-    if let Ok(repo) = find_git_repo(path)
+pub(crate) fn has_git_remote(base_dir: &BaseDir) -> bool {
+    if let Ok(repo) = find_git_repo(base_dir)
         && let Ok(remotes) = repo.remotes()
     {
         return !remotes.is_empty();
@@ -203,7 +249,7 @@ pub(crate) fn has_git_remote(path: &Path) -> bool {
 }
 
 /// Test if the local Git config has *any* user config.
-pub(crate) fn has_local_user_config(base_dir: &Path) -> Result<bool> {
+pub(crate) fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
     let snapshot = find_git_repo(base_dir)?.config()?.snapshot()?;
     let mut entries = snapshot.entries(Some("user\\."))?;
     while let Some(Ok(entry)) = entries.next() {
@@ -217,7 +263,7 @@ pub(crate) fn has_local_user_config(base_dir: &Path) -> Result<bool> {
 
 fn get_username(
     config_cli_username: Option<String>,
-    base_dir: Option<&Path>,
+    base_dir: &BaseDir,
     general_section: &Properties,
     ui: &UserInterface,
 ) -> String {
@@ -252,20 +298,18 @@ fn get_username_from_config_file(
         })
 }
 
-fn get_username_from_git(base_dir: Option<&Path>, ui: &UserInterface) -> Option<String> {
-    base_dir.and_then(|base_dir| {
-        let username = get_git_username(base_dir);
-        if let Some(ref username) = username {
-            info!("Using the Git username '{username}' as username");
-            ui.inform(&docstr!(format!
-                    /// Using the Git username '{username}' as username, to display next to the cursors other people see.
-                    /// Teamtype uses the Git username as username by default.
-                    /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
-                    /// You can also use the flag `--username` when using the `share`/`join` subcommands.
-            ));
-        }
-        username
-    })
+fn get_username_from_git(base_dir: &BaseDir, ui: &UserInterface) -> Option<String> {
+    let username = get_git_username(base_dir);
+    if let Some(ref username) = username {
+        info!("Using the Git username '{username}' as username");
+        ui.inform(&docstr!(format!
+                /// Using the Git username '{username}' as username, to display next to the cursors other people see.
+                /// Teamtype uses the Git username as username by default.
+                /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+                /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+        ));
+    }
+    username
 }
 
 fn get_username_from_fallback_value(ui: &UserInterface) -> String {
@@ -280,7 +324,7 @@ fn get_username_from_fallback_value(ui: &UserInterface) -> String {
 }
 
 #[must_use]
-fn get_git_username(base_dir: &Path) -> Option<String> {
+fn get_git_username(base_dir: &BaseDir) -> Option<String> {
     local_git_username(base_dir)
         .or_else(|_| global_git_username())
         .ok()
@@ -289,7 +333,7 @@ fn get_git_username(base_dir: &Path) -> Option<String> {
     // set on any level of Git configuration.
 }
 
-fn local_git_username(base_dir: &Path) -> Result<String> {
+fn local_git_username(base_dir: &BaseDir) -> Result<String> {
     Ok(find_git_repo(base_dir)?
         .config()?
         .snapshot()?

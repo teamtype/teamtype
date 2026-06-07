@@ -28,7 +28,9 @@ use tokio::{
 };
 use tracing::{debug, error, info, warn};
 
-use crate::config::{self, Config};
+use crate::config::has_git_remote;
+use crate::config::has_local_user_config;
+use crate::config::{BaseDir, Config, Peer};
 use crate::config::{CONFIG_DIR, DEFAULT_SOCKET_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
@@ -54,31 +56,26 @@ use crate::wormhole::put_secret_address_into_wormhole;
 pub const TEST_FILE_PATH: &str = "text";
 
 pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> Result<Daemon> {
-    let (mut config, _tempdir) = setup_teamtype_directory(config, ui)
+    setup_teamtype_directory(&config.base_dir, ui)
         .context(format!("Failed to setup {CONFIG_DIR}/ directory"))?;
-
-    let base_dir = config
-        .base_dir
-        .clone()
-        .context("Temporary directory not initialized")?;
 
     // We *may* be in join mode and *may* be doing so from a join code. If so make sure that's
     // resolved to a regular peer before continuing.
-    config = config
+    let config = config
         .resolve_peer()
         .await
         .context("Failed to resolve peer")?;
 
-    let persist = !config::has_git_remote(&base_dir);
+    let persist = !has_git_remote(&config.base_dir);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
         info!("Detected a Git remote");
         ui.inform("Detected a Git remote: Assuming a pair-programming use-case and starting a new history.");
     }
 
-    ensure_teamtype_is_ignored(&base_dir)?;
+    ensure_teamtype_is_ignored(&config.base_dir)?;
 
-    if config.sync_vcs && config::has_local_user_config(&base_dir).is_ok_and(|v| v) {
+    if config.sync_vcs && has_local_user_config(&config.base_dir).is_ok_and(|v| v) {
         info!("Local user configuration detected in sync-vcs mode");
         ui.inform(docstr!(
             /// WARNING: You have a local user configuration in your .git/config.
@@ -88,7 +85,7 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
         ));
     }
 
-    debug!("Starting Teamtype on {}.", base_dir.display());
+    debug!("Starting Teamtype on {}.", config.base_dir);
 
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
@@ -162,25 +159,27 @@ struct DocumentActor {
     ephemeral_states: HashMap<CursorId, EphemeralMessage>,
     /// The Document is the main I/O managed resource of this actor.
     crdt_doc: Document,
-    config: Config,
+    base_dir: BaseDir,
+    username: Option<String>,
     save_fully: bool,
+    sync_vcs: bool,
 }
 
 impl DocumentActor {
+    // TODO: un-typed boolean args are a no-no!
+    #[expect(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
     fn new(
         doc_message_rx: mpsc::Receiver<DocMessage>,
         doc_changed_ping_tx: DocChangedSender,
         ephemeral_message_tx: EphemeralMessageSender,
-        config: Config,
+        base_dir: BaseDir,
+        username: Option<String>,
         init: bool,
         persist: bool,
+        host: bool,
+        sync_vcs: bool,
     ) -> Self {
         // If there is a persisted version in base_dir/.teamtype/doc, load it.
-        // TODO: Pull out ".teamtype" string into a constant.
-        let base_dir = config
-            .base_dir
-            .clone()
-            .expect("Temp directories should exist by now");
         let persistence_file = base_dir.join(CONFIG_DIR).join("doc");
         let persistence_file_exists = sandbox::exists(&base_dir, &persistence_file)
             .expect("Could not check for the existence of the persistence file");
@@ -205,14 +204,16 @@ impl DocumentActor {
             ephemeral_message_tx,
             editor_connections: HashMap::default(),
             ephemeral_states: HashMap::default(),
-            config,
+            base_dir,
+            username,
             crdt_doc,
             save_fully: true,
+            sync_vcs,
         };
 
         if persistence_file_exists && persist {
             s.read_current_content_from_dir(init);
-        } else if s.config.is_host() {
+        } else if host {
             s.read_current_content_from_dir(true);
         }
 
@@ -230,11 +231,6 @@ impl DocumentActor {
 
     async fn handle_message(&mut self, message: DocMessage) {
         debug!("Handling doc message: {message:?}");
-        let base_dir = self
-            .config
-            .base_dir
-            .clone()
-            .expect("Temp directories should exist by now");
         match message {
             DocMessage::GetContent { response_tx } => {
                 response_tx
@@ -265,18 +261,18 @@ impl DocumentActor {
                 self.read_current_content_from_dir(false);
             }
             DocMessage::Persist => {
-                let persistence_file = base_dir.join(CONFIG_DIR).join("doc");
+                let persistence_file = &self.base_dir.join(CONFIG_DIR).join("doc");
                 if self.save_fully {
                     debug!("Persisting CRDT document fully.");
                     let bytes = self.crdt_doc.save();
-                    sandbox::write_file(&base_dir, &persistence_file, &bytes).unwrap_or_else(
+                    sandbox::write_file(&self.base_dir, persistence_file, &bytes).unwrap_or_else(
                         |_| panic!("Failed to persist to '{}'", persistence_file.display()),
                     );
                     self.save_fully = false;
                 } else {
                     debug!("Persisting CRDT document incrementally.");
                     let bytes = self.crdt_doc.save_incremental();
-                    sandbox::append_file(&base_dir, &persistence_file, &bytes).unwrap_or_else(
+                    sandbox::append_file(&self.base_dir, persistence_file, &bytes).unwrap_or_else(
                         |_| panic!("Failed to persist to '{}'", persistence_file.display()),
                     );
                 }
@@ -304,7 +300,7 @@ impl DocumentActor {
                                 info!("Removing file {file_path}.");
 
                                 sandbox::remove_file(
-                                    &base_dir,
+                                    &self.base_dir,
                                     &self.absolute_path_for_file_path(&file_path),
                                 )
                                 .unwrap_or_else(|err| {
@@ -389,7 +385,12 @@ impl DocumentActor {
                 self.editor_connections.insert(
                     id,
                     (
-                        EditorConnection::new(editor_connection_id, self.config.clone()),
+                        EditorConnection::new(
+                            editor_connection_id,
+                            self.base_dir.clone(),
+                            self.sync_vcs,
+                            self.username.clone(),
+                        ),
                         editor_writer,
                     ),
                 );
@@ -417,15 +418,7 @@ impl DocumentActor {
     }
 
     fn absolute_path_for_file_path(&self, file_path: &RelativePath) -> AbsolutePath {
-        AbsolutePath::from_parts(
-            &self
-                .config
-                .base_dir
-                .clone()
-                .expect("Temp directories should exist by now"),
-            file_path,
-        )
-        .expect("base_dir should be absolute")
+        AbsolutePath::from_parts(&self.base_dir, file_path).expect("base_dir should be absolute")
     }
 
     // Returns the messages to send back to the editor which made the request.
@@ -507,15 +500,9 @@ impl DocumentActor {
     }
 
     fn handle_watcher_event(&mut self, watcher_event: &WatcherEvent) {
-        let relative_file_path = RelativePath::try_from_path(
-            &self
-                .config
-                .base_dir
-                .clone()
-                .expect("Temporary directory not initialized"),
-            &watcher_event.file_path,
-        )
-        .expect("Watcher event should have a path within the base directory");
+        let relative_file_path =
+            RelativePath::try_from_path(&self.base_dir, &watcher_event.file_path)
+                .expect("Watcher event should have a path within the base directory");
 
         if self.owns(&relative_file_path) {
             match watcher_event.event_type {
@@ -539,14 +526,7 @@ impl DocumentActor {
     // contains the file already in the `update_text` method anyway.
     fn file_created_or_changed(&mut self, relative_file_path: &RelativePath) {
         let file_path = self.absolute_path_for_file_path(relative_file_path);
-        let new_content = match sandbox::read_file(
-            &self
-                .config
-                .base_dir
-                .clone()
-                .expect("Temporary directory not initialized"),
-            &file_path,
-        ) {
+        let new_content = match sandbox::read_file(&self.base_dir, &file_path) {
             Ok(content) => content,
             Err(e) => {
                 warn!(
@@ -654,12 +634,7 @@ impl DocumentActor {
 
     fn ensure_file_has_bytes(&self, file_path: &RelativePath, bytes: &[u8]) {
         let abs_path = self.absolute_path_for_file_path(file_path);
-        let base_dir = &self
-            .config
-            .base_dir
-            .clone()
-            .expect("Temporary directory not initialized");
-        if sandbox::exists(base_dir, &abs_path)
+        if sandbox::exists(&self.base_dir, &abs_path)
             .expect("Failed to check for file existence before writing to it")
         {
             // Special case: If we want to write a .git/objects/... file, and there's one already
@@ -671,7 +646,7 @@ impl DocumentActor {
                 return;
             }
 
-            if let Ok(current_bytes) = sandbox::read_file(base_dir, &abs_path) {
+            if let Ok(current_bytes) = sandbox::read_file(&self.base_dir, &abs_path) {
                 if bytes == current_bytes {
                     debug!("File content is already the desired one, not writing.");
                     return;
@@ -683,22 +658,18 @@ impl DocumentActor {
             info!("Creating file {file_path}.");
         }
 
-        sandbox::write_file(base_dir, &abs_path, bytes)
+        sandbox::write_file(&self.base_dir, &abs_path, bytes)
             .unwrap_or_else(|err| panic!("Failed to write to file {abs_path}: {err}"));
     }
 
     fn read_current_content_from_dir(&mut self, init: bool) {
         debug!("Reading current contents from disk (init: {init}).");
-        let base_dir = &self
-            .config
-            .base_dir
-            .clone()
-            .expect("Temporary directory not initialized");
-        for file_path in sandbox::enumerate_non_ignored_files(&self.config) {
-            match sandbox::read_file(base_dir, &file_path) {
+        for file_path in sandbox::enumerate_non_ignored_files(&self.base_dir, self.sync_vcs) {
+            match sandbox::read_file(&self.base_dir, &file_path) {
                 Ok(bytes) => {
-                    let relative_file_path = RelativePath::try_from_path(base_dir, &file_path)
-                        .expect("Walked file path should be within base directory");
+                    let relative_file_path =
+                        RelativePath::try_from_path(&self.base_dir, &file_path)
+                            .expect("Walked file path should be within base directory");
                     if self.owns(&relative_file_path) {
                         if let Ok(text) = String::from_utf8(bytes.clone()) {
                             if init {
@@ -723,7 +694,7 @@ impl DocumentActor {
 
         for relative_file_path in self.crdt_doc.files() {
             let absolute_file_path = self.absolute_path_for_file_path(&relative_file_path);
-            if !sandbox::exists(base_dir, &absolute_file_path)
+            if !sandbox::exists(&self.base_dir, &absolute_file_path)
                 .expect(
                     "Should have been able to check for file existence while reading current directory content"
                 )
@@ -967,9 +938,12 @@ impl DocumentActorHandle {
             doc_message_rx,
             doc_changed_ping_tx.clone(),
             ephemeral_message_tx.clone(),
-            config.clone(),
+            config.base_dir.clone(),
+            config.username.clone(),
             init,
             persist,
+            config.is_host(),
+            config.sync_vcs,
         );
 
         tokio::spawn(async move { actor.run().await });
@@ -1041,13 +1015,8 @@ impl Daemon {
     ) -> Result<Self> {
         let document_handle = DocumentActorHandle::new(&config, init, persist);
 
-        let base_dir = &config
-            .base_dir
-            .clone()
-            .expect("Temp directories should exist by now");
-
         // Start socket listener.
-        let socket_path = base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
+        let socket_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
         editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
 
         // Start file watcher.
@@ -1059,10 +1028,9 @@ impl Daemon {
         }
 
         // Start connection manager.
-        let connection_manager =
-            peer::ConnectionManager::new(&config, document_handle.clone(), base_dir, ui)
-                .await
-                .expect("Failed to start connection manager");
+        let connection_manager = peer::ConnectionManager::new(&config, document_handle.clone(), ui)
+            .await
+            .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
 
         if config.emit_secret_address {
@@ -1078,7 +1046,7 @@ impl Daemon {
             put_secret_address_into_wormhole(address, config.magic_wormhole_relay.clone(), ui)
                 .await;
         }
-        if let Some(config::Peer::SecretAddress(ref secret_address)) = config.peer {
+        if let Some(Peer::SecretAddress(ref secret_address)) = config.peer {
             connection_manager
                 .connect(secret_address.clone())
                 .await
@@ -1101,12 +1069,8 @@ impl Daemon {
 impl Drop for Daemon {
     fn drop(&mut self) {
         debug!("Daemon dropped, removing socket");
-        let base_dir = &self
-            .config
-            .base_dir
-            .clone()
-            .expect("Temporary directory not initialized");
-        sandbox::remove_file(base_dir, &self.socket_path).expect("Could not remove socket");
+        sandbox::remove_file(&self.config.base_dir, &self.socket_path)
+            .expect("Could not remove socket");
     }
 }
 
@@ -1114,7 +1078,7 @@ impl Drop for Daemon {
 // In addition, a short timeout after the last event, do a full re-scan, so that we don't miss any
 // file changes - the watcher isn't necessarily exhaustive.
 fn spawn_file_watcher(config: &Config, document_handle: DocumentActorHandle) {
-    let mut event_rx = Watcher::spawn(config.clone());
+    let mut event_rx = Watcher::spawn(config.base_dir.clone(), config.sync_vcs);
 
     tokio::spawn(async move {
         let debounce_duration = Duration::from_millis(100);
@@ -1212,12 +1176,12 @@ mod tests {
                     doc_message_rx,
                     doc_changed_ping_tx,
                     ephemeral_message_tx,
-                    Config {
-                        base_dir: Some(directory.path().to_path_buf()),
-                        ..Default::default()
-                    },
-                    true,
-                    false,
+                    BaseDir::Permanent(directory.path().to_path_buf()),
+                    Some(String::from("")),
+                    true,  // init
+                    false,  // persist
+                    true,  // host
+                    false, // sync_vcs
                 )
             }
 

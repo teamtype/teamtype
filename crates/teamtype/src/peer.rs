@@ -9,7 +9,6 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -28,7 +27,7 @@ use tracing::{debug, info, warn};
 use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
-use crate::config::Config;
+use crate::config::{BaseDir, Config};
 use crate::daemon::DocumentActorHandle;
 use crate::types::UserInterface;
 
@@ -74,12 +73,11 @@ impl ConnectionManager {
     pub async fn new(
         config: &Config,
         document_handle: DocumentActorHandle,
-        base_dir: &Path,
         ui: &UserInterface,
     ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(config, base_dir).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(config).await?;
 
         let secret_address = format!("{}#{}", endpoint.node_id(), my_passphrase);
 
@@ -122,8 +120,8 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(config: &Config, base_dir: &Path) -> Result<(Endpoint, SecretKey)> {
-        let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
+    async fn build_endpoint(config: &Config) -> Result<(Endpoint, SecretKey)> {
+        let (secret_key, my_passphrase) = Self::get_keypair(&config.base_dir);
 
         let mut builder = Endpoint::builder()
             .secret_key(secret_key)
@@ -161,7 +159,7 @@ impl ConnectionManager {
         Ok((endpoint, my_passphrase))
     }
 
-    fn get_keypair(base_dir: &Path) -> (SecretKey, SecretKey) {
+    fn get_keypair(base_dir: &BaseDir) -> (SecretKey, SecretKey) {
         let keyfile = base_dir.join(".teamtype").join("key");
         if keyfile.exists() {
             let metadata =
