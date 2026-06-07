@@ -20,7 +20,7 @@ use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
-use crate::config::Config;
+use crate::config::BaseDir;
 
 pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -105,17 +105,13 @@ pub fn exists(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<boo
     Ok(canonical_file_path.exists())
 }
 
-pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
+pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, sync_vcs: bool) -> Vec<PathBuf> {
     let mut ignored_things = vec![".teamtype"];
-    if !config.sync_vcs {
+    if !sync_vcs {
         ignored_things.extend([".teamtype", ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
     }
 
-    let base_dir = &config
-        .base_dir
-        .clone()
-        .expect("Temporary directory not initialized");
-    let walk = WalkBuilder::new(base_dir)
+    let walk = WalkBuilder::new(&**base_dir)
         .add_custom_ignore_filename(".teamtypeignore")
         .standard_filters(true)
         .hidden(false)
@@ -148,15 +144,15 @@ pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
     // doesn't seem to allow for that - as soon as we positive-list something, everything else gets
     // ignored.
     // So do a second walk, and merge the results.
-    if config.sync_vcs {
-        let overrides = OverrideBuilder::new(base_dir)
+    if sync_vcs {
+        let overrides = OverrideBuilder::new(&**base_dir)
             .add(".jj/")
             .expect("Failed to add pattern to OverrideBuilder")
             .add(".jj/**")
             .expect("Failed to add pattern to OverrideBuilder")
             .build()
             .expect("Failed to build Overrides");
-        let walk = WalkBuilder::new(base_dir).overrides(overrides).build();
+        let walk = WalkBuilder::new(&**base_dir).overrides(overrides).build();
         let jj_files: Vec<PathBuf> = walk
             .filter_map(Result::ok)
             .filter(|dir_entry| {
@@ -177,16 +173,15 @@ pub(crate) fn enumerate_non_ignored_files(config: &Config) -> Vec<PathBuf> {
 
 // TODO: Don't build the list of ignored files on every call.
 // TODO: Allow calling this for non-existing files.
-pub(crate) fn ignored(config: &Config, absolute_file_path: &Path) -> Result<bool> {
-    let canonical_file_path = check_inside_base_dir_and_canonicalize(
-        &config
-            .base_dir
-            .clone()
-            .context("Temporary directory not initialized")?,
-        absolute_file_path,
-    )?;
+// TODO: loose the un-type args!
+pub(crate) fn ignored(
+    base_dir: &BaseDir,
+    sync_vcs: bool,
+    absolute_file_path: &Path,
+) -> Result<bool> {
+    let canonical_file_path = check_inside_base_dir_and_canonicalize(base_dir, absolute_file_path)?;
 
-    Ok(!enumerate_non_ignored_files(config)
+    Ok(!enumerate_non_ignored_files(base_dir, sync_vcs)
         .into_iter()
         .map(|path_buf| absolute_and_canonicalized(&path_buf))
         .collect::<Result<Vec<_>>>()?
@@ -368,24 +363,21 @@ mod tests {
 
         fs::write(&teamtypeignore, b"a\n").expect("Failed to write .teamtypeignore");
 
-        let config = Config {
-            base_dir: Some(project_dir.clone()),
-            ..Default::default()
-        };
+        let base_dir = BaseDir::Permanent(project_dir.clone());
 
         assert!(
-            ignored(&config, &project_dir.join("a")).unwrap(),
+            ignored(&base_dir, false, &project_dir.join("a")).unwrap(),
             "a should be ignored"
         );
         assert!(
-            !ignored(&config, &project_dir.join("dir/b")).unwrap(),
+            !ignored(&base_dir, false, &project_dir.join("dir/b")).unwrap(),
             "b should be not ignored"
         );
 
         fs::write(&teamtypeignore, b"a\ndir\n").expect("Failed to write .teamtypeignore");
 
         assert!(
-            ignored(&config, &project_dir.join("dir/b")).unwrap(),
+            ignored(&base_dir, false, &project_dir.join("dir/b")).unwrap(),
             "now b should be ignored"
         );
     }

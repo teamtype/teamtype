@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::env::current_dir;
-use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use teamtype::config::{self, Config};
+use teamtype::config::{self, BaseDir, Config};
 use teamtype::types::UserInterface;
 
 use super::cli::{Cli, Commands, ShareJoinFlags};
@@ -103,7 +102,7 @@ pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
 
 // Determine if the CLI flags request proceeding with a temporary directory, some user
 // specified directory, or fallback to just the current directory.
-fn resolve_directory(cli: &Cli) -> Result<Option<PathBuf>> {
+fn resolve_directory(cli: &Cli) -> Result<BaseDir> {
     match cli.command {
         Commands::Share {
             shared_flags:
@@ -122,7 +121,7 @@ fn resolve_directory(cli: &Cli) -> Result<Option<PathBuf>> {
             ..
         } => {
             if temporary_directory {
-                return Ok(None);
+                return BaseDir::new_temporary();
             }
         }
         Commands::Client => {}
@@ -131,5 +130,5 @@ fn resolve_directory(cli: &Cli) -> Result<Option<PathBuf>> {
         Some(ref directory) => directory,
         None => &current_dir().context("Could not access current directory")?,
     };
-    Ok(Some(directory.clone()))
+    BaseDir::try_from(directory)
 }
