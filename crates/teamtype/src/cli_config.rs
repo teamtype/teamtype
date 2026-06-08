@@ -5,7 +5,7 @@
 use std::env::current_dir;
 
 use anyhow::{Context, Result};
-use teamtype::config::{self, BaseDir, Config};
+use teamtype::config::{self, BaseDir, Config, VcsMode};
 use teamtype::types::UserInterface;
 
 use super::cli::{Cli, Commands, ShareJoinFlags};
@@ -51,7 +51,7 @@ pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
             iroh_relay,
             iroh_dns_domain,
             iroh_pkarr_relay,
-            sync_vcs,
+            vcs_mode: from_sync_vcs_flag(sync_vcs),
             username,
         };
         let config = Config::from_config_file_and_cli(config_cli, ui)?;
@@ -88,7 +88,7 @@ pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
             iroh_relay,
             iroh_dns_domain,
             iroh_pkarr_relay,
-            sync_vcs,
+            vcs_mode: from_sync_vcs_flag(sync_vcs),
             username,
         };
         let mut config = Config::from_config_file_and_cli(config_cli, ui)?;
@@ -97,6 +97,15 @@ pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
         Ok(config)
     } else {
         unreachable!("Only Share commands beget Share configs.")
+    }
+}
+
+// Map boolean flag inputs to config enum variants.
+fn from_sync_vcs_flag(sync_vcs: bool) -> VcsMode {
+    if sync_vcs {
+        VcsMode::Sync
+    } else {
+        VcsMode::Ignore
     }
 }
 
