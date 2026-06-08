@@ -151,6 +151,12 @@ type DocChangedReceiver = broadcast::Receiver<()>;
 type EphemeralMessageSender = broadcast::Sender<EphemeralMessage>;
 type EphemeralMessageReceiver = broadcast::Receiver<EphemeralMessage>;
 
+#[derive(Debug)]
+enum SaveMode {
+    Full,
+    Incremental,
+}
+
 /// This Actor is responsible for applying changes to the document asynchronously.
 ///
 /// Any `DocMessage` that is emitted via `DocumentActorHandle` should have an effect eventually.
@@ -165,7 +171,7 @@ struct DocumentActor {
     crdt_doc: Document,
     base_dir: BaseDir,
     username: Option<String>,
-    save_fully: bool,
+    save_mode: SaveMode,
     vcs_mode: VcsMode,
     ui: UserInterface,
 }
@@ -213,7 +219,7 @@ impl DocumentActor {
             base_dir,
             username,
             crdt_doc,
-            save_fully: true,
+            save_mode: SaveMode::Full,
             vcs_mode,
             ui: ui.clone(),
         };
@@ -269,19 +275,24 @@ impl DocumentActor {
             }
             DocMessage::Persist => {
                 let persistence_file = &self.base_dir.join(CONFIG_DIR).join("doc");
-                if self.save_fully {
-                    debug!("Persisting CRDT document fully.");
-                    let bytes = self.crdt_doc.save();
-                    sandbox::write_file(&self.base_dir, persistence_file, &bytes).unwrap_or_else(
-                        |_| panic!("Failed to persist to '{}'", persistence_file.display()),
-                    );
-                    self.save_fully = false;
-                } else {
-                    debug!("Persisting CRDT document incrementally.");
-                    let bytes = self.crdt_doc.save_incremental();
-                    sandbox::append_file(&self.base_dir, persistence_file, &bytes).unwrap_or_else(
-                        |_| panic!("Failed to persist to '{}'", persistence_file.display()),
-                    );
+                match self.save_mode {
+                    SaveMode::Full => {
+                        debug!("Persisting CRDT document fully.");
+                        let bytes = self.crdt_doc.save();
+                        sandbox::write_file(&self.base_dir, persistence_file, &bytes)
+                            .unwrap_or_else(|_| {
+                                panic!("Failed to persist to '{}'", persistence_file.display())
+                            });
+                        self.save_mode = SaveMode::Incremental;
+                    }
+                    SaveMode::Incremental => {
+                        debug!("Persisting CRDT document incrementally.");
+                        let bytes = self.crdt_doc.save_incremental();
+                        sandbox::append_file(&self.base_dir, persistence_file, &bytes)
+                            .unwrap_or_else(|_| {
+                                panic!("Failed to persist to '{}'", persistence_file.display())
+                            });
+                    }
                 }
             }
             DocMessage::ReceiveSyncMessage {
