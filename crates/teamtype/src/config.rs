@@ -115,6 +115,13 @@ impl From<bool> for VcsMode {
     }
 }
 
+#[derive(Default, Clone, Debug)]
+pub enum NetworkMode {
+    #[default]
+    Host,
+    Peer,
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct Config {
     pub base_dir: BaseDir,
@@ -237,9 +244,12 @@ impl Config {
         })
     }
 
-    #[must_use]
-    pub(crate) const fn is_host(&self) -> bool {
-        self.peer.is_none()
+    pub(crate) const fn network_mode(&self) -> NetworkMode {
+        if self.peer.is_none() {
+            NetworkMode::Host
+        } else {
+            NetworkMode::Peer
+        }
     }
 }
 

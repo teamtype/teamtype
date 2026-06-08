@@ -30,7 +30,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
-use crate::config::{BaseDir, Config, Peer, VcsMode};
+use crate::config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
 use crate::config::{CONFIG_DIR, DEFAULT_SOCKET_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
@@ -178,7 +178,7 @@ impl DocumentActor {
         username: Option<String>,
         init: bool,
         persist: bool,
-        host: bool,
+        network_mode: &NetworkMode,
         vcs_mode: VcsMode,
     ) -> Self {
         // If there is a persisted version in base_dir/.teamtype/doc, load it.
@@ -215,7 +215,7 @@ impl DocumentActor {
 
         if persistence_file_exists && persist {
             s.read_current_content_from_dir(init);
-        } else if host {
+        } else if matches!(network_mode, NetworkMode::Host) {
             s.read_current_content_from_dir(true);
         }
 
@@ -944,7 +944,7 @@ impl DocumentActorHandle {
             config.username.clone(),
             init,
             persist,
-            config.is_host(),
+            &config.network_mode(),
             config.vcs_mode.clone(),
         );
 
@@ -1182,7 +1182,7 @@ mod tests {
                     Some(String::new()),
                     true,  // init
                     false, // persist
-                    true, // host
+                    &NetworkMode::Host,
                     VcsMode::Ignore,
                 )
             }
