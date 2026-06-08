@@ -102,6 +102,19 @@ impl Clone for BaseDir {
     }
 }
 
+#[derive(Default, Clone, Debug)]
+pub enum VcsMode {
+    Sync,
+    #[default]
+    Ignore,
+}
+
+impl From<bool> for VcsMode {
+    fn from(value: bool) -> Self {
+        if value { Self::Sync } else { Self::Ignore }
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct Config {
     pub base_dir: BaseDir,
@@ -113,7 +126,7 @@ pub struct Config {
     pub iroh_dns_domain: Option<String>,
     pub iroh_pkarr_relay: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
-    pub sync_vcs: bool,
+    pub vcs_mode: VcsMode,
     pub username: Option<String>,
 }
 
@@ -183,7 +196,7 @@ impl Config {
                     .get("iroh_pkarr_relay")
                     .map(ToString::to_string)
             }),
-            sync_vcs: config_cli.sync_vcs,
+            vcs_mode: config_cli.vcs_mode,
             username: Some(username),
         })
     }
