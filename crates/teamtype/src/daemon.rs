@@ -32,7 +32,7 @@ use tracing::debug;
 
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
-use crate::config::{BaseDir, Config, Peer};
+use crate::config::{BaseDir, Config, Peer, VcsMode};
 use crate::config::{CONFIG_DIR, DEFAULT_SOCKET_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
@@ -78,7 +78,9 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
 
     ensure_teamtype_is_ignored(&config.base_dir)?;
 
-    if config.sync_vcs && has_local_user_config(&config.base_dir).is_ok_and(|v| v) {
+    if matches!(config.vcs_mode, VcsMode::Sync)
+        && has_local_user_config(&config.base_dir).is_ok_and(|v| v)
+    {
         ui.warn(docstr!(
             /// You have a local user configuration in your .git/config.
             /// In --sync-vcs mode, this file will also be synchronized between peers.
@@ -164,13 +166,13 @@ struct DocumentActor {
     base_dir: BaseDir,
     username: Option<String>,
     save_fully: bool,
-    sync_vcs: bool,
+    vcs_mode: VcsMode,
     ui: UserInterface,
 }
 
 impl DocumentActor {
     // TODO: un-typed boolean args are a no-no!
-    #[expect(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
+    #[expect(clippy::too_many_arguments)]
     fn new(
         doc_message_rx: mpsc::Receiver<DocMessage>,
         doc_changed_ping_tx: DocChangedSender,
@@ -181,7 +183,7 @@ impl DocumentActor {
         init: bool,
         persist: bool,
         host: bool,
-        sync_vcs: bool,
+        vcs_mode: VcsMode,
     ) -> Self {
         // If there is a persisted version in base_dir/.teamtype/doc, load it.
         let persistence_file = base_dir.join(CONFIG_DIR).join("doc");
@@ -212,7 +214,7 @@ impl DocumentActor {
             username,
             crdt_doc,
             save_fully: true,
-            sync_vcs,
+            vcs_mode,
             ui: ui.clone(),
         };
 
@@ -395,7 +397,7 @@ impl DocumentActor {
                         EditorConnection::new(
                             editor_connection_id,
                             self.base_dir.clone(),
-                            self.sync_vcs,
+                            self.vcs_mode.clone(),
                             self.username.clone(),
                         ),
                         editor_writer,
@@ -674,7 +676,7 @@ impl DocumentActor {
 
     fn read_current_content_from_dir(&mut self, init: bool) {
         debug!("Reading current contents from disk (init: {init}).");
-        for file_path in sandbox::enumerate_non_ignored_files(&self.base_dir, self.sync_vcs) {
+        for file_path in sandbox::enumerate_non_ignored_files(&self.base_dir, &self.vcs_mode) {
             match sandbox::read_file(&self.base_dir, &file_path) {
                 Ok(bytes) => {
                     let relative_file_path =
@@ -956,7 +958,7 @@ impl DocumentActorHandle {
             init,
             persist,
             config.is_host(),
-            config.sync_vcs,
+            config.vcs_mode.clone(),
             ui,
         );
 
@@ -1093,7 +1095,7 @@ impl Drop for Daemon {
 // In addition, a short timeout after the last event, do a full re-scan, so that we don't miss any
 // file changes - the watcher isn't necessarily exhaustive.
 fn spawn_file_watcher(config: &Config, document_handle: DocumentActorHandle) {
-    let mut event_rx = Watcher::spawn(config.base_dir.clone(), config.sync_vcs);
+    let mut event_rx = Watcher::spawn(config.base_dir.clone(), config.vcs_mode.clone());
 
     tokio::spawn(async move {
         let debounce_duration = Duration::from_millis(100);
@@ -1195,11 +1197,11 @@ mod tests {
                     doc_changed_ping_tx,
                     ephemeral_message_tx,
                     BaseDir::Permanent(directory.path().to_path_buf()),
-                    Some(String::from("")),
+                    Some(String::new()),
                     true,  // init
                     false, // persist
                     true,  // host
-                    false, // sync_vcs
+                    VcsMode::Ignore,
                     ui,
                 )
             }

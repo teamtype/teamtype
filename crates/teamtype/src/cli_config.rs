@@ -51,7 +51,7 @@ pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
             iroh_relay,
             iroh_dns_domain,
             iroh_pkarr_relay,
-            sync_vcs,
+            vcs_mode: sync_vcs.into(),
             username,
         };
         let config = Config::from_config_file_and_cli(config_cli, ui)?;
@@ -88,7 +88,7 @@ pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
             iroh_relay,
             iroh_dns_domain,
             iroh_pkarr_relay,
-            sync_vcs,
+            vcs_mode: sync_vcs.into(),
             username,
         };
         let mut config = Config::from_config_file_and_cli(config_cli, ui)?;
