@@ -122,6 +122,13 @@ pub enum VcsMode {
     Ignore,
 }
 
+#[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum NetworkMode {
+    #[default]
+    Host,
+    Peer,
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct Config {
     pub base_dir: BaseDir,
@@ -239,9 +246,12 @@ impl Config {
         Ok(resolved_config)
     }
 
-    #[must_use]
-    pub(crate) const fn is_host(&self) -> bool {
-        self.peer.is_none()
+    pub(crate) const fn network_mode(&self) -> NetworkMode {
+        if self.peer.is_none() {
+            NetworkMode::Host
+        } else {
+            NetworkMode::Peer
+        }
     }
 }
 
