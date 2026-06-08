@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use tracing::debug;
 
-use crate::config::BaseDir;
+use crate::config::{BaseDir, VcsMode};
 use crate::{
     editor_protocol::{
         EditorProtocolMessageError, EditorProtocolMessageFromEditor, EditorProtocolMessageToEditor,
@@ -29,17 +29,17 @@ pub struct EditorConnection {
     ot_servers: HashMap<RelativePath, OTServer>,
     /// The name other people see.
     username: Option<String>,
-    sync_vcs: bool,
+    vcs_mode: VcsMode,
 }
 
 impl EditorConnection {
-    pub fn new(id: String, base_dir: BaseDir, sync_vcs: bool, username: Option<String>) -> Self {
+    pub fn new(id: String, base_dir: BaseDir, vcs_mode: VcsMode, username: Option<String>) -> Self {
         Self {
             id,
             base_dir,
             ot_servers: HashMap::new(),
             username,
-            sync_vcs,
+            vcs_mode,
         }
     }
 
@@ -129,7 +129,7 @@ impl EditorConnection {
                 }
 
                 // We only want to process these messages for files that are not ignored.
-                if sandbox::ignored(&self.base_dir, self.sync_vcs, &absolute_path)
+                if sandbox::ignored(&self.base_dir, &self.vcs_mode, &absolute_path)
                     .expect("Could not check ignore status of opened file")
                 {
                     return Err(EditorProtocolMessageError {
@@ -274,7 +274,7 @@ mod tests {
         let username = Some(String::new());
 
         let mut editor_connection =
-            EditorConnection::new("1".to_string(), base_dir, false, username);
+            EditorConnection::new("1".to_string(), base_dir, VcsMode::Ignore, username);
 
         let result =
             editor_connection.message_from_editor(&EditorProtocolMessageFromEditor::Open {
@@ -295,7 +295,7 @@ mod tests {
         let username = Some(String::new());
 
         let mut editor_connection =
-            EditorConnection::new("1".to_string(), base_dir, false, username);
+            EditorConnection::new("1".to_string(), base_dir, VcsMode::Ignore, username);
 
         // Editor opens the file.
         let result =

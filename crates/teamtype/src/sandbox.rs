@@ -20,7 +20,7 @@ use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
-use crate::config::BaseDir;
+use crate::config::{BaseDir, VcsMode};
 
 pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -105,9 +105,9 @@ pub fn exists(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<boo
     Ok(canonical_file_path.exists())
 }
 
-pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, sync_vcs: bool) -> Vec<PathBuf> {
+pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, vcs_mode: &VcsMode) -> Vec<PathBuf> {
     let mut ignored_things = vec![".teamtype"];
-    if !sync_vcs {
+    if matches!(vcs_mode, VcsMode::Ignore) {
         ignored_things.extend([".teamtype", ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
     }
 
@@ -144,7 +144,7 @@ pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, sync_vcs: bool) ->
     // doesn't seem to allow for that - as soon as we positive-list something, everything else gets
     // ignored.
     // So do a second walk, and merge the results.
-    if sync_vcs {
+    if matches!(vcs_mode, VcsMode::Sync) {
         let overrides = OverrideBuilder::new(&**base_dir)
             .add(".jj/")
             .expect("Failed to add pattern to OverrideBuilder")
@@ -176,12 +176,12 @@ pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, sync_vcs: bool) ->
 // TODO: loose the un-type args!
 pub(crate) fn ignored(
     base_dir: &BaseDir,
-    sync_vcs: bool,
+    vcs_mode: &VcsMode,
     absolute_file_path: &Path,
 ) -> Result<bool> {
     let canonical_file_path = check_inside_base_dir_and_canonicalize(base_dir, absolute_file_path)?;
 
-    Ok(!enumerate_non_ignored_files(base_dir, sync_vcs)
+    Ok(!enumerate_non_ignored_files(base_dir, vcs_mode)
         .into_iter()
         .map(|path_buf| absolute_and_canonicalized(&path_buf))
         .collect::<Result<Vec<_>>>()?
@@ -366,18 +366,18 @@ mod tests {
         let base_dir = BaseDir::Permanent(project_dir.clone());
 
         assert!(
-            ignored(&base_dir, false, &project_dir.join("a")).unwrap(),
+            ignored(&base_dir, &VcsMode::Ignore, &project_dir.join("a")).unwrap(),
             "a should be ignored"
         );
         assert!(
-            !ignored(&base_dir, false, &project_dir.join("dir/b")).unwrap(),
+            !ignored(&base_dir, &VcsMode::Ignore, &project_dir.join("dir/b")).unwrap(),
             "b should be not ignored"
         );
 
         fs::write(&teamtypeignore, b"a\ndir\n").expect("Failed to write .teamtypeignore");
 
         assert!(
-            ignored(&base_dir, false, &project_dir.join("dir/b")).unwrap(),
+            ignored(&base_dir, &VcsMode::Ignore, &project_dir.join("dir/b")).unwrap(),
             "now b should be ignored"
         );
     }
