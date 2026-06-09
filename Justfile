@@ -22,6 +22,8 @@ export TEAMTYPE_BINARY := justfile_directory() + "/target/debug/teamtype"
 set script-interpreter := ['bash', '-eu']
 set shell := ['bash', '-eu', '-c']
 
+set default-list
+set default-script
 set positional-arguments
 set unstable
 
@@ -50,11 +52,6 @@ check-cargo *ARGS:
 [group('check')]
 check-typos:
     {{ typos }}
-
-[default]
-[private]
-@list:
-    {{ just }} --list --unsorted
 
 [group('build')]
 build *ARGS:
@@ -150,7 +147,6 @@ perfect: check lint test fuzz
 #
 # Run Neovim with the plug-in for testing (can be used from outside the project).
 [no-cd]
-[script]
 nvim *ARGS: build-test
     {{ nvim }} --clean \
         --cmd {{ quote("let &runtimepath=\"" + justfile_directory() + "/nvim-plugin,\" . &runtimepath") }} \
@@ -165,6 +161,5 @@ nvim *ARGS: build-test
 #
 # Build and run Teamtype for testing (can be used from outside the project).
 [no-cd]
-[script]
 teamtype *ARGS: build-test
     $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
