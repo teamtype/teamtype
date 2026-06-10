@@ -30,6 +30,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         nvim-version: [v0.9.5, v0.10.4, v0.11.2]
+        include:
+          - os: windows-latest
+            nvim-version: v0.11.2
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -43,20 +46,34 @@ jobs:
         with:
           neovim: true
           version: ${{ matrix.nvim-version }}
-      - name: Build Teamtype
+      - if: ${{ matrix.os != 'windows-latest' }}
+        name: Build Teamtype (workspace)
         run: cargo build --profile test
+      - if: ${{ matrix.os == 'windows-latest' }}
+        name: Build Teamtype (teamtype-crate)
+        run: cargo build --profile test -p teamtype
       - run: nvim --version
-      - name: Compile default tests
+      - if: ${{ matrix.os != 'windows-latest' }}
+        name: Compile default tests
         run: cargo test --locked --no-default-features --no-run
-      - name: Compile e2e fuzzer
+      - if: ${{ matrix.os != 'windows-latest' }}
+        name: Compile e2e fuzzer
         run: cargo test --locked --no-default-features --no-run --test fuzzer
-      - name: Run default unit tests
+      - if: ${{ matrix.os != 'windows-latest' }}
+        name: Run default unit tests
         run: cargo test --locked --no-default-features -p teamtype
-      - name: Run default e2e tests
+      - if: ${{ matrix.os != 'windows-latest' }}
+        name: Run default e2e tests
         run: cargo test --locked --no-default-features -p e2e-tests
-      - if: ${{ matrix.nvim-version == 'v0.11.2' }}
+      - if: ${{ matrix.nvim-version == 'v0.11.2' && matrix.os != 'windows-latest' }}
         name: Run e2e fuzzer
         run: cargo test --locked --no-default-features -p e2e-tests --test fuzzer
+      - if: ${{ matrix.nvim-version == 'v0.11.2' }}
+        name: Upload test artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: teamtype-${{ matrix.os }}
+          path: target/debug/teamtype${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   check_formatting:
     name: Check Rust formatting

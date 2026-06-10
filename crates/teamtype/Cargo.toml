@@ -38,7 +38,7 @@ crate-type = ["rlib", "cdylib"]
 [features]
 # This is unfortunate, but users of the crate as a library should use `default-features = false`.
 default = ["cli"]
-cli = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
+cli = ["dep:clap", "dep:console", "dep:dialoguer", "tokio/signal", "tokio/rt-multi-thread"]
 
 [build-dependencies]
 anyhow.workspace = true
@@ -50,12 +50,16 @@ clap_mangen = "0.3"
 version = "4"
 features = ["derive", "env"]
 
+[target.'cfg(windows)'.build-dependencies]
+static_vcruntime = "3"
+
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
 automerge = "0.8"
 constant_time_eq = "0.4"
 dissimilar = "1"
+docstr.workspace = true
 futures.workspace = true
 ignore = "0.4"
 # Iroh is currently held back to the 0.3x series while 0.9x are canary releases:
@@ -83,6 +87,14 @@ optional = true
 [dependencies.derive_more]
 version = "2"
 features = ["as_ref", "deref", "display"]
+
+[dependencies.console]
+version = "0.16"
+optional = true
+
+[dependencies.dialoguer]
+version = "0.12"
+optional = true
 
 [dependencies.git2]
 version = "0.20"

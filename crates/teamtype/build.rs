@@ -14,10 +14,14 @@ use clap::{CommandFactory as _, ValueEnum as _};
 use clap_complete::Shell;
 use clap_complete::generate_to as generate_completions_to;
 use clap_mangen::generate_to as generate_manpages_to;
+#[cfg(windows)]
+use static_vcruntime::metabuild;
 
 include!("src/cli.rs");
 
 fn main() -> Result<()> {
+    #[cfg(windows)]
+    metabuild();
     instantiate_initial_automerge_doc()?;
     pass_on_git_version_details();
     output_completions()?;
