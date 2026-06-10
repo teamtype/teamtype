@@ -43,7 +43,7 @@ check *ARGS: (check-cargo ARGS) check-typos
 
 [group('check')]
 check-cargo *ARGS:
-    {{ cargo }} check {{ ARGS }}
+    {{ cargo }} check --all-targets --all-features {{ ARGS }}
 
 [group('check')]
 check-typos:
@@ -111,7 +111,7 @@ lint-manifests:
 
 [group('lint')]
 lint-rust:
-    {{ cargo }} clippy
+    {{ cargo }} clippy --all-targets --all-features
 
 [group('test')]
 test *ARGS: (test-cargo ARGS)
@@ -135,8 +135,8 @@ perfect: check lint test fuzz
 #     alias nvim='just --justfile ~/path/to/teamtype/Justfile nvim'
 #
 # Run Neovim with the plug-in for testing (can be used from outside the project).
-[script]
 [no-cd]
+[script]
 nvim *ARGS: build-test
     {{ nvim }} --clean \
         --cmd {{ quote("let &runtimepath=\"" + justfile_directory() + "/nvim-plugin,\" . &runtimepath") }} \
@@ -150,7 +150,7 @@ nvim *ARGS: build-test
 #     alias teamtype='just --justfile ~/path/to/teamtype/Justfile teamtype'
 #
 # Build and run Teamtype for testing (can be used from outside the project).
-[script]
 [no-cd]
+[script]
 teamtype *ARGS: build-test
     $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
