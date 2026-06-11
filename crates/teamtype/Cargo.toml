@@ -17,11 +17,11 @@ documentation = "https://teamtype.github.io"
 homepage.workspace = true
 repository.workspace = true
 keywords = [
-    "collaboration",
-    "local-first",
-    "synchronization",
-    "crdt",
-    "peer-to-peer",
+	"collaboration",
+	"local-first",
+	"synchronization",
+	"crdt",
+	"peer-to-peer",
 ]
 categories = ["command-line-utilities", "text-editors"]
 edition.workspace = true
@@ -60,19 +60,20 @@ futures.workspace = true
 ignore = "0.4"
 # Iroh is currently held back to the 0.3x series while 0.9x are canary releases:
 # https://www.iroh.computer/blog/iroh-0-90-the-canary-series
-iroh = "0.35"
+iroh = "0.98"
 # We cannot bump to 0.8 because Iroh 0.35's netwatcher usage causes mismatched types on macOS.
-magic-wormhole = "0.7"
+magic-wormhole = "0.8"
 microxdg = "0.2"
 operational-transform = "0.6"
 path-clean = "1"
 # We have to match types exposed by Iroh 0.3x.
-rand = "0.8"
+rand = "0.10"
 ropey = "1"
 rust-ini = "0.21"
 serde_json.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
+data-encoding = "2.10.0"
 url = "2"
 
 [dependencies.clap]
