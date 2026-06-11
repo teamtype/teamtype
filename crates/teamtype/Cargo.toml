@@ -58,9 +58,6 @@ constant_time_eq = "0.4"
 dissimilar = "1"
 futures.workspace = true
 ignore = "0.4"
-# Iroh is currently held back to the 0.3x series while 0.9x are canary releases:
-# https://www.iroh.computer/blog/iroh-0-90-the-canary-series
-iroh = "0.35"
 # We cannot bump to 0.8 because Iroh 0.35's netwatcher usage causes mismatched types on macOS.
 magic-wormhole = "0.7"
 microxdg = "0.2"
@@ -87,6 +84,12 @@ features = ["as_ref", "deref", "display"]
 [dependencies.git2]
 version = "0.20"
 default-features = false
+
+# Iroh is currently held back to the 0.3x series while 0.9x are canary releases:
+# https://www.iroh.computer/blog/iroh-0-90-the-canary-series
+[dependencies.iroh]
+version = "0.35"
+features = ["discovery-local-network"]
 
 [dependencies.notify]
 version = "8"
