@@ -7,40 +7,143 @@
 
 //! Data structures and helper methods around influencing the configuration of the application.
 
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
-use git2::{Config as GitConfig, ConfigLevel, Error as GitError, Repository};
+use docstr::docstr;
+use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
+use serde::{Deserialize, Serialize};
+use tempfile::{TempDir, tempdir_in};
 use tracing::info;
 
 use crate::sandbox;
+use crate::setup::find_git_repo;
+use crate::setup::get_app_cache_dir;
+use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
-pub const DOC_FILE: &str = "doc";
-pub const DEFAULT_SOCKET_NAME: &str = "socket";
-pub const CONFIG_DIR: &str = ".teamtype";
-pub const CONFIG_FILE: &str = "config";
-pub const BOOKMARK_FILE: &str = "bookmark";
-// TODO: Remove this after a while.
-pub const LEGACY_CONFIG_DIR: &str = ".ethersync";
+pub(crate) const DEFAULT_SOCKET_NAME: &str = "socket";
+pub(crate) const CONFIG_DIR: &str = ".teamtype";
+pub(crate) const CONFIG_FILE: &str = "config";
 
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
 // TODO: Generate a random funny name.
 const USERNAME_FALLBACK: &str = "Anonymous";
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Peer {
     SecretAddress(String),
     JoinCode(String),
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Debug)]
+pub enum BaseDir {
+    Permanent(PathBuf),
+    Temporary(TempDir),
+}
+
+impl BaseDir {
+    pub fn try_from(path: &Path) -> Result<Self> {
+        let base_dir = path.canonicalize().with_context(|| {
+            format!(
+                "Could not compute the absolute, canonical form of the path of directory {}",
+                path.display(),
+            )
+        })?;
+        Ok(Self::Permanent(base_dir))
+    }
+
+    pub fn new_temporary() -> Result<Self> {
+        let parent_dir = get_app_cache_dir()?;
+        let tempdir = tempdir_in(&parent_dir).context(format!(
+            "Failed to create a temporary directory in the directory {}",
+            parent_dir.display()
+        ))?;
+        Ok(Self::Temporary(tempdir))
+    }
+}
+
+impl Deref for BaseDir {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Permanent(path) => path,
+            Self::Temporary(temp_dir) => temp_dir.path(),
+        }
+    }
+}
+
+impl Default for BaseDir {
+    fn default() -> Self {
+        Self::Permanent(PathBuf::from("./"))
+    }
+}
+
+impl Display for BaseDir {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Permanent(path) => write!(f, "{}", path.display()),
+            Self::Temporary(temp_dir) => write!(f, "{}", temp_dir.path().display()),
+        }
+    }
+}
+
+impl Serialize for BaseDir {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Permanent(path) => path.serialize(serializer),
+            Self::Temporary(temp_dir) => temp_dir.path().to_path_buf().serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for BaseDir {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        PathBuf::deserialize(deserializer).map(Self::Permanent)
+    }
+}
+
+impl Clone for BaseDir {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Permanent(path) => Self::Permanent(path.clone()),
+            Self::Temporary(temp_dir) => Self::Permanent(temp_dir.path().to_path_buf()),
+        }
+    }
+}
+
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub enum VcsMode {
+    Sync,
+    #[default]
+    Ignore,
+}
+
+impl From<bool> for VcsMode {
+    fn from(value: bool) -> Self {
+        if value { Self::Sync } else { Self::Ignore }
+    }
+}
+
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub enum NetworkMode {
+    #[default]
+    Host,
+    Peer,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 #[must_use]
-pub struct AppConfig {
-    pub base_dir: PathBuf,
+pub struct Config {
+    pub base_dir: BaseDir,
     pub peer: Option<Peer>,
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
@@ -49,50 +152,50 @@ pub struct AppConfig {
     pub iroh_dns_domain: Option<String>,
     pub iroh_pkarr_relay: Option<String>,
     // Whether to sync version control directories like .git, .jj, ...
-    pub sync_vcs: bool,
+    pub vcs_mode: VcsMode,
     pub username: Option<String>,
 }
 
-impl AppConfig {
+impl Config {
     // Merges the app config from file with the CLI app config by taking the "superset" of them.
     //
     // It depends on the attribute how we're merging it:
     // - For strings, the CLI app config attribute has precedence.
     // - For booleans, if a value deviates from the default, it "wins".
     // - The `base_dir` will be taken from the CLI app config.
-    pub fn from_config_file_and_cli(app_config_cli: Self) -> Self {
-        let base_dir = app_config_cli.base_dir;
-        let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+    pub fn from_config_file_and_cli(config_cli: Self, ui: &UserInterface) -> Result<Self> {
         let empty_properties_section = Properties::new();
+        let base_dir = config_cli.base_dir;
         let conf;
+        let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
         let general_section = if config_file.exists() {
             conf = Ini::load_from_file(config_file)
-                .expect("Could not access config file, even though it exists");
+                .context("Could not access config file, even though it exists")?;
             conf.general_section()
         } else {
             &empty_properties_section
         };
 
         // we do the computation of username before initializing the struct, because we need to
-        // reference base_dir, which gets moved during the initialization of the struct
-        let username = get_username(app_config_cli.username, &base_dir, general_section);
-        Self {
+        // reference base_dir, which gets moved into the struct
+        let username = get_username(config_cli.username, &base_dir, general_section, ui);
+        Ok(Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that base_dir won't ever be in the config file.
             base_dir,
-            peer: app_config_cli.peer.or_else(|| {
+            peer: config_cli.peer.or_else(|| {
                 general_section
                     .get("peer")
                     .map(|p| Peer::SecretAddress(p.to_string()))
             }),
-            emit_join_code: app_config_cli.emit_join_code
+            emit_join_code: config_cli.emit_join_code
                 && general_section
                     .get("emit_join_code")
                     .map_or(EMIT_JOIN_CODE_DEFAULT, |ejc| {
                         ejc.parse()
                             .expect("Failed to parse config parameter `emit_join_code` as bool")
                     }),
-            emit_secret_address: app_config_cli.emit_secret_address
+            emit_secret_address: config_cli.emit_secret_address
                 || general_section.get("emit_secret_address").map_or(
                     EMIT_SECRET_ADDRESS_DEFAULT,
                     |esa| {
@@ -101,27 +204,27 @@ impl AppConfig {
                         )
                     },
                 ),
-            magic_wormhole_relay: app_config_cli.magic_wormhole_relay.or_else(|| {
+            magic_wormhole_relay: config_cli.magic_wormhole_relay.or_else(|| {
                 general_section
                     .get("magic_wormhole_relay")
                     .map(ToString::to_string)
             }),
-            iroh_relay: app_config_cli
+            iroh_relay: config_cli
                 .iroh_relay
                 .or_else(|| general_section.get("iroh_relay").map(ToString::to_string)),
-            iroh_dns_domain: app_config_cli.iroh_dns_domain.or_else(|| {
+            iroh_dns_domain: config_cli.iroh_dns_domain.or_else(|| {
                 general_section
                     .get("iroh_dns_domain")
                     .map(ToString::to_string)
             }),
-            iroh_pkarr_relay: app_config_cli.iroh_pkarr_relay.or_else(|| {
+            iroh_pkarr_relay: config_cli.iroh_pkarr_relay.or_else(|| {
                 general_section
                     .get("iroh_pkarr_relay")
                     .map(ToString::to_string)
             }),
-            sync_vcs: app_config_cli.sync_vcs,
+            vcs_mode: config_cli.vcs_mode,
             username: Some(username),
-        }
+        })
     }
 
     fn config_file(&self) -> PathBuf {
@@ -132,9 +235,10 @@ impl AppConfig {
     /// If we don't have a join code, try to use the configured peer.
     /// Otherwise, fail.
     pub async fn resolve_peer(self) -> Result<Self> {
-        let mut result = self.clone();
-        let peer = match self.peer {
-            Some(Peer::JoinCode(ref join_code)) => {
+        let config_file = self.config_file();
+        let peer = self.peer;
+        let new_peer = match &peer {
+            Some(Peer::JoinCode(join_code)) => {
                 let secret_address =
                     get_secret_address_from_wormhole(join_code, self.magic_wormhole_relay.clone())
                         .await
@@ -144,38 +248,41 @@ impl AppConfig {
                 info!(
                     "Derived peer from join code. Storing in config (overwriting previous config)."
                 );
-                store_peer_in_config(&self.base_dir, &self.config_file(), &secret_address)?;
+                store_peer_in_config(&self.base_dir, &config_file, &secret_address)?;
                 Peer::SecretAddress(secret_address)
             }
             Some(Peer::SecretAddress(secret_address)) => {
                 info!("Using peer from config file.");
-                Peer::SecretAddress(secret_address)
+                Peer::SecretAddress(secret_address.clone())
             }
-            None => {
-                bail!("Missing join code, and no peer=<secret address> in .teamtype/config");
-            }
+            None => bail!("Missing join code, and no peer=<secret address> in .teamtype/config"),
         };
-        result.peer = Some(peer);
-        Ok(result)
+        Ok(Self {
+            peer: Some(new_peer),
+            ..self
+        })
     }
 
-    #[must_use]
-    pub const fn is_host(&self) -> bool {
-        self.peer.is_none()
+    pub(crate) const fn network_mode(&self) -> NetworkMode {
+        if self.peer.is_none() {
+            NetworkMode::Host
+        } else {
+            NetworkMode::Peer
+        }
     }
 }
 
-pub fn store_peer_in_config(directory: &Path, config_file: &Path, peer: &str) -> Result<()> {
-    info!("Storing peer's address in .teamtype/config.");
+fn store_peer_in_config(base_dir: &BaseDir, config_file: &Path, peer: &str) -> Result<()> {
+    info!("Storing peer's address in {}", config_file.display());
 
     let content = format!("peer={peer}\n");
-    sandbox::write_file(directory, config_file, content.as_bytes())
+    sandbox::write_file(base_dir, config_file, content.as_bytes())
         .context("Failed to write to config file")
 }
 
 #[must_use]
-pub fn has_git_remote(path: &Path) -> bool {
-    if let Ok(repo) = find_git_repo(path)
+pub(crate) fn has_git_remote(base_dir: &BaseDir) -> bool {
+    if let Ok(repo) = find_git_repo(base_dir)
         && let Ok(remotes) = repo.remotes()
     {
         return !remotes.is_empty();
@@ -183,19 +290,8 @@ pub fn has_git_remote(path: &Path) -> bool {
     false
 }
 
-#[must_use]
-fn teamtype_directory_should_be_ignored_but_isnt(path: &Path) -> bool {
-    if let Ok(repo) = find_git_repo(path) {
-        let teamtype_dir = path.join(CONFIG_DIR);
-        return !repo
-            .is_path_ignored(teamtype_dir)
-            .expect("Should have been able to determine ignore state of path");
-    }
-    false
-}
-
 /// Test if the local Git config has *any* user config.
-pub fn has_local_user_config(base_dir: &Path) -> Result<bool> {
+pub(crate) fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
     let snapshot = find_git_repo(base_dir)?.config()?.snapshot()?;
     let mut entries = snapshot.entries(Some("user\\."))?;
     while let Some(Ok(entry)) = entries.next() {
@@ -208,61 +304,69 @@ pub fn has_local_user_config(base_dir: &Path) -> Result<bool> {
 }
 
 fn get_username(
-    app_config_cli_username: Option<String>,
-    base_dir: &Path,
+    config_cli_username: Option<String>,
+    base_dir: &BaseDir,
     general_section: &Properties,
+    ui: &UserInterface,
 ) -> String {
-    app_config_cli_username
-        .map(get_username_from_cli)
-        .or_else(|| get_username_from_config_file(general_section))
-        .or_else(|| get_username_from_git(base_dir))
-        .unwrap_or_else(get_username_from_fallback_value)
+    config_cli_username
+        .map(|u| get_username_from_cli(u, ui))
+        .or_else(|| get_username_from_config_file(general_section, ui))
+        .or_else(|| get_username_from_git(base_dir, ui))
+        .unwrap_or_else(|| get_username_from_fallback_value(ui))
 }
 
-fn get_username_from_cli(username: String) -> String {
-    info!("Using the username '{username}' to display next to the cursors other people see.");
+fn get_username_from_cli(username: String, ui: &UserInterface) -> String {
+    info!("Using the CLI provided username '{username}'");
+    ui.inform(&format!(
+        "Using the CLI provided username '{username}' to display next to the cursors other people see."
+    ));
     username
 }
 
-fn get_username_from_config_file(general_section: &Properties) -> Option<String> {
+fn get_username_from_config_file(
+    general_section: &Properties,
+    ui: &UserInterface,
+) -> Option<String> {
     general_section
         .get("username")
         .map(ToString::to_string)
         .map(|username| {
-            info!("Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see.");
+            info!("Using the username '{username}' from `.teamtype/config` as username");
+            ui.inform(&format!(
+                "Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see."
+            ));
             username
         })
 }
 
-fn get_username_from_git(base_dir: &Path) -> Option<String> {
+fn get_username_from_git(base_dir: &BaseDir, ui: &UserInterface) -> Option<String> {
     let username = get_git_username(base_dir);
     if let Some(ref username) = username {
-        info!(
-            "Using the Git username '{username}' as username, to display next to the cursors other people see."
-        );
-        info!("Teamtype uses the Git username as username by default.");
-        info!(
-            "You can set the configuration value `username` in your `.teamtype/config` to override this username."
-        );
-        info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
+        info!("Using the Git username '{username}' as username");
+        ui.inform(&docstr!(format!
+                /// Using the Git username '{username}' as username, to display next to the cursors other people see.
+                /// Teamtype uses the Git username as username by default.
+                /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+                /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+        ));
     }
     username
 }
 
-fn get_username_from_fallback_value() -> String {
+fn get_username_from_fallback_value(ui: &UserInterface) -> String {
     let username = USERNAME_FALLBACK.to_string();
-    info!(
-        "Using the fallback value for username '{username}' as username, to display next to the cursors other people see."
-    );
-    info!(
-        "You can set the configuration value `username` in your `.teamtype/config` to override this username."
-    );
-    info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
+    info!("Using the fallback value for username '{username}' as username");
+    ui.inform(&docstr!(format!
+        /// Using the fallback value for username '{username}' as username, to display next to the cursors other people see.
+        /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+        /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+    ));
     username
 }
 
 #[must_use]
-pub fn get_git_username(base_dir: &Path) -> Option<String> {
+fn get_git_username(base_dir: &BaseDir) -> Option<String> {
     local_git_username(base_dir)
         .or_else(|_| global_git_username())
         .ok()
@@ -271,7 +375,7 @@ pub fn get_git_username(base_dir: &Path) -> Option<String> {
     // set on any level of Git configuration.
 }
 
-fn local_git_username(base_dir: &Path) -> Result<String> {
+fn local_git_username(base_dir: &BaseDir) -> Result<String> {
     Ok(find_git_repo(base_dir)?
         .config()?
         .snapshot()?
@@ -284,35 +388,4 @@ fn global_git_username() -> Result<String> {
         .snapshot()?
         .get_str("user.name")?
         .to_string())
-}
-
-fn find_git_repo(path: &Path) -> Result<Repository, GitError> {
-    Repository::discover(path)
-}
-
-fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
-    let mut ignore_file_path = directory.join(CONFIG_DIR);
-    ignore_file_path.push(".gitignore");
-
-    // It's very unlikely that .teamtype/.gitignore will already contain something, but let's
-    // still append.
-    let bytes_in = sandbox::read_file(directory, &ignore_file_path).unwrap_or_default();
-    // TODO: use String::from_utf8
-    let mut content = std::str::from_utf8(&bytes_in)?.to_string();
-
-    if !content.is_empty() && !content.ends_with('\n') {
-        content.push('\n');
-    }
-    content.push_str("/*\n");
-    let bytes_out = content.as_bytes();
-    sandbox::write_file(directory, &ignore_file_path, bytes_out)?;
-
-    Ok(())
-}
-
-pub fn ensure_teamtype_is_ignored(directory: &Path) -> Result<()> {
-    if teamtype_directory_should_be_ignored_but_isnt(directory) {
-        add_teamtype_to_local_gitignore(directory)?;
-    }
-    Ok(())
 }
