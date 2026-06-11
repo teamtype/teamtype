@@ -7,6 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Continue trying to contact Magic Wormhole on a 5 minute cycle in the event join codes fail to register.
+
 Add status widget to the Neovim plugin with basic information to be used in statuslines.
 
 Fix issue blocking directories with deep nesting (or very long winded names) from being shared.
