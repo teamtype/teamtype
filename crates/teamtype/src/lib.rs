@@ -6,18 +6,28 @@
 
 #![doc = include_str!("../../../README.md")]
 
+// Public modules, either used by CLI or exported via crate or bindings
+pub mod client;
 pub mod config;
 pub mod daemon;
-pub mod document;
-pub mod editor;
-pub mod editor_connection;
-pub mod editor_protocol;
-pub mod jsonrpc_forwarder;
 pub mod logging;
-pub mod ot;
-pub mod path;
-pub mod peer;
 pub mod sandbox;
+pub mod setup;
+pub mod traits;
 pub mod types;
-pub mod watcher;
-pub mod wormhole;
+
+// Used by e2e test crate, but not officially public
+#[doc(hidden)]
+pub mod document;
+#[doc(hidden)]
+pub mod editor_protocol;
+
+// Private modules
+mod editor;
+mod editor_connection;
+mod jsonrpc_forwarder;
+mod ot;
+mod path;
+mod peer;
+mod watcher;
+mod wormhole;
