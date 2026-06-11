@@ -21,11 +21,11 @@ jobs:
     name: Check Lua formatting and linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: JohnnyMorganz/stylua-action@v4
+      - uses: actions/checkout@v6
+      - uses: JohnnyMorganz/stylua-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: 0.20.0
+          version: 2.5.2
           args: --config-path nvim-plugin/.stylua.toml --check nvim-plugin
       - name: Luacheck Linting
         uses: lunarmodules/luacheck@v1
