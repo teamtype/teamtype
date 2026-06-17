@@ -160,13 +160,34 @@ nvim *ARGS: build-test
 teamtype *ARGS: build-test
     $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
 
+pre-release semver:
+	# 
+
+release semver:
+
+post-release semver:
+
 # - Check the changelog wiki page for breaking changes or TODOs
+#     - *could* be determined using conventional commit messages, by an !
 # - Update the changelog
+#     - changelog generator could release a first draft of it
+#         - caleb likes git-cliff
+#         - caleb usually filters out tooling changes
+#             - one PR could have many commits, but only 1-2 feat commits
+#         - could potentially also contain the body, and link to the PR
+#         - maybe preface it with a summary
+#         - plan: have job generate a "first draft", ready for editing
+#         - prerelease
+#             - generate changelog draft
+#             - check tests
+#         - release
+#         - postrelease (to check for existence of binaries in release?)
 #     - `git log v0.3.0..HEAD --reverse --oneline`
 #     - Change the heading that says (unreleased) to the actual release heading, including the date
 #     - Create a commit
 # - Bump the Cargo TOML version
 #     - Remove dev
+#         - caleb's suggestion: don't use -dev, but add build.rs to add -r<num> to version
 #     - Run `cargo check` in daemon/ and in daemon/integration-tests to bump the teamtype dependency
 #     - Create commit
 # - Create a new branch (release-0.x.y)
