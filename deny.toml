@@ -22,6 +22,8 @@ ignore = [
     "RUSTSEC-2026-0104", # reachable panic: rustls-webpki (via iroh)
     "RUSTSEC-2026-0118", # unbounded loop: hickory-proto (via iroh)
     "RUSTSEC-2026-0119", # cpu exhaustion: hickory-proto (via iroh)
+    "RUSTSEC-2026-0183", # undefined behavior: git2
+    "RUSTSEC-2026-0184", # undefined behavior: git2
 ]
 
 # This is not an exhaustive list of licenses we could accept, it is just
