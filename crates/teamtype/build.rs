@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: CC0-1.0
 
-use std::env::var_os;
+use std::env::{var, var_os};
 use std::fs::{create_dir_all, read, remove_dir_all, write};
 use std::path::Path;
 use std::process::Command;
@@ -20,15 +20,19 @@ include!("src/cli.rs");
 fn main() -> Result<()> {
     instantiate_initial_automerge_doc()?;
     pass_on_git_version_details();
-    output_completions()?;
-    output_manpages()?;
+    // Skip generating extra artifacts if being run via `cargo install --git ...`.
+    println!("cargo::rerun-if-env-changed=CARGO_WORKSPACE_DIR");
+    if var_os("CARGO_WORKSPACE_DIR").is_some() {
+        output_completions()?;
+        output_manpages()?;
+    }
     Ok(())
 }
 
 fn instantiate_initial_automerge_doc() -> Result<()> {
     let initial_automerge_doc_path = Path::new("src").join("initial_automerge_doc.bin");
     println!(
-        "cargo:rerun-if-changed={}",
+        "cargo::rerun-if-changed={}",
         initial_automerge_doc_path.display()
     );
     let force_generate = var_os("TEAMTYPE_GENERATE_NEW_INITIAL_AUTOMERGE_DOC").is_some();
@@ -57,13 +61,11 @@ fn instantiate_initial_automerge_doc() -> Result<()> {
 
 fn output_completions() -> Result<()> {
     const BIN_NAME: &str = env!("CARGO_PKG_NAME");
-
-    let workspace_root = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
+    let workspace_root = PathBuf::from(var("CARGO_WORKSPACE_DIR")?);
     let target_dir = &workspace_root.join("target");
     let compl_dir = &target_dir.join("completions");
     _ = remove_dir_all(compl_dir);
     create_dir_all(compl_dir)?;
-
     for &shell in Shell::value_variants() {
         generate_completions_to(shell, &mut Cli::command(), BIN_NAME, compl_dir)?;
     }
@@ -71,7 +73,7 @@ fn output_completions() -> Result<()> {
 }
 
 fn output_manpages() -> Result<()> {
-    let workspace_root = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));
+    let workspace_root = PathBuf::from(var("CARGO_WORKSPACE_DIR")?);
     let target_dir = &workspace_root.join("target");
     let man_dir = &target_dir.join("manpages");
     _ = remove_dir_all(man_dir);
@@ -109,8 +111,8 @@ fn pass_on_git_version_details() {
             .filter(|output| output.status.success())
             .is_some_and(|output| !output.stdout.is_empty());
 
-        println!("cargo:rustc-env=GIT_HASH={git_hash}");
-        println!("cargo:rustc-env=GIT_COMMIT_DATE={commit_date}");
-        println!("cargo:rustc-env=GIT_DIRTY={is_dirty}");
+        println!("cargo::rustc-env=GIT_HASH={git_hash}");
+        println!("cargo::rustc-env=GIT_COMMIT_DATE={commit_date}");
+        println!("cargo::rustc-env=GIT_DIRTY={is_dirty}");
     }
 }
