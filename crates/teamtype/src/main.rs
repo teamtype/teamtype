@@ -5,43 +5,28 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::io::Write;
-use std::io::{stdin, stdout};
-use std::path::{Path, PathBuf};
+use std::panic;
 use std::process::exit;
-use std::{env, panic};
 
-use anyhow::bail;
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
-use microxdg::XdgApp;
-use teamtype::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
-use teamtype::{
-    config::{self, AppConfig},
-    daemon::Daemon,
-    logging, sandbox,
-};
-use tempfile::{TempDir, tempdir_in};
+use teamtype::client::run_client;
+use teamtype::daemon::run_daemon;
+use teamtype::logging;
+use teamtype::setup::setup_teamtype_directory;
+use teamtype::types::UserInterface;
 use tokio::signal;
-use tracing::{debug, info, warn};
-
-use self::cli::{Cli, Commands, ShareJoinFlags};
+use tracing::info;
 
 mod cli;
+mod cli_config;
+mod cli_ui;
 
-fn has_ethersync_directory(dir: &Path) -> bool {
-    let ethersync_dir = dir.join(config::LEGACY_CONFIG_DIR);
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &ethersync_dir).expect("Failed to check") && ethersync_dir.is_dir()
-}
-
-fn has_teamtype_directory(dir: &Path) -> bool {
-    let teamtype_dir = dir.join(config::CONFIG_DIR);
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
-}
+use self::cli::{Cli, Commands};
+use self::cli_config::parse_directory_config;
+use self::cli_config::parse_join_config;
+use self::cli_config::parse_share_config;
+use self::cli_ui::ConsoleInteractions;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -57,11 +42,18 @@ async fn main() -> Result<()> {
         Err(e) => e.exit(),
     };
 
-    logging::initialize().context("Failed to initialize logging")?;
+    logging::initialize(cli.verbose).context("Failed to initialize logging")?;
 
-    let temporary_directory = get_temporary_directory(&cli)?;
-    let directory = get_directory(temporary_directory.as_ref(), &cli)?;
-    setup_teamtype_directory(&directory, temporary_directory.as_ref())
+    let ui = &UserInterface::wrap(ConsoleInteractions {});
+
+    // Determine if the CLI flags request proceeding with a temporary directory, some user
+    // specified directory, or fallback to just the current directory.
+    let directory = parse_directory_config(&cli)?;
+
+    // Now that we know what the base directory is going to be, either validate our access to it and
+    // an existing config therein or setup a new config. In the event this step creates a temporary
+    // directory we need to hang onto the handle as long as we're running.
+    let (base_dir, _tempdir) = setup_teamtype_directory(directory.as_deref(), ui)
         .context("Failed to find .teamtype/ directory")?;
 
     // TODO: If the result of this joined future handles were to go out of scope and hence be
@@ -70,132 +62,20 @@ async fn main() -> Result<()> {
     // with the daemon module and merits refactoring so the long running socket and network
     // listeners properly listen to the mpsc channel or receive and process a cancellation token.
     let _handle = match cli.command {
-        Commands::Client => return run_client(directory.clone()).await,
+        Commands::Client => return run_client(base_dir).await,
         Commands::Join { .. } => {
-            let join_config = parse_join_config(cli.command, directory.clone()).await?;
-            run_daemon(join_config, false).await
+            let join_config = parse_join_config(cli.command, base_dir, ui).await?;
+            run_daemon(join_config, false, ui).await
         }
         Commands::Share { init, .. } => {
-            let share_config = parse_share_config(cli.command, directory.clone());
-            run_daemon(share_config, init).await
+            let share_config = parse_share_config(cli.command, base_dir, ui);
+            run_daemon(share_config, init, ui).await
         }
     }?;
 
     trap_shutdown().await;
 
     Ok(())
-}
-
-async fn run_daemon(app_config: AppConfig, init_doc: bool) -> Result<Daemon> {
-    let persist = !config::has_git_remote(&app_config.base_dir);
-    if !persist {
-        // TODO: drop .teamtype/doc here? Would that be rude?
-        info!(
-            "Detected a Git remote: Assuming a pair-programming use-case and starting a new history."
-        );
-    }
-
-    config::ensure_teamtype_is_ignored(&app_config.base_dir)?;
-
-    if app_config.sync_vcs && config::has_local_user_config(&app_config.base_dir).is_ok_and(|v| v) {
-        warn!(
-            "You have a local user configuration in your .git/config. In --sync-vcs mode, this file will also be synchronized between peers. If your version \"wins\", all peers will have the same Git identity. As a workaround, you could use `git commit --author`."
-        );
-    }
-
-    debug!("Starting Teamtype on {}.", app_config.base_dir.display());
-
-    // Setup a new daemon from the derived config. Immediately join the handle because that's what
-    // actually starts the local socket and any configured network connections. Return the result
-    // so the calling context can determine when to terminate.
-    Daemon::new(app_config, init_doc, persist, &prompt_bool)
-        .await
-        .context("Failed to launch the daemon")
-}
-
-async fn parse_join_config(command: Commands, directory: PathBuf) -> Result<AppConfig> {
-    if let Commands::Join {
-        join_code,
-        shared_flags:
-            ShareJoinFlags {
-                magic_wormhole_relay,
-                iroh_relay,
-                iroh_dns_domain,
-                iroh_pkarr_relay,
-                sync_vcs,
-                username,
-                ..
-            },
-        ..
-    } = command
-    {
-        let app_config_cli = AppConfig {
-            base_dir: directory,
-            peer: join_code.map(config::Peer::JoinCode),
-            emit_join_code: false,
-            emit_secret_address: false,
-            magic_wormhole_relay,
-            iroh_relay,
-            iroh_dns_domain,
-            iroh_pkarr_relay,
-            sync_vcs,
-            username,
-        };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli);
-        app_config = app_config
-            .resolve_peer()
-            .await
-            .context("Failed to resolve peer")?;
-        Ok(app_config)
-    } else {
-        unreachable!("Only Join commands beget Join configs.")
-    }
-}
-
-fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
-    if let Commands::Share {
-        no_join_code,
-        shared_flags:
-            ShareJoinFlags {
-                magic_wormhole_relay,
-                iroh_relay,
-                iroh_dns_domain,
-                iroh_pkarr_relay,
-                sync_vcs,
-                username,
-                ..
-            },
-        show_secret_address,
-        ..
-    } = command
-    {
-        let app_config_cli = AppConfig {
-            base_dir: directory,
-            peer: None,
-            emit_join_code: !no_join_code,
-            emit_secret_address: show_secret_address,
-            magic_wormhole_relay,
-            iroh_relay,
-            iroh_dns_domain,
-            iroh_pkarr_relay,
-            sync_vcs,
-            username,
-        };
-        let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli);
-        // Because of the "share" subcommand, explicitly don't connect anywhere.
-        app_config.peer = None;
-        app_config
-    } else {
-        unreachable!("Only Share commands beget Share configs.")
-    }
-}
-
-async fn run_client(directory: PathBuf) -> Result<()> {
-    let jsonrpc_forwarder = UnixJSONRPCForwarder {};
-    jsonrpc_forwarder
-        .connection(&directory)
-        .await
-        .context("JSON-RPC forwarder failed")
 }
 
 async fn trap_shutdown() {
@@ -206,160 +86,39 @@ async fn trap_shutdown() {
     };
 
     #[cfg(unix)]
-    let termination = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("unable to setup SIGTERM handler")
-            .recv()
-            .await;
-    };
+    let (termination, terminators) = (
+        async {
+            signal::unix::signal(signal::unix::SignalKind::terminate())
+                .expect("unable to setup SIGTERM handler")
+                .recv()
+                .await;
+        },
+        "SIGTERM",
+    );
 
-    #[cfg(not(unix))]
-    let termination = std::future::pending::<()>();
+    #[cfg(windows)]
+    let (termination, terminators) = (
+        async {
+            use tokio::signal::windows::{ctrl_close, ctrl_shutdown};
+            let mut close = ctrl_close().expect("unable to setup CTRL_CLOSE handler");
+            let mut shutdown = ctrl_shutdown().expect("unable to setup CTRL_SHUTDOWN handler");
+            tokio::select! {
+                _ = close.recv() => {},
+                _ = shutdown.recv() => {},
+            }
+        },
+        "CTRL_CLOSE or CTRL_SHUTDOWN",
+    );
+
+    #[cfg(not(any(windows, unix)))]
+    let (termination, terminators) = (std::future::pending::<()>(), "unknown");
 
     tokio::select! {
         () = interruption => {
-            info!("Got SIGINT (Ctrl+C), shutting down");
+            info!("Got interruption signal (like Ctrl+C), shutting down");
         }
         () = termination => {
-            info!("Got SIGTERM, shutting down");
+            info!("Got termination signal ({terminators}), shutting down");
         }
-    }
-}
-
-fn get_temporary_directory(cli: &Cli) -> Result<Option<TempDir>> {
-    match cli.command {
-        Commands::Share {
-            shared_flags:
-                ShareJoinFlags {
-                    temporary_directory,
-                    ..
-                },
-            ..
-        }
-        | Commands::Join {
-            shared_flags:
-                ShareJoinFlags {
-                    temporary_directory,
-                    ..
-                },
-            ..
-        } => {
-            if temporary_directory {
-                let temporary_directory_parent_directory = &get_app_cache_dir()?;
-                Ok(Some(
-                    tempdir_in(temporary_directory_parent_directory).with_context(|| {
-                        format!(
-                            "Failed to create a temporary directory in the directory {}",
-                            temporary_directory_parent_directory.display()
-                        )
-                    })?,
-                ))
-            } else {
-                Ok(None)
-            }
-        }
-        Commands::Client => Ok(None),
-    }
-}
-
-fn get_app_cache_dir() -> Result<PathBuf> {
-    let xdg = XdgApp::new("teamtype")?;
-    let app_cache_dir = xdg.app_cache()?;
-    let app_cache_dir_parent = app_cache_dir.parent().with_context(|| {
-        format!(
-            "Failed to get parent directory of the directory {}",
-            app_cache_dir.display()
-        )
-    })?;
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
-    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)?;
-    Ok(app_cache_dir)
-}
-
-fn get_directory(temporary_directory: Option<&TempDir>, cli: &Cli) -> Result<PathBuf> {
-    let directory = match temporary_directory {
-        Some(temporary_directory) => &temporary_directory.path().to_path_buf(),
-        None => match cli.directory {
-            Some(ref directory) => directory,
-            None => &get_current_directory()?,
-        },
-    };
-    let directory = directory.canonicalize().with_context(|| {
-        format!(
-            "Could not compute the absolute, canonical form of the path of directory {}",
-            directory.display(),
-        )
-    })?;
-    Ok(directory)
-}
-
-fn setup_teamtype_directory(directory: &Path, temporary_directory: Option<&TempDir>) -> Result<()> {
-    if has_ethersync_directory(directory) {
-        let old_directory = directory.join(config::LEGACY_CONFIG_DIR);
-
-        warn!(
-            "You have an '{}/' directory, back from when the project was called \"Ethersync\" until October 2025.",
-            &old_directory.display()
-        );
-
-        if prompt_bool(&format!(
-            "Do you want to rename {}/ to {}/?",
-            config::LEGACY_CONFIG_DIR,
-            config::CONFIG_DIR,
-        ))? {
-            let new_directory = directory.join(config::CONFIG_DIR);
-            sandbox::rename_file(directory, &old_directory, &new_directory)?;
-        } else {
-            bail!(
-                "Aborting launch. Rename or remove the {} directory yourself to continue.",
-                config::LEGACY_CONFIG_DIR
-            );
-        }
-    }
-    if !has_teamtype_directory(directory) {
-        let teamtype_dir = directory.join(config::CONFIG_DIR);
-        let directory_is_temporary_directory = temporary_directory.is_some();
-        if directory_is_temporary_directory {
-            info!(
-                "'{}' is the temporary directory that is used as a Teamtype directory.",
-                &directory.display()
-            );
-            sandbox::create_dir(directory, &teamtype_dir)?;
-        } else {
-            warn!(
-                "'{}' hasn't been used as a Teamtype directory before.",
-                &directory.display()
-            );
-
-            if prompt_bool(&format!(
-                "Do you want to enable live collaboration here? (This will create an {}/ directory.)",
-                config::CONFIG_DIR
-            ))? {
-                sandbox::create_dir(directory, &teamtype_dir)?;
-                info!("Created! Resuming launch.");
-            } else {
-                bail!("Aborting launch. Teamtype needs a .teamtype/ directory to function");
-            }
-        }
-    }
-    Ok(())
-}
-
-fn get_current_directory() -> Result<PathBuf> {
-    env::current_dir().context("Could not access current directory")
-}
-
-fn prompt_bool(question: &str) -> Result<bool> {
-    print!("{question} (y/N): ");
-    stdout().flush()?;
-    let mut lines = stdin().lines();
-    if let Some(Ok(line)) = lines.next() {
-        match line.to_lowercase().as_str() {
-            "y" | "yes" => Ok(true),
-            _ => Ok(false),
-        }
-    } else {
-        bail!("Failed to read answer");
     }
 }
