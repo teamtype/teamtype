@@ -8,10 +8,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::iter::repeat_with;
 use std::path::{Path, PathBuf};
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context, Result};
 use automerge::ChangeHash;
@@ -19,6 +17,7 @@ use automerge::{
     Patch,
     sync::{Message as AutomergeSyncMessage, State as SyncState},
 };
+use docstr::docstr;
 use futures::SinkExt;
 use rand::Rng;
 use tokio::sync::broadcast::error::RecvError;
@@ -40,6 +39,7 @@ use crate::editor_protocol::{
 use crate::path::{AbsolutePath, RelativePath};
 use crate::peer;
 use crate::sandbox;
+use crate::types::UserInterface;
 use crate::types::{
     ComponentMessage, CursorId, CursorState, EphemeralMessage, FileTextDelta, PatchEffect,
     TextDelta,
@@ -290,7 +290,7 @@ impl DocumentActor {
                                     // modifications to the editors, and these contents should be
                                     // consistent. So we don't need to do anything.
                                 } else {
-                                    info!(
+                                    warn!(
                                         "Peer deleted {file_path}, but you have it open in an editor. Bringing back an empty version."
                                     );
                                     self.crdt_doc.update_text("", &file_path);
@@ -957,7 +957,7 @@ impl Daemon {
         app_config: AppConfig,
         init: bool,
         persist: bool,
-        prompt_bool: &(dyn Fn(&str) -> Result<bool> + Send + Sync),
+        ui: &UserInterface,
     ) -> Result<Self> {
         let is_host = app_config.is_host();
 
@@ -969,7 +969,7 @@ impl Daemon {
         let socket_path = base_dir
             .join(config::CONFIG_DIR)
             .join(config::DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), prompt_bool)?;
+        editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
 
         // Start file watcher.
         spawn_file_watcher(&app_config, document_handle.clone());
@@ -981,19 +981,22 @@ impl Daemon {
 
         // Start connection manager.
         let connection_manager =
-            peer::ConnectionManager::new(&app_config, document_handle.clone(), base_dir)
+            peer::ConnectionManager::new(&app_config, document_handle.clone(), base_dir, ui)
                 .await
                 .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
 
         if app_config.emit_secret_address {
-            info!(
-                "\n\n\tOthers can connect by putting the following secret address in their .teamtype/config:\n\n\t{}\n",
-                address
-            );
+            info!("Secret address emission enabled: {address}");
+            ui.inform(&docstr!(format!
+                /// Others can connect by putting the following secret address in their .teamtype/config:
+                ///
+                ///     peer={address}
+                ///
+            ));
         }
         if app_config.emit_join_code {
-            put_secret_address_into_wormhole(address, app_config.magic_wormhole_relay.clone())
+            put_secret_address_into_wormhole(address, app_config.magic_wormhole_relay.clone(), ui)
                 .await;
         }
         if let Some(config::Peer::SecretAddress(ref secret_address)) = app_config.peer {

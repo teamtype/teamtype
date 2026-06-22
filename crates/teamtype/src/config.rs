@@ -11,11 +11,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
+use docstr::docstr;
 use git2::{Config as GitConfig, ConfigLevel, Error as GitError, Repository};
 use ini::{Ini, Properties};
 use tracing::info;
 
 use crate::sandbox;
+use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
 pub const DOC_FILE: &str = "doc";
@@ -60,7 +62,7 @@ impl AppConfig {
     // - For strings, the CLI app config attribute has precedence.
     // - For booleans, if a value deviates from the default, it "wins".
     // - The `base_dir` will be taken from the CLI app config.
-    pub fn from_config_file_and_cli(app_config_cli: Self) -> Self {
+    pub fn from_config_file_and_cli(app_config_cli: Self, ui: &UserInterface) -> Self {
         let base_dir = app_config_cli.base_dir;
         let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
         let empty_properties_section = Properties::new();
@@ -75,7 +77,7 @@ impl AppConfig {
 
         // we do the computation of username before initializing the struct, because we need to
         // reference base_dir, which gets moved during the initialization of the struct
-        let username = get_username(app_config_cli.username, &base_dir, general_section);
+        let username = get_username(app_config_cli.username, &base_dir, general_section, ui);
         Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that base_dir won't ever be in the config file.
@@ -211,53 +213,61 @@ fn get_username(
     app_config_cli_username: Option<String>,
     base_dir: &Path,
     general_section: &Properties,
+    ui: &UserInterface,
 ) -> String {
     app_config_cli_username
-        .map(get_username_from_cli)
-        .or_else(|| get_username_from_config_file(general_section))
-        .or_else(|| get_username_from_git(base_dir))
-        .unwrap_or_else(get_username_from_fallback_value)
+        .map(|u| get_username_from_cli(u, ui))
+        .or_else(|| get_username_from_config_file(general_section, ui))
+        .or_else(|| get_username_from_git(base_dir, ui))
+        .unwrap_or_else(|| get_username_from_fallback_value(ui))
 }
 
-fn get_username_from_cli(username: String) -> String {
-    info!("Using the username '{username}' to display next to the cursors other people see.");
+fn get_username_from_cli(username: String, ui: &UserInterface) -> String {
+    info!("Using the CLI provided username '{username}'");
+    ui.inform(&format!(
+        "Using the CLI provided username '{username}' to display next to the cursors other people see."
+    ));
     username
 }
 
-fn get_username_from_config_file(general_section: &Properties) -> Option<String> {
+fn get_username_from_config_file(
+    general_section: &Properties,
+    ui: &UserInterface,
+) -> Option<String> {
     general_section
         .get("username")
         .map(ToString::to_string)
         .map(|username| {
-            info!("Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see.");
+            info!("Using the username '{username}' from `.teamtype/config` as username");
+            ui.inform(&format!(
+                "Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see."
+            ));
             username
         })
 }
 
-fn get_username_from_git(base_dir: &Path) -> Option<String> {
+fn get_username_from_git(base_dir: &Path, ui: &UserInterface) -> Option<String> {
     let username = get_git_username(base_dir);
     if let Some(ref username) = username {
-        info!(
-            "Using the Git username '{username}' as username, to display next to the cursors other people see."
-        );
-        info!("Teamtype uses the Git username as username by default.");
-        info!(
-            "You can set the configuration value `username` in your `.teamtype/config` to override this username."
-        );
-        info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
+        info!("Using the Git username '{username}' as username");
+        ui.inform(&docstr!(format!
+            /// Using the Git username '{username}' as username, to display next to the cursors other people see.
+            /// Teamtype uses the Git username as username by default.
+            /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+            /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+        ));
     }
     username
 }
 
-fn get_username_from_fallback_value() -> String {
+fn get_username_from_fallback_value(ui: &UserInterface) -> String {
     let username = USERNAME_FALLBACK.to_string();
-    info!(
-        "Using the fallback value for username '{username}' as username, to display next to the cursors other people see."
-    );
-    info!(
-        "You can set the configuration value `username` in your `.teamtype/config` to override this username."
-    );
-    info!("You can also use the flag `--username` when using the `share`/`join` subcommands.");
+    info!("Using the fallback value for username '{username}' as username");
+    ui.inform(&docstr!(format!
+        /// Using the fallback value for username '{username}' as username, to display next to the cursors other people see.
+        /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
+        /// You can also use the flag `--username` when using the `share`/`join` subcommands.
+    ));
     username
 }
 
