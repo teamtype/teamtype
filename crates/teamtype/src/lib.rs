@@ -6,6 +6,7 @@
 
 #![doc = include_str!("../../../README.md")]
 
+/// Configuration management for the crate.
 pub mod config;
 pub mod daemon;
 pub mod document;
