@@ -51,7 +51,8 @@ async fn main() -> Result<()> {
         exit(1);
     }));
 
-    let arg_matches = Cli::command().get_matches();
+    let version = option_env!("TEAMTYPE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"));
+    let arg_matches = Cli::command().version(version).get_matches();
     let cli = match Cli::from_arg_matches(&arg_matches) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
