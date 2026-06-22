@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "acto"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a026259da4f1a13b4af60cda453c392de64c58c12d239c560923e0382f42f2b9"
+dependencies = [
+ "parking_lot",
+ "pin-project-lite",
+ "rustc_version",
+ "smol_str 0.1.24",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -432,7 +446,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "sha2 0.11.0",
- "smol_str",
+ "smol_str 0.3.6",
  "thiserror 2.0.18",
  "tinyvec",
  "tracing",
@@ -2242,6 +2256,7 @@ dependencies = [
  "strum",
  "stun-rs",
  "surge-ping",
+ "swarm-discovery",
  "thiserror 2.0.18",
  "time",
  "tokio",
@@ -4190,6 +4205,12 @@ checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
 
 [[package]]
 name = "smol_str"
+version = "0.1.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fad6c857cbab2627dcf01ec85a623ca4e7dcb5691cbaa3d7fb7653671f0d09c9"
+
+[[package]]
+name = "smol_str"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
@@ -4373,6 +4394,21 @@ dependencies = [
  "rand 0.9.4",
  "socket2 0.6.4",
  "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "swarm-discovery"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3a95032b94c1dc318f55e0b130e3d2176cda022310a65c3df0092764ea69562"
+dependencies = [
+ "acto",
+ "anyhow",
+ "hickory-proto",
+ "rand 0.8.6",
+ "socket2 0.5.10",
  "tokio",
  "tracing",
 ]
