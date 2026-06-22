@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: 2026 blinry <mail@blinry.org>
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
-
 {
   description = "Enables real-time co-editing of local text files.";
 
@@ -87,6 +86,7 @@
           packages.teamtype = rustPackage [ ];
           packages.default = self'.packages.teamtype;
           devShells.default = mkDevShell;
+          formatter = pkgs.nixfmt;
         };
     };
 }

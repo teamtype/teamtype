@@ -6,6 +6,7 @@ cargo := require('cargo')
 cargo-deny := require('cargo-deny')
 just := just_executable()
 luacheck := require('luacheck')
+nix := require('nix')
 nvim := require('nvim')
 reuse := require('reuse')
 stylua := require('stylua')
@@ -68,12 +69,16 @@ build-test *ARGS:
 
 [group('format')]
 [parallel]
-format: format-lua format-rust
+format: format-lua format-nix format-rust
 
 [group('format')]
 [working-directory("nvim-plugin")]
 format-lua:
     {{ stylua }} --respect-ignores .
+
+[group('format')]
+format-nix:
+    {{ nix }} fmt flake.nix
 
 [group('format')]
 format-rust:
