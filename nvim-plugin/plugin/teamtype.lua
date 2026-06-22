@@ -11,8 +11,8 @@ local teamtype = require("teamtype")
 local binary_name = os.getenv("TEAMTYPE_BINARY") or "teamtype"
 
 teamtype.config("teamtype", {
-    cmd = { binary_name, "client" },
-    root_markers = ".teamtype",
+   cmd = { binary_name, "client" },
+   root_markers = ".teamtype",
 })
 
 teamtype.enable("teamtype")
