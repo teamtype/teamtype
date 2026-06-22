@@ -27,6 +27,9 @@ categories = ["command-line-utilities", "text-editors"]
 edition.workspace = true
 rust-version.workspace = true
 
+[package.metadata.docs.rs]
+features = ["luamodule", "luajit"]
+
 [[bin]]
 name = "teamtype"
 required-features = ["cli"]
@@ -38,7 +41,15 @@ crate-type = ["rlib", "cdylib"]
 [features]
 # This is unfortunate, but users of the crate as a library should use `default-features = false`.
 default = ["cli"]
-cli = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
+cli = ["dep:clap", "dep:console", "dep:dialoguer", "tokio/signal", "tokio/rt-multi-thread"]
+luamodule = ["dep:mlua"]
+lua55 = ["luamodule", "mlua/lua55"]
+lua54 = ["luamodule", "mlua/lua54"]
+lua53 = ["luamodule", "mlua/lua53"]
+lua52 = ["luamodule", "mlua/lua52"]
+lua51 = ["luamodule", "mlua/lua51"]
+luajit = ["luamodule", "mlua/luajit"]
+luau = ["luamodule", "mlua/luau"]
 
 [build-dependencies]
 anyhow.workspace = true
@@ -56,6 +67,7 @@ async-trait.workspace = true
 automerge = "0.8"
 constant_time_eq = "0.4"
 dissimilar = "1"
+docstr.workspace = true
 futures.workspace = true
 ignore = "0.4"
 # Iroh is currently held back to the 0.3x series while 0.9x are canary releases:
@@ -84,9 +96,22 @@ optional = true
 version = "2"
 features = ["as_ref", "deref", "display"]
 
+[dependencies.console]
+version = "0.16"
+optional = true
+
+[dependencies.dialoguer]
+version = "0.12"
+optional = true
+
 [dependencies.git2]
 version = "0.21"
 default-features = false
+
+[dependencies.mlua]
+version = "0.11"
+optional = true
+features = ["async", "module", "serde"]
 
 [dependencies.notify]
 version = "8"

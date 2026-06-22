@@ -12,11 +12,13 @@ use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
-use teamtype::config::{self, AppConfig};
+use teamtype::config::{BaseDir, Config, Peer};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
-use tempfile::{TempDir, tempdir};
+use teamtype::traits::Interactions;
+use teamtype::types::UserInterface;
+use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
 
@@ -29,23 +31,28 @@ async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     }
 }
 
-fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
+fn initialize_directory() -> (BaseDir, PathBuf) {
     let dir = tempdir().expect("Failed to create temp directory");
-    let dir_path = dir
-        .path()
-        .canonicalize()
-        .expect("Unable to resolve canonical name for temp dir");
-    let teamtype_dir = dir_path.join(".teamtype");
-    sandbox::create_dir(&dir_path, &teamtype_dir).expect("Failed to create .teamtype directory");
+    let base_dir = BaseDir::Temporary(dir);
+    let teamtype_dir = base_dir.join(".teamtype");
+    sandbox::create_dir(&base_dir, &teamtype_dir).expect("Failed to create .teamtype directory");
 
-    let file = dir_path.join(TEST_FILE_PATH);
-    sandbox::write_file(&dir_path, &file, b"").expect("Failed to create file in temp directory");
+    let file = base_dir.join(TEST_FILE_PATH);
+    sandbox::write_file(&base_dir, &file, b"").expect("Failed to create file in temp directory");
 
-    (dir, dir_path.to_path_buf(), file)
+    (base_dir, file)
 }
 
-fn prompt_bool_dummy(_: &str) -> Result<bool> {
-    Ok(false)
+struct FuzzerInteractions {}
+
+impl Interactions for FuzzerInteractions {
+    fn confirm(&self, _question: &str) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn inform(&self, _message: &str) {}
+
+    fn error(&self, _message: &str) {}
 }
 
 #[tokio::main]
@@ -56,27 +63,33 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize()?;
+    logging::initialize(true)?;
+
+    let ui = &UserInterface::wrap(FuzzerInteractions {});
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
-    let (_handle1, dir1, file1) = initialize_directory();
-    let (_handle2, dir2, file2) = initialize_directory();
+    let (base_dir1, file1) = initialize_directory();
+    let (base_dir2, file2) = initialize_directory();
 
     // Set up the actors.
-    let mut app_config = AppConfig::default();
-    app_config.base_dir = dir1;
-    let daemon = Daemon::new(app_config, true, false, &prompt_bool_dummy).await?;
+    let config1 = Config {
+        base_dir: base_dir1,
+        ..Default::default()
+    };
+    let daemon = Daemon::new(config1, true, false, &ui.clone()).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
     let nvim = Neovim::new(Some(file1)).await;
 
-    let mut app_config2 = AppConfig::default();
-    app_config2.base_dir = dir2;
-    app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false, &prompt_bool_dummy).await?;
+    let config2 = Config {
+        base_dir: base_dir2,
+        peer: Some(Peer::SecretAddress(daemon.secret_address().to_string())),
+        ..Default::default()
+    };
+    let peer = Daemon::new(config2, false, false, &ui.clone()).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {
