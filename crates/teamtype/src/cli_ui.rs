@@ -14,6 +14,8 @@ impl Interactions for ConsoleInteractions {
     fn confirm(&self, question: &str) -> Result<bool> {
         Confirm::new()
             .with_prompt(question)
+            .default(true)
+            .show_default(true)
             .wait_for_newline(true)
             .interact()
             .context("Failed to read answer to y/n prompt")

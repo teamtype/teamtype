@@ -31,7 +31,7 @@ fn get_version() -> &'static str {
 #[command(propagate_version = true)]
 pub struct Cli {
     /// Output extra informational log messages
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     pub verbose: bool,
     #[command(subcommand)]
     pub command: Commands,
