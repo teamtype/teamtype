@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Mohamed El tamawey <tammwy22@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -24,6 +25,7 @@ interface RemoteCursor {
 }
 
 let cursors: Map<string, RemoteCursor[]> = new Map()
+let followedUser: string | undefined = undefined
 
 export function setCursor(userid: string, name: string, uri: vscode.Uri, selections: vscode.DecorationOptions[]) {
     let usersCursors = cursors.get(userid)
@@ -84,4 +86,49 @@ export function drawCursors(editor: vscode.TextEditor | undefined) {
             .map((cursor) => cursor.selection)
         editor.setDecorations(selectionDecorationType, allSelections)
     }
+}
+
+/// this function does nothing if no cursor to follow
+export async function syncFollowCursor() {
+    try {
+        if (followedUser === undefined) {
+            return
+        }
+        const cursorsToFollow = cursors.get(followedUser)
+        if (!cursorsToFollow || cursorsToFollow.length === 0) {
+            return
+        }
+        const cursorToFollow = cursorsToFollow.at(-1) as (typeof cursorsToFollow)[number] // follow last cursor like the neovim plugin
+        const textDocument = await vscode.workspace.openTextDocument(cursorToFollow.uri)
+        const editor = await vscode.window.showTextDocument(textDocument, {preview: false})
+        editor.selection = new vscode.Selection(
+            cursorToFollow.selection.range.start,
+            cursorToFollow.selection.range.end,
+        )
+        editor.revealRange(cursorToFollow.selection.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport)
+    } catch {}
+}
+export async function followCursor() {
+    const items: vscode.QuickPickItem[] = [
+        {label: "$(circle-slash) Stop following", description: "__stop__", alwaysShow: true},
+    ]
+
+    cursors.forEach((remoteCursors, uid) => {
+        if (remoteCursors.length > 0) {
+            const label = followedUser === uid ? `$(link) ${remoteCursors[0].name}` : remoteCursors[0].name
+            items.push({label, description: uid})
+        }
+    })
+
+    const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: "Follow which user?",
+    })
+
+    if (!picked) {
+        return
+    }
+
+    const useridToFollow = picked.description !== "__stop__" ? picked.description : undefined
+    followedUser = useridToFollow
+    await syncFollowCursor()
 }
