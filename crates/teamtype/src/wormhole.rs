@@ -10,7 +10,7 @@ use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transf
 use tokio::time::sleep;
 use tracing::{info, warn};
 
-const NETWORK_RETRY: Duration = Duration::from_secs(300);
+const NETWORK_RETRY: Duration = Duration::from_mins(5);
 
 pub async fn put_secret_address_into_wormhole(address: &str, magic_wormhole_relay: Option<String>) {
     let payload: Vec<u8> = address.into();
