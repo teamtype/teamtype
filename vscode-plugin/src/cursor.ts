@@ -45,7 +45,9 @@ export function setCursor(userid: string, name: string, uri: vscode.Uri, selecti
     })
     cursors.set(userid, newCursors)
 
-    const editors = vscode.window.visibleTextEditors.filter((editor) => editor.document.uri.toString() === uri.toString())
+    const editors = vscode.window.visibleTextEditors.filter(
+        (editor) => editor.document.uri.toString() === uri.toString(),
+    )
     for (let editor of editors) {
         drawCursors(editor)
     }
@@ -75,11 +77,11 @@ export function getCursorInfo(): string {
 
 export function drawCursors(editor: vscode.TextEditor | undefined) {
     if (editor) {
-        let uri = editor.document.uri;
+        let uri = editor.document.uri
         let allSelections = Array.from(cursors.values())
             .flat()
-            .filter(cursor => cursor.uri.toString() === uri.toString())
-            .map(cursor => cursor.selection);
+            .filter((cursor) => cursor.uri.toString() === uri.toString())
+            .map((cursor) => cursor.selection)
         editor.setDecorations(selectionDecorationType, allSelections)
     }
 }
