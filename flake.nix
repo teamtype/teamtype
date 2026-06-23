@@ -36,6 +36,7 @@
             cargo-deny
             just
             luaPackages.luacheck
+            prettier
             reuse
             rustup
             stylua

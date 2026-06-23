@@ -8,6 +8,7 @@ just := just_executable()
 luacheck := require('luacheck')
 nix := require('nix')
 nvim := require('nvim')
+prettier := require('prettier')
 reuse := require('reuse')
 stylua := require('stylua')
 typos := require('typos')
@@ -69,7 +70,7 @@ build-test *ARGS:
 
 [group('format')]
 [parallel]
-format: format-lua format-nix format-rust
+format: format-lua format-nix format-rust format-typescript
 
 [group('format')]
 [working-directory("nvim-plugin")]
@@ -84,13 +85,17 @@ format-nix:
 format-rust:
     {{ cargo }} +nightly fmt
 
+[group('format')]
+format-typescript:
+    {{ prettier }} --write **.ts
+
 [group('lint')]
 [parallel]
 lint: lint-format lint-license lint-lua lint-manifests lint-rust
 
 [group('lint')]
 [parallel]
-lint-format: lint-format-lua lint-format-rust
+lint-format: lint-format-lua lint-format-rust lint-format-typescript
 
 [group('lint')]
 [working-directory("nvim-plugin")]
@@ -100,6 +105,10 @@ lint-format-lua:
 [group('lint')]
 lint-format-rust:
     {{ cargo }} +nightly fmt --check
+
+[group('lint')]
+lint-format-typescript:
+    {{ prettier }} --check **.ts
 
 [group('lint')]
 lint-license:
