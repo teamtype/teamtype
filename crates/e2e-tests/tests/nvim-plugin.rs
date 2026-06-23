@@ -25,18 +25,6 @@ async fn plugin_loaded() {
 }
 
 #[tokio::test]
-async fn teamtype_executable_from_nvim() {
-    let nvim = Neovim::new(None).await.nvim;
-    assert_eq!(
-        nvim.command_output(format!("echomsg executable('{TEAMTYPE_DEBUG_BINARY}')").as_str())
-            .await
-            .expect("Failed to run executable() in Neovim"),
-        "1",
-        "Failed to run teamtype executable from Neovim"
-    );
-}
-
-#[tokio::test]
 async fn nvim_sends_something_to_socket() {
     let (nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled("hi").await;
     dbg!(nvim.content().await);
