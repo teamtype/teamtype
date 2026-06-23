@@ -301,18 +301,18 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "automerge"
-version = "0.8.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2aab56635599ee2e9df28d9ce180c155b8dbcdd96e4c3f62895fc6a44137d328"
+checksum = "09b78abcbba93428b9465b26cb2816a5b4654cce507f099a84a8c1b311cb3633"
 dependencies = [
  "cfg-if",
  "flate2",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "hex",
  "hexane",
  "itertools",
  "leb128",
- "rand 0.9.5",
+ "rand 0.10.2",
  "rustc-hash",
  "serde",
  "sha2 0.11.0",

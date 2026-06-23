@@ -42,7 +42,7 @@ cli = ["dep:clap", "tokio/signal", "tokio/rt-multi-thread"]
 
 [build-dependencies]
 anyhow.workspace = true
-automerge = "0.8"
+automerge = "0.10"
 clap_complete = "4"
 clap_mangen = "0.3"
 regex = "1"
@@ -58,7 +58,7 @@ features = ["emit_and_set"]
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
-automerge = "0.8"
+automerge = "0.10"
 constant_time_eq = "0.4"
 dissimilar = "1"
 futures.workspace = true
