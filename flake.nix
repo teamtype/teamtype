@@ -30,7 +30,9 @@
           ...
         }:
         let
-          runtimeDeps = with pkgs; [ ];
+          runtimeDeps = with pkgs; [
+            libgit2
+          ];
           buildDeps = with pkgs; [ ];
           devDeps = with pkgs; [
             cargo-deny
@@ -57,6 +59,10 @@
           rustPlatform = pkgs.makeRustPlatform {
             cargo = pkgs.rust-bin.stable.latest.minimal;
             rustc = pkgs.rust-bin.stable.latest.minimal;
+          };
+
+          env = {
+            LIBGIT2_NO_VENDOR = 1;
           };
 
           rustPackage =
