@@ -45,10 +45,15 @@ anyhow.workspace = true
 automerge = "0.8"
 clap_complete = "4"
 clap_mangen = "0.3"
+regex = "1"
 
 [build-dependencies.clap]
 version = "4"
 features = ["derive", "env"]
+
+[build-dependencies.vergen-git2]
+version = "9"
+features = ["emit_and_set"]
 
 [dependencies]
 anyhow.workspace = true
