@@ -12,6 +12,7 @@ prettier := require('prettier')
 reuse := require('reuse')
 stylua := require('stylua')
 typos := require('typos')
+eslint := require('eslint')
 
 export TEAMTYPE_BINARY := justfile_directory() + "/target/debug/teamtype"
 
@@ -91,7 +92,7 @@ format-typescript:
 
 [group('lint')]
 [parallel]
-lint: lint-format lint-license lint-lua lint-manifests lint-rust
+lint: lint-format lint-license lint-lua lint-manifests lint-rust lint-typescript
 
 [group('lint')]
 [parallel]
@@ -109,6 +110,10 @@ lint-format-rust:
 [group('lint')]
 lint-format-typescript:
     {{ prettier }} --check **.ts
+
+[group('lint')]
+lint-typescript:
+    {{ eslint }} --max-warnings 0 **.ts
 
 [group('lint')]
 lint-license:
