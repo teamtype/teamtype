@@ -42,6 +42,7 @@
             rustup
             stylua
             typos
+            eslint
           ];
 
           workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
