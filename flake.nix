@@ -49,14 +49,14 @@
           workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
           cargoToml = builtins.fromTOML (builtins.readFile ./crates/teamtype/Cargo.toml);
 
-          resolve =
+          resolveManifestValue =
             key:
             if builtins.isAttrs cargoToml.package.${key} && cargoToml.package.${key} ? workspace then
               workspaceToml.workspace.package.${key}
             else
               cargoToml.package.${key};
 
-          msrv = resolve "rust-version";
+          msrv = resolveManifestValue "rust-version";
 
           rustPlatform = pkgs.makeRustPlatform {
             cargo = pkgs.rust-bin.stable.latest.minimal;
@@ -66,8 +66,8 @@
           rustPackage =
             features:
             rustPlatform.buildRustPackage {
-              name = resolve "name";
-              version = resolve "version";
+              name = resolveManifestValue "name";
+              version = resolveManifestValue "version";
               src = ./.;
               cargoLock.lockFile = ./Cargo.lock;
               buildFeatures = features;
