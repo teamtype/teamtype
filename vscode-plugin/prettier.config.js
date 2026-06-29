@@ -1,4 +1,6 @@
-// prettier.config.js, .prettierrc.js, prettier.config.mjs, or .prettierrc.mjs
+// SPDX-FileCopyrightText: NONE
+// 
+// SPDX-License-Identifier: CC0-1.0
 
 /**
  * @see https://prettier.io/docs/configuration

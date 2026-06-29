@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: NONE
+// 
+// SPDX-License-Identifier: CC0-1.0
+
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 
