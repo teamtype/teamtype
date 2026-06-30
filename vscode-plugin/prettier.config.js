@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NONE
-// 
+//
 // SPDX-License-Identifier: CC0-1.0
 
 /**
@@ -7,10 +7,13 @@
  * @type {import("prettier").Config}
  */
 const config = {
-  trailingComma: "es5",
-  tabWidth: 4,
-  semi: true,
-  singleQuote: true,
+    tabWidth: 4,
+    semi: false,
+    singleQuote: false,
+    tabWidth: 4,
+    bracketSpacing: false,
+    printWidth: 120,
+    trailingComma: "all",
 };
 
 export default config;
