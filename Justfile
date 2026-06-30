@@ -112,8 +112,9 @@ lint-format-typescript:
     {{ prettier }} --check **.ts
 
 [group('lint')]
+[working-directory("vscode-plugin")]
 lint-typescript:
-    {{ eslint }} --max-warnings 0 **.ts
+    {{ eslint }} --max-warnings 0 src/
 
 [group('lint')]
 lint-license:
