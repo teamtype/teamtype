@@ -125,6 +125,7 @@ async fn parse_join_config(command: Commands, directory: PathBuf) -> Result<AppC
                 iroh_pkarr_relay,
                 sync_vcs,
                 username,
+                always_remove_socket,
                 ..
             },
         ..
@@ -141,6 +142,7 @@ async fn parse_join_config(command: Commands, directory: PathBuf) -> Result<AppC
             iroh_pkarr_relay,
             sync_vcs,
             username,
+            always_remove_socket,
         };
         let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli);
         app_config = app_config
@@ -164,6 +166,7 @@ fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
                 iroh_pkarr_relay,
                 sync_vcs,
                 username,
+                always_remove_socket,
                 ..
             },
         show_secret_address,
@@ -181,6 +184,7 @@ fn parse_share_config(command: Commands, directory: PathBuf) -> AppConfig {
             iroh_pkarr_relay,
             sync_vcs,
             username,
+            always_remove_socket,
         };
         let mut app_config = AppConfig::from_config_file_and_cli(app_config_cli);
         // Because of the "share" subcommand, explicitly don't connect anywhere.

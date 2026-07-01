@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -98,6 +99,7 @@ pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
 /// Will panic if we fail to listen on the socket, or if we fail to accept an incoming connection.
 pub fn spawn_socket_listener(
     socket_path: &Path,
+    always_remove_socket: bool,
     document_handle: DocumentActorHandle,
     bool_prompter: &dyn Fn(&str) -> Result<bool>,
 ) -> Result<()> {
@@ -113,10 +115,11 @@ pub fn spawn_socket_listener(
         .expect("Failed to check existence of path")
     {
         let socket_path_display = socket_path.display();
-        let remove_socket = bool_prompter(&format!(
-            "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
-        ));
-        if remove_socket? {
+        let remove_socket = always_remove_socket
+            || bool_prompter(&format!(
+                "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
+            ))?;
+        if remove_socket {
             sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
         } else {
             bail!("Not continuing, make sure to stop all other daemons on this directory");

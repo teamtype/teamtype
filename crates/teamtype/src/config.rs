@@ -30,6 +30,7 @@ const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
 // TODO: Generate a random funny name.
 const USERNAME_FALLBACK: &str = "Anonymous";
+const ALWAYS_REMOVE_SOCKET_DEFAULT: bool = false;
 
 #[derive(Clone, Debug)]
 pub enum Peer {
@@ -37,6 +38,7 @@ pub enum Peer {
     JoinCode(String),
 }
 
+#[expect(clippy::struct_excessive_bools)]
 #[derive(Clone, Default, Debug)]
 #[must_use]
 pub struct AppConfig {
@@ -51,6 +53,7 @@ pub struct AppConfig {
     // Whether to sync version control directories like .git, .jj, ...
     pub sync_vcs: bool,
     pub username: Option<String>,
+    pub always_remove_socket: bool,
 }
 
 impl AppConfig {
@@ -121,6 +124,15 @@ impl AppConfig {
             }),
             sync_vcs: app_config_cli.sync_vcs,
             username: Some(username),
+            always_remove_socket: app_config_cli.always_remove_socket
+                || general_section.get("always_remove_socket").map_or(
+                    ALWAYS_REMOVE_SOCKET_DEFAULT,
+                    |ejc| {
+                        ejc.parse().expect(
+                            "Failed to parse config parameter `always_remove_socket` as bool",
+                        )
+                    },
+                ),
         }
     }
 

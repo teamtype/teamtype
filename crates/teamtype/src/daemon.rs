@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -965,11 +966,19 @@ impl Daemon {
 
         let base_dir = &app_config.base_dir;
 
+        let always_remove_socket = &app_config.always_remove_socket;
+
         // Start socket listener.
         let socket_path = base_dir
             .join(config::CONFIG_DIR)
             .join(config::DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), prompt_bool)?;
+
+        editor::spawn_socket_listener(
+            &socket_path,
+            *always_remove_socket,
+            document_handle.clone(),
+            prompt_bool,
+        )?;
 
         // Start file watcher.
         spawn_file_watcher(&app_config, document_handle.clone());
