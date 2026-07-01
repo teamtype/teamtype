@@ -2,10 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+busted := require('busted')
 cargo := require('cargo')
 cargo-deny := require('cargo-deny')
 just := just_executable()
 luacheck := require('luacheck')
+luarocks := require('luarocks')
 nix := require('nix')
 nvim := require('nvim')
 prettier := require('prettier')
@@ -26,6 +28,8 @@ set positional-arguments
 set unstable
 
 profile := "dev"
+luaver := "5.5"
+luatree := justfile_directory() + "/lua_modules"
 
 # With positional arguments enabled, we can pass all the arguments to the bash
 # shell in a way that will get expanded to the original 'word' breakdown. However,
@@ -67,6 +71,11 @@ build-release *ARGS:
 [group('build')]
 build-test *ARGS:
     {{ just }} --set profile test build {{ ARGS }}
+
+[group('build')]
+[working-directory("rocks")]
+build-lua *ARGS:
+    {{ luarocks }} --tree {{ luatree }} --lua-version {{ luaver }} make teamtype-dev-1.rockspec
 
 [group('format')]
 [parallel]
@@ -127,12 +136,22 @@ lint-manifests:
 lint-rust:
     {{ cargo }} clippy --all-targets --all-features
 
-[group('test')]
-test *ARGS: (test-cargo ARGS)
+doc:
+    {{ cargo }} doc --no-deps --open -p teamtype
 
 [group('test')]
-test-cargo *ARGS: build
+test *ARGS: test-lua (test-rust ARGS)
+
+[group('test')]
+test-rust *ARGS: build
     {{ cargo }} test {{ ARGS }}
+
+[group('test')]
+[script]
+[working-directory("rocks")]
+test-lua: build-lua
+    eval $({{ luarocks }} --lua-version {{ luaver }} --tree {{ luatree }} path)
+    {{ busted }} --lua=lua{{ luaver }}
 
 [group('test')]
 fuzz: build
@@ -141,6 +160,12 @@ fuzz: build
 # Verify all the things: check, lint, test, and fuzz.
 [parallel]
 perfect: check lint test fuzz
+
+[script]
+[working-directory("rocks")]
+lua-repl: build-lua
+    eval $({{ luarocks }} --lua-version {{ luaver }} --tree {{ luatree }} path)
+    lua{{ luaver }} -e 'teamtype = require("teamtype")' -e 'print(teamtype.version)' -i
 
 # This task will run Neovim with factory settings but wired to the development version of the client from this repository.
 # This is especially useful for manual testing and can be used from anywhere by invoking the Justfile externally,
