@@ -25,6 +25,10 @@ set shell := ['bash', '-eu', '-c']
 set positional-arguments
 set unstable
 
+# Typically jobs will be targeting the platform they are run on, but some jobs
+# are useful when cross compiling, e.g. to confirm windows code gating works
+# you could run `just --set target x86_64-pc-windows-gnu check`.
+target := "host-tuple"
 profile := "dev"
 
 # With positional arguments enabled, we can pass all the arguments to the bash
@@ -39,13 +43,20 @@ profile := "dev"
 # don't need to because none of those happen to use spaces in arguments anyway.
 maybe-pass(args) := if args != "" { '"$@"' } else { "" }
 
+# The e2e-tests crate is Unix only for now.
+no-e2e-win() := if target == "x86_64-pc-windows-gnu" { "--exclude e2e-tests" } else { "" }
+
 [group('check')]
 [parallel]
 check *ARGS: (check-cargo ARGS) check-typos
 
 [group('check')]
 check-cargo *ARGS:
-    {{ cargo }} check --all-targets --all-features {{ ARGS }}
+    {{ cargo }} check --all-targets --all-features --workspace --target {{ target }} {{ no-e2e-win() }} {{ ARGS }}
+
+[group('check')]
+check-cargo-windows *ARGS:
+    {{ just }} --set target x86_64-pc-windows-gnu check-cargo
 
 [group('check')]
 check-typos:
@@ -58,7 +69,7 @@ check-typos:
 
 [group('build')]
 build *ARGS:
-    {{ cargo }} build --profile {{ profile }} {{ ARGS }}
+    {{ cargo }} build --workspace --target {{ target }} {{ no-e2e-win() }} --profile {{ profile }} {{ ARGS }}
 
 [group('build')]
 build-release *ARGS:
@@ -127,16 +138,19 @@ lint-manifests:
 lint-rust:
     {{ cargo }} clippy --all-targets --all-features
 
+doc:
+    {{ cargo }} doc --all-features --no-deps --open -p teamtype
+
 [group('test')]
 test *ARGS: (test-cargo ARGS)
 
 [group('test')]
 test-cargo *ARGS: build
-    {{ cargo }} test {{ ARGS }}
+    {{ cargo }} test --workspace --target {{ target }} {{ ARGS }}
 
 [group('test')]
-fuzz: build
-    {{ cargo }} test --test fuzzer
+fuzz:
+    {{ just }} test-cargo --test fuzzer
 
 # Verify all the things: check, lint, test, and fuzz.
 [parallel]

@@ -7,6 +7,12 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # 0.9.2 (unreleased)
 
+Enable building on Windows.
+
+Make daemon share and join modes less verbose by default; add a flag `-v`/`--verbose` to the CLI for easy access to more chatty output.
+
+Colorize log messages from the CLI and include the message priority.
+
 Add a Nix Flake to the project so the repository can be run directly, used as a dependency, or just to supply a developer environment.
 
 Continue trying to contact Magic Wormhole on a 5 minute cycle in the event join codes fail to register.
@@ -15,9 +21,9 @@ Add status widget to the Neovim plugin with basic information to be used in stat
 
 Fix issue blocking directories with deep nesting (or very long winded names) from being shared.
 
-Handle POSIX specific process signalling without assuming everybody is running a Unix platform.
+Handle process signalling for specific platforms, gating POSIX specific signals to Unix platforms and adding Windows specific signal handling.
 
-Fix CLI thread handling to correctly listen for `SIGINT` (<kbd>Ctrl</kbd>-<kbd>C</kbd>) and `SIGTERM` (typically generated with `kill`) while the main daemon or client loop is running.
+Fix CLI thread handling to correctly listen for interruption or termination signals while the main daemon or client loop is running.
 
 Add support for JSON-RPC IDs in string to be compliant with the [JSON-RPC specification](https://www.jsonrpc.org/specification).
 

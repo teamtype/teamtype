@@ -8,14 +8,17 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+#[cfg(unix)]
 use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
-use teamtype::config::{self, AppConfig};
+use teamtype::config::{self, Config};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
+use teamtype::traits::Interactions;
+use teamtype::types::UserInterface;
 use tempfile::{TempDir, tempdir};
 use tokio::time::{Duration, sleep, timeout};
 use tracing::{error, info};
@@ -44,10 +47,19 @@ fn initialize_directory() -> (TempDir, PathBuf, PathBuf) {
     (dir, dir_path.to_path_buf(), file)
 }
 
-fn prompt_bool_dummy(_: &str) -> Result<bool> {
-    Ok(false)
+struct FuzzerInteractions {}
+
+impl Interactions for FuzzerInteractions {
+    fn confirm(&self, _question: &str) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn inform(&self, _message: &str) {}
+
+    fn error(&self, _message: &str) {}
 }
 
+#[cfg(unix)]
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -56,7 +68,9 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize()?;
+    logging::initialize(true)?;
+
+    let ui = &UserInterface::wrap(FuzzerInteractions {});
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
@@ -64,19 +78,21 @@ async fn main() -> Result<()> {
     let (_handle2, dir2, file2) = initialize_directory();
 
     // Set up the actors.
-    let mut app_config = AppConfig::default();
-    app_config.base_dir = dir1;
-    let daemon = Daemon::new(app_config, true, false, &prompt_bool_dummy).await?;
+    let mut config = Config::default();
+    config.base_dir = dir1;
+    let daemon = Daemon::new(config, true, false, &ui.clone()).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
     let nvim = Neovim::new(Some(file1)).await;
 
-    let mut app_config2 = AppConfig::default();
-    app_config2.base_dir = dir2;
-    app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false, &prompt_bool_dummy).await?;
+    let mut config2 = Config::default();
+    config2.base_dir = dir2;
+    config2.peer = Some(config::Peer::SecretAddress(
+        daemon.secret_address().to_string(),
+    ));
+    let peer = Daemon::new(config2, false, false, &ui.clone()).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {
