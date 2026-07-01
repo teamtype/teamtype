@@ -4,7 +4,12 @@
 
 cargo := require('cargo')
 cargo-deny := require('cargo-deny')
+cargo-semver-checks := require('cargo-semver-checks')
+cargo-set-version := require('cargo-set-version')
+git := require('git')
+git-cliff := require('git-cliff')
 just := just_executable()
+jq := require('jq')
 luacheck := require('luacheck')
 nix := require('nix')
 nvim := require('nvim')
@@ -26,6 +31,8 @@ set positional-arguments
 set unstable
 
 profile := "dev"
+default-remote := "origin"
+default-branch := "main"
 
 # With positional arguments enabled, we can pass all the arguments to the bash
 # shell in a way that will get expanded to the original 'word' breakdown. However,
@@ -168,3 +175,100 @@ nvim *ARGS: build-test
 [script]
 teamtype *ARGS: build-test
     $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
+
+# Block execution of other jobs if the Git working tree isn't pristine.
+[group('release')]
+[private]
+pristine:
+    # Make sure Git's status cache is warmed up.
+    {{ git }} diff --shortstat
+    # Ensure there are no changes in staging.
+    {{ git }} diff-index --quiet --cached HEAD || exit 1
+    # Ensure there are no changes in the working tree.
+    {{ git }} diff-files --quiet || exit 1
+
+read-crate-owners() := shell(cargo + ' owner --list teamtype')
+read-current-user() := shell('whoami || echo $USER')
+# maybe-pass(args) := if args != "" { '"$@"' } else { "" }
+read-recent-tag() := shell(git + ' tag --list | tail -1')
+
+# Verify priviledges needed for publishing, hopefully before the process is half way done.
+[group('release')]
+[private]
+authenticated:
+    # See if Git is going to allow us to push a tag by dry running an old one
+    {{ git }} push --dry-run origin {{ read-recent-tag() }}
+    # Verify that Cargo is logged in, can read the remote API, and that the current shell
+    # user has some resemblance to listed crate owners. Not an actual proof, just a heuristic.
+    [[ {{ read-crate-owners() }} =~ {{ read-current-user() }} ]]
+
+read-manifest-version() := shell(cargo + ' metadata --no-deps --format-version 1 | ' + jq + ' -r .packages[0].version')
+read-suggested-bump() := trim(shell(git-cliff, ' --unreleased --bumped-version'))
+
+[group('release')]
+[private]
+validate-semver semver:
+    # Is the tag even a valid semver?
+    {{ semver_matches(semver, '>=' + read-manifest-version()) }}
+    # Check that API changes don't suggest a different level of semver bump.
+    # TODO: Remove bypass after announcing the public library API, also see https://github.com/obi1kenobi/cargo-semver-checks/pull/1652.
+    {{ cargo-semver-checks }} semver-checks || true
+    # Check that unreleased commit messages don't suggest a different level of semver bump.
+    # TODO: Remove bypass after one release cycle of following conventional commit pattern.
+    [[ {{ read-suggested-bump() }} == {{ semver }} ]] || true
+
+read-current-branch() := shell(git, ' rev-parse --abbrev-ref HEAD')
+
+[group('release')]
+pre-release semver: pristine (validate-semver semver)
+    # check that *not* on default branch
+    [[ {{ default-branch }} != {{ read-current-branch() }} ]]
+    # draft changelog from convntional commits
+    {{ cargo-set-version }} set-version {{ semver }}
+    {{ just }} perfect
+    {{ cargo }} publish --dry-run --allow-dirty
+
+# - Update the changelog
+#         - could potentially also contain the body, and link to the PR
+#         - maybe preface it with a summary
+#         - plan: have job generate a "first draft", ready for editing
+#         - prerelease
+#             - generate changelog draft
+#             - check tests
+#         - release
+#         - postrelease (to check for existence of binaries in release?)
+#     - `git log v0.3.0..HEAD --reverse --oneline`
+#     - Change the heading that says (unreleased) to the actual release heading, including the date
+#     - Create a commit
+
+[group('release')]
+release semver: (pre-release semver) (validate-semver semver) authenticated perfect
+    {{ git }} commit -m 'chore: Release v{{ semver }}'
+    {{ git }} tag v{{ semver }} -F teamtype-{{ semver }}.md
+    {{ git }} push --atomic {{ default-remote }} {{ default-branch }} v{{ semver }}
+    {{ cargo }} publish --locked
+
+# - Bump the Cargo TOML version
+#     - Remove dev
+#         - caleb's suggestion: don't use -dev, but add build.rs to add -r<num> to version
+#     - Run `cargo check` in daemon/ and in daemon/integration-tests to bump the teamtype dependency
+#     - Create commit
+
+# - Create a new branch (release-0.x.y)
+#     - Open a PR with it (so CI can run)
+
+# - Publish to Cargo
+#     - (optional) cargo publish --dry-run
+#     - cargo publish
+
+[group('release')]
+post-release semver:
+    # verify expected assets
+    # sign?
+    # - Write a Toot, or announce the release elsewhere
+
+# - Tag the version
+#     - Create a git tag v0.x.x, and push the tag
+#         `git push --tags origin v0.x.x`
+#     - (=> GitHub automatically builds the release and updates teamtype-nvim `main`)
+#         - Quickly check that the -static binaries are created correctly, then delete this item.
