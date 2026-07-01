@@ -1,11 +1,14 @@
 <!--
 SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
 # 0.9.2 (unreleased)
+
+Add option `--always-remove-socket` to always remove `.teamtype/socket` if it already exists on startup without asking for confirmation.
 
 Add a Nix Flake to the project so the repository can be run directly, used as a dependency, or just to supply a developer environment.
 

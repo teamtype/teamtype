@@ -49,6 +49,9 @@ pub struct ShareJoinFlags {
     /// or if `HOME` is not set in `/home/$USER/.cache/teamtype/`.
     #[arg(short, long)]
     pub temporary_directory: bool,
+    /// Always remove `.teamtype/socket` if it already exists on startup without asking for confirmation.
+    #[arg(long)]
+    pub always_remove_socket: bool,
 }
 
 #[derive(Subcommand)]
