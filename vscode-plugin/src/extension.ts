@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
+// SPDX-FileCopyrightText: 2026 Mohamed El tamawey <tammwy22@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -10,7 +11,7 @@ import * as path from "path"
 import * as fs from "fs"
 var Mutex = require("async-mutex").Mutex
 
-import {setCursor, getCursorInfo, drawCursors} from "./cursor"
+import {setCursor, getCursorInfo, drawCursors, followCursor, syncFollowCursor} from "./cursor"
 
 function findMarkerDirectory(dir: string, marker: string) {
     if (fs.existsSync(path.join(dir, marker))) {
@@ -204,8 +205,8 @@ function openCurrentTextDocuments() {
     vscode.workspace.textDocuments.map(processUserOpen)
 }
 
-function documentForUri(uri: string): vscode.TextDocument | undefined {
-    return vscode.workspace.textDocuments.find((doc) => doc.uri.toString() === uri)
+function documentForUri(uri: string): Thenable<vscode.TextDocument | undefined> {
+    return vscode.workspace.openTextDocument(vscode.Uri.parse(uri))
 }
 
 // Apply given TextEdits to content of the TextDocument, and return the resulting content.
@@ -246,7 +247,7 @@ async function processEditFromDaemon(client: Client, edit: Edit) {
 
             const uri = edit.uri
 
-            const document = documentForUri(uri)
+            const document = await documentForUri(uri)
             if (document) {
                 let textEdits = teamtypeDeltasToVSCodeTextEdits(document, edit.delta)
                 expectedContentAfterRemoteEdit = contentAfterEdits(document, textEdits)
@@ -288,7 +289,7 @@ async function processEditFromDaemon(client: Client, edit: Edit) {
 async function processCursorFromDaemon(cursor: CursorFromDaemon) {
     let uri = cursor.uri
 
-    const document = documentForUri(uri)
+    const document = await documentForUri(uri)
 
     try {
         let selections: vscode.DecorationOptions[] = []
@@ -304,6 +305,7 @@ async function processCursorFromDaemon(cursor: CursorFromDaemon) {
                 })
         }
         setCursor(cursor.userid, cursor.name || "anonymous", vscode.Uri.parse(uri), selections)
+        await syncFollowCursor()
     } catch {
         // If we couldn't convert teamtypeRangeToVSCodeRange, it's probably because
         // we received the cursor message before integrating the edits, typing at the end of a line.
@@ -522,6 +524,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.onDidChangeTextEditorSelection(processSelection),
         vscode.window.onDidChangeActiveTextEditor(drawCursors),
         vscode.commands.registerCommand("teamtype.showCursors", showCursorNotification),
+        vscode.commands.registerCommand("teamtype.followCursor", followCursor),
     )
 
     openCurrentTextDocuments()
