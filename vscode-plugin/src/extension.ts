@@ -270,7 +270,11 @@ async function processEditFromDaemon(client: Client, edit: Edit) {
                     } else {
                         debug("the other case")
                         // Otherwise, send back an empty delta (TODO I don't remember why?)
-                        let theEdit: Edit = {uri, revision: revision.daemon, delta: []}
+                        let theEdit: Edit = {
+                            uri,
+                            revision: revision.daemon,
+                            delta: [],
+                        }
                         client.connection.sendRequest(editType, theEdit)
                         revision.editor += 1
                         expectedContentAfterRemoteEdit = null
@@ -426,8 +430,8 @@ function processUserEdit(event: vscode.TextDocumentChangeEvent) {
 
                 // For some reason we get multiple events per edit caused by us.
                 // Let's actively skip the empty ones to make debugging output below less noisy.
-                if (event.contentChanges.length == 0) {
-                    if (document.isDirty == false) {
+                if (event.contentChanges.length === 0) {
+                    if (document.isDirty === false) {
                         debug("Ignoring empty docChange. (probably saving...)")
                     }
                     return
