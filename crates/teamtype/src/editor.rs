@@ -28,6 +28,7 @@ use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
 use crate::sandbox;
+use crate::types::UserInterface;
 
 pub type EditorId = usize;
 
@@ -99,7 +100,7 @@ pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
 pub fn spawn_socket_listener(
     socket_path: &Path,
     document_handle: DocumentActorHandle,
-    bool_prompter: &dyn Fn(&str) -> Result<bool>,
+    ui: &UserInterface,
 ) -> Result<()> {
     // Make sure the parent directory of the socket is only accessible by the current user.
     if let Err(description) = is_user_readable_only(socket_path) {
@@ -113,7 +114,7 @@ pub fn spawn_socket_listener(
         .expect("Failed to check existence of path")
     {
         let socket_path_display = socket_path.display();
-        let remove_socket = bool_prompter(&format!(
+        let remove_socket = ui.confirm(&format!(
             "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
         ));
         if remove_socket? {

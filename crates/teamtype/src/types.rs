@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::borrow::Cow;
+use std::sync::Arc;
 use std::{fmt, vec};
 
 use anyhow::bail;
@@ -12,6 +13,7 @@ use anyhow::{Context, Error, Result};
 use automerge::{
     ConcreteTextValue, ObjId, ObjType, Patch, PatchAction, Prop, ScalarValue, TextEncoding, Value,
 };
+use derive_more::Deref;
 use dissimilar::Chunk;
 use operational_transform::{Operation, OperationSeq};
 use ropey::Rope;
@@ -19,6 +21,22 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::path::RelativePath;
+use crate::traits::Interactions;
+
+/// The main UI type for Teamype is a fairly lightweight wrapper around an [`Arc`] holding some
+/// struct that implements the [`Interactions`] trait. Running any of the listening modes will
+/// require a UI. This should be created early, before even attempting any configuration, and then
+/// passed as an argument to the action functions that require it.
+#[derive(Clone, Deref)]
+pub struct UserInterface(Arc<dyn Interactions>);
+
+impl UserInterface {
+    /// Take any trait object that implements [`Interactions`] and return a reference to the active
+    /// user interface.
+    pub fn wrap(interactions: impl Interactions + 'static) -> Self {
+        Self(Arc::new(interactions))
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);
