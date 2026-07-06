@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: NONE
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: VS Code plugin
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "vscode-plugin/**"
+      - ".github/workflows/vscode-plugin.yml"
+  pull_request:
+    paths:
+      - "vscode-plugin/**"
+      - ".github/workflows/vscode-plugin.yml"
+
+jobs:
+  check_typescript:
+    name: Check formatting and linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./vscode-plugin
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Linting check
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run lint-format
+
