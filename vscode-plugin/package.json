@@ -102,6 +102,7 @@
         "@vscode/test-cli": "^0.0.9",
         "@vscode/test-electron": "^2.3.9",
         "eslint": "^8.57.0",
+        "eslint-config-prettier": "^10.1.8",
         "typescript": "^5.4.5"
     },
     "dependencies": {
