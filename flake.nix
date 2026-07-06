@@ -7,6 +7,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-for-eslint.url = "github:nixos/nixpkgs/80d901ec0377e19ac3f7bb8c035201e2e098cc97";
     flake-parts.url = "github:hercules-ci/flake-parts";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
@@ -36,6 +37,7 @@
           buildDeps = with pkgs; [
             pkg-config
           ];
+          pkgsForEslint = import inputs.nixpkgs-for-eslint { inherit system; };
           devDeps = with pkgs; [
             cargo-deny
             git
@@ -46,6 +48,7 @@
             rustup
             stylua
             typos
+            pkgsForEslint.eslint # TODO: Remove pkgsForEslint once we upgrade to eslint 10.
           ];
 
           workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);

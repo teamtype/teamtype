@@ -34,6 +34,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-for-eslint": {
+      "locked": {
+        "lastModified": 1771861243,
+        "narHash": "sha256-mz05b1VyLWoTkNg8iJr3yXFJF7HDlwIUKI3ln39RacY=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "80d901ec0377e19ac3f7bb8c035201e2e098cc97",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "80d901ec0377e19ac3f7bb8c035201e2e098cc97",
+        "type": "github"
+      }
+    },
     "nixpkgs-lib": {
       "locked": {
         "lastModified": 1777168982,
@@ -69,6 +85,7 @@
       "inputs": {
         "flake-parts": "flake-parts",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-for-eslint": "nixpkgs-for-eslint",
         "rust-overlay": "rust-overlay"
       }
     },
