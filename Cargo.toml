@@ -79,6 +79,10 @@ commit_parsers = [
   { message = "^perf", group = "<!-- 2 -->Performance Improvements" },
   { message = ".*", skip = true },
 ]
+render_always = true
+postprocessors = [
+  { pattern = '.*', replace_command = 'typos --quiet --write-changes -' },
+]
 
 [workspace.metadata.typos.default]
 locale = "en-us"
