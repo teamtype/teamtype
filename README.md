@@ -57,11 +57,11 @@ Teamtype works on Linux, macOS, Android, and on the Windows Subsystem for Linux.
 <summary>Binary releases</summary>
 
 The [releases on GitHub](https://github.com/teamtype/teamtype/releases/latest) come with precompiled static binaries.
-Download one and put it somewhere in your shell's [`PATH`](https://en.wikipedia.org/wiki/PATH_(variable)):
+Download the asset archive for your platform, extract the `teamtype` binary file from the archive, and put it somewhere in your shell's [`PATH`](https://en.wikipedia.org/wiki/PATH_(variable)):
 
-- `x86_64-unknown-linux-musl` for Linux
+- `x86_64-linux-static` for Linux
 - `universal-apple-darwin` for macOS
-- `aarch64-unknown-linux-musl` for Android (use a terminal emulator like [Termux](https://termux.dev))
+- `aarch64-aarch64-linux-static` for Android (use a terminal emulator like [Termux](https://termux.dev))
 
 </details>
 
