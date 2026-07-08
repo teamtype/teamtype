@@ -69,6 +69,17 @@ too_many_lines = "allow"
 unsafe_code = "forbid"
 unused_qualifications = "warn"
 
+[workspace.metadata.git-cliff.git]
+protect_breaking_commits = true
+filter_commits = true
+commit_parsers = [
+  { message = "(tooling)", skip = true },
+  { message = "^feat", group = "<!-- 0 -->New Features" },
+  { message = "^fix", group = "<!-- 1 -->Bug Fixes" },
+  { message = "^perf", group = "<!-- 2 -->Performance Improvements" },
+  { message = ".*", skip = true },
+]
+
 [workspace.metadata.typos.default]
 locale = "en-us"
 # Note: the TOML parser used in the Nix flake can't handle inline tables on multiple lines.
