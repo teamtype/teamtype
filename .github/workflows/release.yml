@@ -35,6 +35,7 @@ jobs:
             archive: $bin-aarch64-linux-static
           - target: universal-apple-darwin
             os: macos-latest
+            archive: $bin-universal-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
@@ -46,6 +47,7 @@ jobs:
         with:
           bin: teamtype
           include: README.md,LICENSE.md
+          archive: ${{ matrix.archive }}
           target: ${{ matrix.target }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
