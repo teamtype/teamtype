@@ -42,6 +42,8 @@
             cargo-deny
             git
             git-cliff
+            github-cli
+            jq
             just
             luaPackages.luacheck
             prettier

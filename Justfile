@@ -7,6 +7,8 @@ cargo-deny := require('cargo-deny')
 eslint := require('eslint')
 git := require('git')
 git-cliff := require('git-cliff')
+gh := require('gh')
+jq := require('jq')
 just := just_executable()
 luacheck := require('luacheck')
 nix := require('nix')
@@ -187,3 +189,25 @@ preview-branch-changelog:
     {{ git }} diff --no-ext-diff --no-index -- \
         <({{ git-cliff }} {{ read-last-tag() + ".." + default-remote + "/" + default-branch }}) \
         <({{ git-cliff }} --unreleased)
+
+read-release-url(semver) := shell(gh + f" release view v{{semver}} --json url --jq .url")
+
+# Draft a Toot announcing a release.
+[group('release')]
+[script]
+prepare-release-toot semver:
+    cat <<- EOF
+    	━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    	Happy to announce the v{{ semver }} release of Teamtype! 🎉
+
+    	Teamtype enables real-time peer-to-peer collaborative editing of local files using your own text editor.
+
+    	Release: {{ read-release-url(semver) }}
+
+    	Project: https://github.com/teamtype/teamtype
+
+    	Highlights:
+    	- 
+    	- 
+    	━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    EOF
