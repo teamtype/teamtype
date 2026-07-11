@@ -126,7 +126,7 @@ fn formulate_version() -> Result<&'static str> {
         if manifest_version != captures["tag"] {
             println!(
                 "cargo::warning=The most recent annotated tag '{}' does not match the manifest version '{}'.",
-                &captures["tag"], &manifest_version
+                &captures["tag"], manifest_version
             );
         }
         // The `git describe` used by vergen will not output the counter on a tag anyway, but our
