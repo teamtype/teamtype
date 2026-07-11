@@ -15,7 +15,7 @@ CONFIGURATION                                           *teamtype-configuration*
 
 This plugin allows you to configure multiple collaboration servers. Each is
 identified with a name and markers or a function used to identify what
-directory(s) the config should be active for. This enables separeate settings
+directory(s) the config should be active for. This enables separate settings
 per-project or per group of projects.
 
 A default configuration for connecting to Teamtype daemons is provided. To
