@@ -109,7 +109,7 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool) -> Result<Daemon> {
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
     // so the calling context can determine when to terminate.
-    Daemon::new(app_config, init_doc, persist, &prompt_bool)
+    Daemon::new(app_config, init_doc, persist)
         .await
         .context("Failed to launch the daemon")
 }

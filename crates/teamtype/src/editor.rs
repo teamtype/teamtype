@@ -6,7 +6,7 @@
 
 //! This module is all about daemon to editor communication.
 
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::{fs::PermissionsExt, net::UnixStream as StdUnixStream};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
@@ -99,7 +99,6 @@ pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
 pub fn spawn_socket_listener(
     socket_path: &Path,
     document_handle: DocumentActorHandle,
-    bool_prompter: &dyn Fn(&str) -> Result<bool>,
 ) -> Result<()> {
     // Make sure the parent directory of the socket is only accessible by the current user.
     if let Err(description) = is_user_readable_only(socket_path) {
@@ -112,14 +111,17 @@ pub fn spawn_socket_listener(
     if sandbox::exists(Path::new("/"), Path::new(&socket_path))
         .expect("Failed to check existence of path")
     {
-        let socket_path_display = socket_path.display();
-        let remove_socket = bool_prompter(&format!(
-            "Detected an existing socket '{socket_path_display}'. There might be a daemon running already for this directory, or the previous one crashed. Do you want to continue?"
-        ));
-        if remove_socket? {
-            sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
-        } else {
-            bail!("Not continuing, make sure to stop all other daemons on this directory");
+        // If there's an existing socket, try to connect to it as a client. If that fails, we assume
+        // there's no other daemon running and we can delete the socket.
+        match StdUnixStream::connect(strip_current_dir(socket_path)) {
+            Ok(_) => {
+                bail!(
+                    "Detected an existing daemon running for this directory. Rejecting to start another one."
+                );
+            }
+            Err(_) => {
+                sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
+            }
         }
     }
 
