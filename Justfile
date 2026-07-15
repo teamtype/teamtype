@@ -4,6 +4,9 @@
 
 cargo := require('cargo')
 cargo-deny := require('cargo-deny')
+eslint := require('eslint')
+git := require('git')
+git-cliff := require('git-cliff')
 just := just_executable()
 luacheck := require('luacheck')
 nix := require('nix')
@@ -12,7 +15,6 @@ prettier := require('prettier')
 reuse := require('reuse')
 stylua := require('stylua')
 typos := require('typos')
-eslint := require('eslint')
 
 export TEAMTYPE_BINARY := justfile_directory() + "/target/debug/teamtype"
 
@@ -29,6 +31,8 @@ set positional-arguments
 set unstable
 
 profile := "dev"
+default-remote := "origin"
+default-branch := "main"
 
 # With positional arguments enabled, we can pass all the arguments to the bash
 # shell in a way that will get expanded to the original 'word' breakdown. However,
@@ -169,3 +173,17 @@ nvim *ARGS: build-test
 [no-cd]
 teamtype *ARGS: build-test
     $TEAMTYPE_BINARY {{ maybe-pass(ARGS) }}
+
+# Get an early look at what the changelog draft would look like for a release.
+[group('release')]
+preview-changelog:
+    {{ git-cliff }} --unreleased --bump
+
+read-last-tag() := shell(git + ' describe --tags --abbrev=0 --match="v[0-9]*" HEAD')
+
+# Review what changes the current branch will bring to the next release's changelog draft.
+[group('release')]
+preview-branch-changelog:
+    {{ git }} diff --no-ext-diff --no-index -- \
+        <({{ git-cliff }} {{ read-last-tag() + ".." + default-remote + "/" + default-branch }}) \
+        <({{ git-cliff }} --unreleased)

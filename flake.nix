@@ -41,6 +41,7 @@
           devDeps = with pkgs; [
             cargo-deny
             git
+            git-cliff
             just
             luaPackages.luacheck
             prettier
