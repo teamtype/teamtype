@@ -82,6 +82,8 @@ If you're looking for inspiration for your own project, you can find a lot of ot
 - In Neovim, ignore file buffers without a name – the diagnostics file should not be shared for example (thanks, @Hex4C).
 - In Neovim, don't send cursor updates when changing from normal mode to insert mode or command mode (thanks, @deanrobertcook).
 
+Enable local discovery for the Iroh peer-to-peer library, allowing peers to find each other quickly if they're in the same local network.
+
 ## Notes for package maintainers
 
 ### New crate structure
