@@ -21,7 +21,7 @@ use tokio_util::{
     bytes::BytesMut,
     codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec},
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::daemon::{DocMessage, DocumentActorHandle};
 use crate::editor_protocol::{
@@ -120,6 +120,9 @@ pub fn spawn_socket_listener(
                 );
             }
             Err(_) => {
+                warn!(
+                    "An existing socket was found for this directory, but since the daemon seems to be defunct it is being removed."
+                );
                 sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
             }
         }
