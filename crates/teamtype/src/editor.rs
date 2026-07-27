@@ -113,19 +113,15 @@ pub fn spawn_socket_listener(
     {
         // If there's an existing socket, try to connect to it as a client. If that fails, we assume
         // there's no other daemon running and we can delete the socket.
-        match StdUnixStream::connect(strip_current_dir(socket_path)) {
-            Ok(_) => {
-                bail!(
-                    "Detected an existing daemon running for this directory. Rejecting to start another one."
-                );
-            }
-            Err(_) => {
-                warn!(
-                    "An existing socket was found for this directory, but since the daemon seems to be defunct it is being removed."
-                );
-                sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
-            }
+        if StdUnixStream::connect(strip_current_dir(socket_path)).is_ok() {
+            bail!(
+                "Detected an existing daemon running for this directory. Rejecting to start another one."
+            );
         }
+        warn!(
+            "An existing socket was found for this directory, but since the daemon seems to be defunct it is being removed."
+        );
+        sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
     }
 
     // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
