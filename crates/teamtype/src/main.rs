@@ -23,7 +23,6 @@ use teamtype::{
 };
 use tempfile::{TempDir, tempdir_in};
 use tokio::signal;
-use tracing::debug;
 
 use self::cli::{Cli, Commands, ShareJoinFlags};
 
@@ -111,8 +110,6 @@ async fn run_daemon(app_config: AppConfig, init_doc: bool, ui: &UserInterface) -
             /// As a workaround, you could use `git commit --author`.
         ));
     }
-
-    debug!("Starting Teamtype on {}.", app_config.base_dir.display());
 
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
