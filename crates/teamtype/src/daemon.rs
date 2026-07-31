@@ -980,6 +980,8 @@ impl Daemon {
         persist: bool,
         ui: &UserInterface,
     ) -> Result<Self> {
+        debug!("Starting Teamtype on {}.", app_config.base_dir.display());
+
         let is_host = app_config.is_host();
 
         let document_handle = DocumentActorHandle::new(&app_config, ui, init, is_host, persist);
