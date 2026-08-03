@@ -92,7 +92,9 @@ version = "0.21"
 default-features = false
 
 [dependencies.inquire]
-version = "0.9"
+# version = "0.9"
+git = "https://github.com/alerque/inquire"
+rev = "9c789b46e240d5da95e9965f80e9771d598f2583"
 optional = true
 
 [dependencies.notify]
