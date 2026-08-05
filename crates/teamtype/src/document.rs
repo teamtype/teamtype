@@ -212,8 +212,18 @@ impl Document {
         file_path: &RelativePath,
     ) -> Option<TextDelta> {
         if self.text_obj(file_path).is_ok() {
-            let Some(Content::String(current_text)) = self.current_file_content(file_path) else {
-                panic!("Failed to get {file_path} text object");
+            let current_text = if let Some(Content::String(text)) =
+                self.current_file_content(file_path)
+            {
+                text
+            } else {
+                debug!(
+                    "Received update to previously deleted document '{file_path}', resurecting path but as blank instead of old cached value"
+                );
+                let text = "";
+                self.files
+                    .insert(file_path.clone(), Content::String(text.into()));
+                text
             };
 
             let chunks = dissimilar::diff(current_text, desired_text);
