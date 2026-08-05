@@ -212,8 +212,21 @@ impl Document {
         file_path: &RelativePath,
     ) -> Option<TextDelta> {
         if self.text_obj(file_path).is_ok() {
-            let Some(Content::String(current_text)) = self.current_file_content(file_path) else {
-                panic!("Failed to get {file_path} text object");
+            let current_text = if let Some(Content::String(text)) =
+                self.current_file_content(file_path)
+            {
+                text
+            } else {
+                // TODO: It shouldn't happen that the files cache doesn't exist when we try to
+                // update the content. But because we haven't fixed the root of that yet, here we're
+                // fixing the symptom.
+                debug!(
+                    "Received update to previously deleted document '{file_path}', resurrecting path but as empty instead of old cached value"
+                );
+                let text = "";
+                self.files
+                    .insert(file_path.clone(), Content::String(text.into()));
+                text
             };
 
             let chunks = dissimilar::diff(current_text, desired_text);
