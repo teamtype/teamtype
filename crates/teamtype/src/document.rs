@@ -454,6 +454,26 @@ mod tests {
         );
     }
 
+    // Simulate a race condition where an edit event from one peer arrives/is handled after a delete
+    // event from another peer. Expect the edit to be applied not cause a crash, but to an otherwise
+    // empty document not resurrecting the content still cached from before the deletion.
+    #[test]
+    fn update_after_removal_recovers_from_cache() {
+        let ui = &UserInterface::new(TestInteractions {});
+        let mut document = Document::new(ui);
+        let file = RelativePath::new("a_file_to_clobber");
+
+        document.set_file(Content::String("original contents".to_string()), &file);
+
+        document.files.remove(&file);
+        assert!(document.current_file_content(&file).is_none());
+
+        let delta = document.update_text("updated contents", &file);
+
+        assert!(delta.is_some());
+        document.assert_file_content(&file, "updated contents");
+    }
+
     fn apply_delta_to_doc_works(initial: &str, delta: &TextDelta, expected: &str) {
         let ui = &UserInterface::new(TestInteractions {});
         let mut document = Document::new(ui);
