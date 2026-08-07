@@ -18,7 +18,7 @@ use dissimilar::Chunk;
 use operational_transform::{Operation, OperationSeq};
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::path::RelativePath;
 use crate::traits::Interactions;
@@ -202,11 +202,11 @@ pub enum PatchEffect {
 }
 
 impl PatchEffect {
-    pub fn from_crdt_patches(patches: &[Patch]) -> Vec<Self> {
+    pub fn from_crdt_patches(patches: &[Patch], ui: &UserInterface) -> Vec<Self> {
         let mut file_deltas: Vec<Self> = vec![];
 
         for patch in patches {
-            match patch.try_into() {
+            match Self::try_from_with_ui(patch, ui) {
                 Ok(result) => {
                     file_deltas.push(result);
                 }
@@ -365,10 +365,8 @@ impl TextDelta {
 
 // TODO: This feels like it should go into another file, close to where Document handles writing to
 // the Automerge document. Both places need to know about our chosen structure.
-impl TryFrom<&Patch> for PatchEffect {
-    type Error = Error;
-
-    fn try_from(patch: &Patch) -> Result<Self, Self::Error> {
+impl PatchEffect {
+    pub fn try_from_with_ui(patch: &Patch, ui: &UserInterface) -> Result<Self> {
         fn file_path_from_path_default(path: &[(ObjId, Prop)]) -> Result<RelativePath, Error> {
             if path.len() != 2 {
                 bail!("Unexpected path in Automerge patch, length is not 2");
@@ -412,9 +410,9 @@ impl TryFrom<&Patch> for PatchEffect {
                                         // In this case, the peer receiving this PutMap should
                                         // remove all existing content of this file in open
                                         // editors. So we emit a FileRemovel.
-                                        warn!(
+                                        ui.warn(&format!(
                                             "Resolved conflict for file {relative_path} by overwriting your version."
-                                        );
+                                        ));
                                         Ok(Self::FileRemoval(relative_path))
                                     } else {
                                         // We return an empty delta on the new file, so that the file is created on disk when
@@ -442,9 +440,9 @@ impl TryFrom<&Patch> for PatchEffect {
                                 Prop::Map(file_name) => {
                                     // We assume that conflict resolution works the way, that the
                                     // side that gets the PatchAction is the one that "wins".
-                                    warn!(
+                                    ui.warn(&format!(
                                         "Conflict for file '{file_name}' resolved. Taking your version."
-                                    );
+                                    ));
                                     Ok(Self::NoEffect)
                                 }
                                 Prop::Seq(seq) => {

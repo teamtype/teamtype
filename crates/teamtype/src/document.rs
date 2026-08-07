@@ -96,7 +96,9 @@ impl Document {
 
         // Update files cache.
         for patch in &patches {
-            match PatchEffect::try_from(patch).expect("Should be able to convert to patch effect") {
+            match PatchEffect::try_from_with_ui(patch, &self.ui)
+                .expect("Should be able to convert to patch effect")
+            {
                 PatchEffect::FileChange(file_text_delta) => {
                     let old_text = if let Some(Content::String(old_text)) =
                         self.files.get(&file_text_delta.file_path)

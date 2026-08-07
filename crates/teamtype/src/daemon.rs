@@ -242,7 +242,7 @@ impl DocumentActor {
 
                 let patches = self.apply_sync_message_to_doc(message, &mut peer_state);
 
-                let patch_effects = PatchEffect::from_crdt_patches(&patches);
+                let patch_effects = PatchEffect::from_crdt_patches(&patches, &self.ui);
 
                 let mut file_deltas = vec![];
 
