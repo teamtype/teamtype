@@ -20,7 +20,7 @@ repos:
     -   id: cargo-check
         args: []
 -   repo: https://github.com/JohnnyMorganz/StyLua
-    rev: v2.1.0
+    rev: v2.5.2
     hooks:
     -   id: stylua
         args: ['--config-path', 'nvim-plugin/.stylua.toml', '--check', 'nvim-plugin']
