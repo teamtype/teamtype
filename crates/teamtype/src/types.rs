@@ -23,17 +23,29 @@ use tracing::debug;
 use crate::path::RelativePath;
 use crate::traits::Interactions;
 
+#[derive(Clone, Deref)]
+pub struct InteractionsHandle(Arc<dyn Interactions>);
+
+impl fmt::Debug for InteractionsHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.0.type_name())
+    }
+}
+
+impl InteractionsHandle {
+    fn new(interactions: impl Interactions + 'static) -> Self {
+        Self(Arc::new(interactions))
+    }
+}
+
 /// The main UI type for Teamtype is a fairly lightweight wrapper around an [`Arc`] holding some
 /// struct that implements the [`Interactions`] trait. Running any of the listening modes will
 /// require a UI. This should be created early, before even attempting any configuration, and then
 /// passed as an argument to the action functions that require it.
-#[derive(Clone, Deref)]
-pub struct UserInterface(Arc<dyn Interactions>);
-
-impl fmt::Debug for UserInterface {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0.type_name())
-    }
+#[derive(Clone, Deref, Debug)]
+pub struct UserInterface {
+    #[deref]
+    interactions: InteractionsHandle,
 }
 
 impl UserInterface {
@@ -41,7 +53,8 @@ impl UserInterface {
     /// pointer to the user interface implementation. This makes it possible to pass a around the UI
     /// object including by cloning it into Tokio threads.
     pub fn new(interactions: impl Interactions + 'static) -> Self {
-        Self(Arc::new(interactions))
+        let interactions = InteractionsHandle::new(interactions);
+        Self { interactions }
     }
 }
 

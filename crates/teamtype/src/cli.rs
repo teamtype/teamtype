@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2025 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
+// SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -13,6 +14,9 @@ use clap::{Args, Parser, Subcommand};
 #[command(about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
+    /// Suppress non-essential informational messages.
+    #[arg(short, long, global = true)]
+    pub quiet: bool,
     #[command(subcommand)]
     pub command: Commands,
     /// The shared directory. Defaults to current directory.

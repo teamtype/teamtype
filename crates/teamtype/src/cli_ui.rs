@@ -8,8 +8,10 @@ use nu_ansi_term::{Color, Style};
 use teamtype::traits::Interactions;
 use tracing::debug;
 
-#[derive(Clone)]
-pub struct ConsoleInteractions {}
+#[derive(Clone, Debug)]
+pub struct ConsoleInteractions {
+    pub quiet: bool,
+}
 
 impl Interactions for ConsoleInteractions {
     fn confirm(&self, question: &str) -> Result<bool> {
@@ -21,9 +23,11 @@ impl Interactions for ConsoleInteractions {
     }
 
     fn log(&self, message: &str) {
-        let dimmed = Style::new().dimmed();
         debug!("UI log event: {message}");
-        println!("{}", dimmed.paint(message));
+        if !self.quiet {
+            let dimmed = Style::new().dimmed();
+            println!("{}", dimmed.paint(message));
+        }
     }
 
     fn inform(&self, message: &str) {
@@ -32,8 +36,8 @@ impl Interactions for ConsoleInteractions {
     }
 
     fn warn(&self, message: &str) {
-        let yellow = Color::Yellow;
         debug!("UI warn event: {message}");
+        let yellow = Color::Yellow;
         eprintln!("{}", yellow.paint(message));
     }
 }
