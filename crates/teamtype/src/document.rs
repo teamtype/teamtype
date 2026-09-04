@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn can_initialize_content() {
-        let ui = &UserInterface::new(TestInteractions {}, false);
+        let ui = &UserInterface::new(TestInteractions {});
         let mut document = Document::new(ui);
         let text = "To be or not to be, that is the question";
         let file = RelativePath::new("text");
@@ -448,7 +448,7 @@ mod tests {
 
     #[test]
     fn can_initialize_content_multifile() {
-        let ui = &UserInterface::new(TestInteractions {}, false);
+        let ui = &UserInterface::new(TestInteractions {});
         let mut document = Document::new(ui);
 
         let text = "To be or not to be, that is the question";
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn retrieve_content_file_nonexistent_errs() {
-        let ui = &UserInterface::new(TestInteractions {}, false);
+        let ui = &UserInterface::new(TestInteractions {});
         let document = Document::new(ui);
         assert!(
             document
@@ -476,7 +476,7 @@ mod tests {
     }
 
     fn apply_delta_to_doc_works(initial: &str, delta: &TextDelta, expected: &str) {
-        let ui = &UserInterface::new(TestInteractions {}, false);
+        let ui = &UserInterface::new(TestInteractions {});
         let mut document = Document::new(ui);
         let file = RelativePath::new("text");
 
@@ -525,7 +525,7 @@ mod tests {
 
     #[test]
     fn apply_delta_only_changes_specified_file() {
-        let ui = &UserInterface::new(TestInteractions {}, false);
+        let ui = &UserInterface::new(TestInteractions {});
         let mut document = Document::new(ui);
 
         let file1 = RelativePath::new("text");
@@ -548,7 +548,7 @@ mod tests {
 
         #[test]
         fn test_generate_sync_message() {
-            let ui = &UserInterface::new(TestInteractions {}, false);
+            let ui = &UserInterface::new(TestInteractions {});
             let mut document = Document::new(ui);
             let mut state = AutomergeSyncState::new();
             assert!(document.generate_sync_message(&mut state).is_some());

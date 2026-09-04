@@ -1145,7 +1145,7 @@ mod tests {
                     broadcast::channel::<EphemeralMessage>(100);
 
                 //
-                let ui = &UserInterface::new(TestInteractions {}, false);
+                let ui = &UserInterface::new(TestInteractions {});
 
                 Self::new(
                     doc_message_rx,
