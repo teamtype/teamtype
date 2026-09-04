@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module provides a [`ConnectionManager`], which can be used to connect to other daemons.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -29,8 +29,9 @@ use tracing::debug;
 use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
-use crate::config::AppConfig;
+use crate::config::Config;
 use crate::daemon::DocumentActorHandle;
+use crate::permissions::{check_mode, create_with_mode};
 use crate::types::UserInterface;
 
 mod sync;
@@ -73,14 +74,14 @@ pub struct ConnectionManager {
 
 impl ConnectionManager {
     pub async fn new(
-        app_config: &AppConfig,
+        config: &Config,
         document_handle: DocumentActorHandle,
         base_dir: &Path,
         ui: &UserInterface,
     ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(app_config, base_dir).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(config, base_dir).await?;
 
         let encoded_passphrase = data_encoding::HEXLOWER.encode(&my_passphrase.to_bytes());
         let secret_address = format!("{}#{}", endpoint.id(), encoded_passphrase);
@@ -124,17 +125,14 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(
-        app_config: &AppConfig,
-        base_dir: &Path,
-    ) -> Result<(Endpoint, SecretKey)> {
+    async fn build_endpoint(config: &Config, base_dir: &Path) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(base_dir);
 
         let mut builder = Endpoint::builder(presets::N0)
             .secret_key(secret_key)
             .alpns(vec![ALPN.to_vec()]);
 
-        let relay_mode = match &app_config.iroh_relay {
+        let relay_mode = match &config.iroh_relay {
             Some(iroh_relay) => {
                 let relay_url = RelayUrl::from_str(iroh_relay)?;
                 let relay_map = RelayMap::from(relay_url);
@@ -144,7 +142,7 @@ impl ConnectionManager {
         };
         builder = builder.relay_mode(relay_mode);
 
-        let iroh_dns_lookup = app_config.iroh_dns_domain.as_ref().map_or_else(
+        let iroh_dns_lookup = config.iroh_dns_domain.as_ref().map_or_else(
             DnsAddressLookup::n0_dns,
             |iroh_dns_domain| {
                 let iroh_dns_domain_clone = iroh_dns_domain.clone();
@@ -153,7 +151,7 @@ impl ConnectionManager {
         );
         builder = builder.address_lookup(iroh_dns_lookup);
 
-        let iroh_pkarr_lookup = match &app_config.iroh_pkarr_relay {
+        let iroh_pkarr_lookup = match &config.iroh_pkarr_relay {
             Some(iroh_pkarr_relay) => {
                 let iroh_pkarr_relay_url = Url::parse(iroh_pkarr_relay)?;
                 PkarrPublisher::builder(iroh_pkarr_relay_url)
@@ -173,12 +171,7 @@ impl ConnectionManager {
             let metadata =
                 fs::metadata(&keyfile).expect("Expected to have access to metadata of the keyfile");
 
-            let current_permissions = metadata.permissions().mode();
-            let allowed_permissions = 0o100_600;
-            assert!(
-                current_permissions == allowed_permissions,
-                "For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600)."
-            );
+            check_mode(keyfile.as_path(), 0o100_600).expect("For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
 
             assert!(
                 metadata.len() == 64,
@@ -205,11 +198,7 @@ impl ConnectionManager {
             let secret_key = SecretKey::generate();
             let passphrase = SecretKey::generate();
 
-            let mut file = OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o600)
-                .open(keyfile)
+            let mut file = create_with_mode(keyfile, 0o600)
                 .expect("Should have been able to create key file that did not exist before");
 
             file.write_all(&secret_key.to_bytes())

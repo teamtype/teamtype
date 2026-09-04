@@ -8,11 +8,12 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+#[cfg(unix)]
 use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
-use teamtype::config::{self, AppConfig};
+use teamtype::config::{self, Config};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::logging;
 use teamtype::sandbox;
@@ -67,6 +68,7 @@ impl Interactions for FuzzerInteractions {
     }
 }
 
+#[cfg(unix)]
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -75,7 +77,7 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize()?;
+    let () = logging::initialize(true)?;
 
     let ui = &UserInterface::new(FuzzerInteractions {});
 
@@ -85,19 +87,21 @@ async fn main() -> Result<()> {
     let (_handle2, dir2, file2) = initialize_directory();
 
     // Set up the actors.
-    let mut app_config = AppConfig::default();
-    app_config.base_dir = dir1;
-    let daemon = Daemon::new(app_config, true, false, ui).await?;
+    let mut config = Config::default();
+    config.base_dir = dir1;
+    let daemon = Daemon::new(config, true, false, ui).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
     let nvim = Neovim::new(Some(file1)).await;
 
-    let mut app_config2 = AppConfig::default();
-    app_config2.base_dir = dir2;
-    app_config2.peer = Some(config::Peer::SecretAddress(daemon.address.clone()));
-    let peer = Daemon::new(app_config2, false, false, ui).await?;
+    let mut config2 = Config::default();
+    config2.base_dir = dir2;
+    config2.peer = Some(config::Peer::SecretAddress(
+        daemon.secret_address().to_string(),
+    ));
+    let peer = Daemon::new(config2, false, false, ui).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {
