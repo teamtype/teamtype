@@ -41,9 +41,11 @@ async fn main() -> Result<()> {
         Err(e) => e.exit(),
     };
 
-    logging::initialize(cli.quiet).context("Failed to initialize logging")?;
+    let verbosity = cli.quiet;
 
-    let ui = &UserInterface::new(ConsoleInteractions { quiet: cli.quiet });
+    logging::initialize(verbosity.into()).context("Failed to initialize logging")?;
+
+    let ui = &UserInterface::new(ConsoleInteractions { verbosity });
 
     // TODO: If the result of this joined future handles were to go out of scope and hence be
     // dropped, *some* but not all parts of the daemon would shut down. Notably the local socket

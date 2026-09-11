@@ -14,7 +14,7 @@ use pretty_assertions::assert_eq;
 use rand::RngExt;
 use teamtype::config::{BaseDir, Config, Peer};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
-use teamtype::logging;
+use teamtype::logging::{self, LoggingDisplay};
 use teamtype::sandbox;
 use teamtype::traits::Interactions;
 use teamtype::types::UserInterface;
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize(true)?;
+    logging::initialize(LoggingDisplay::Pretty)?;
 
     let ui = &UserInterface::new(FuzzerInteractions {});
 
