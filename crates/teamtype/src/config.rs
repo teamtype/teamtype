@@ -355,3 +355,47 @@ fn global_git_username() -> Result<String> {
         .get_str("user.name")?
         .to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use anyhow::Result;
+    use tempfile::tempdir;
+
+    use super::BaseDir;
+
+    #[test]
+    fn try_into_basedir_from_pathbuf() -> Result<()> {
+        let temp = tempdir()?;
+        let dir = temp.path();
+        let base_dir: BaseDir = dir.try_into()?;
+        match base_dir {
+            BaseDir::Permanent(ref path) => {
+                assert_eq!(*path, dir.canonicalize()?);
+            }
+            BaseDir::Temporary(_) => panic!("Expected a permanent base directory"),
+        }
+        drop(base_dir);
+        assert!(dir.exists(), "Permanent directory removed by drop");
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_basedir_from_nonexistent() {
+        let nonexistent = PathBuf::from("does-not-exist");
+        let result: Result<BaseDir> = nonexistent.as_path().try_into();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn temporary_creates_and_destroys_directory() -> Result<()> {
+        let base_dir = BaseDir::new_temporary()?;
+        assert!(matches!(base_dir, BaseDir::Temporary(_)));
+        let path: PathBuf = base_dir.to_path_buf();
+        assert!(path.exists(), "Temporary directory was not created");
+        drop(base_dir);
+        assert!(!path.exists(), "Temporary directory exists after drop");
+        Ok(())
+    }
+}
