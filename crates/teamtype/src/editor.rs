@@ -1,22 +1,27 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module is all about daemon to editor communication.
 
-use std::os::unix::{fs::PermissionsExt, net::UnixStream as StdUnixStream};
-use std::path::{Path, PathBuf};
-use std::{env, fs};
+#[cfg(unix)]
+use std::env;
+use std::path::Path;
+#[cfg(unix)]
+use std::path::PathBuf;
 
 use anyhow::bail;
 use anyhow::{Context, Result};
 use futures::StreamExt;
-use tokio::{
-    io::WriteHalf,
-    net::{UnixListener, UnixStream},
-};
+use tokio::io::WriteHalf;
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{NamedPipeClient, NamedPipeServer, PipeMode, ServerOptions};
+#[cfg(unix)]
+use tokio::net::{UnixListener, UnixStream};
+use tokio::runtime::Runtime;
 use tokio_util::{
     bytes::BytesMut,
     codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec},
@@ -27,12 +32,21 @@ use crate::daemon::{DocMessage, DocumentActorHandle};
 use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
+use crate::permissions::check_mode;
 use crate::sandbox;
 use crate::types::UserInterface;
 
 pub type EditorId = usize;
 
+#[cfg(unix)]
 pub type EditorWriter = FramedWrite<WriteHalf<UnixStream>, OutgoingProtocolCodec>;
+#[cfg(windows)]
+pub type EditorWriter = FramedWrite<WriteHalf<NamedPipeServer>, OutgoingProtocolCodec>;
+
+#[cfg(unix)]
+pub type EditorStream = UnixStream;
+#[cfg(windows)]
+pub type EditorStream = NamedPipeServer;
 
 #[derive(Debug)]
 pub struct OutgoingProtocolCodec;
@@ -62,31 +76,8 @@ impl Decoder for IncomingProtocolCodec {
     }
 }
 
-fn is_user_readable_only(socket_path: &Path) -> Result<()> {
-    let parent_dir = socket_path
-        .parent()
-        .context("The socket path should not be the root directory")?;
-    let current_permissions = fs::metadata(parent_dir)
-        .with_context(|| {
-            format!(
-                "Expected to have access to metadata of the socket's parent directory: {}",
-                parent_dir.display()
-            )
-        })?
-        .permissions()
-        .mode();
-    // Group and others should not have any permissions.
-    let allowed_permissions = 0o77700u32;
-    if current_permissions | allowed_permissions != allowed_permissions {
-        bail!(
-            "For security reasons, the parent directory of the socket must only be accessible by the current user. Please run `chmod go-rwx {}`",
-            parent_dir.display()
-        );
-    }
-    Ok(())
-}
-
-pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
+#[cfg(unix)]
+pub fn strip_current_dir(path: &Path) -> PathBuf {
     let Ok(cwd) = env::current_dir() else {
         return path.to_path_buf();
     };
@@ -96,88 +87,151 @@ pub(crate) fn strip_current_dir(path: &Path) -> PathBuf {
 
 /// # Panics
 ///
-/// Will panic if we fail to listen on the socket, or if we fail to accept an incoming connection.
-pub fn spawn_socket_listener(
-    socket_path: &Path,
+/// Will panic if we fail to setup a listener using a socket (Unix) or named pipe (Windows), or if
+/// we fail to accept an incoming connection.
+#[expect(clippy::unused_async)]
+pub async fn spawn_listener(
+    listener_path: &Path,
     document_handle: DocumentActorHandle,
     ui: &UserInterface,
 ) -> Result<()> {
+    let parent_path = listener_path
+        .parent()
+        .context("Invalid socket creation location")?;
     // Make sure the parent directory of the socket is only accessible by the current user.
-    if let Err(description) = is_user_readable_only(socket_path) {
-        bail!("{description}");
-    }
+    check_mode(parent_path, 0o77700u32)?;
 
-    // Using the sandbox method here is technically unnecessary,
-    // but we want to really run all path operations through the sandbox module.
+    // Using the sandbox method here is technically unnecessary, but we want to really run all path
+    // operations through the sandbox module.
     // TODO: Use correct directory as guard.
-    if sandbox::exists(Path::new("/"), Path::new(&socket_path))
+    if sandbox::exists(Path::new("/"), Path::new(&listener_path))
         .expect("Failed to check existence of path")
     {
         // If there's an existing socket, try to connect to it as a client. If that fails, we assume
         // there's no other daemon running and we can delete the socket.
-        if StdUnixStream::connect(strip_current_dir(socket_path)).is_ok() {
+        let rt = Runtime::new()?;
+        let existing_listener = strip_current_dir(listener_path);
+        let connection = rt.block_on(async {
+            #[cfg(unix)]
+            {
+                UnixStream::connect(existing_listener).await
+            }
+            #[cfg(windows)]
+            {
+                NamedPipeClient::connect(existing_listener).await
+            }
+        });
+        if connection.is_ok() {
             bail!(
                 "Detected an existing daemon running for this directory. Rejecting to start another one."
             );
         }
         ui.warn(
-            "An existing socket was found for this directory, but since the daemon seems to be defunct it is being removed."
+            "An existing listener was found for this directory, but since the daemon seems to be defunct it is being removed."
         );
-        sandbox::remove_file(Path::new("/"), socket_path).expect("Could not remove socket");
+        sandbox::remove_file(Path::new("/"), listener_path).unwrap_or_else(|_| {
+            panic!(
+                "Could not remove existing daemon's listener '{}'",
+                listener_path.display()
+            )
+        });
     }
 
-    // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
-    // length that matters is only the segment it is asked to handle. If passed an absolute path
-    // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
-    // relative path effectively sidesteps this limitation. Stripping the leading path segments will
-    // result in a relative path that won't have a long cumbersome prefix that fails safety checks.
-    // The extra song and dance to change into the parent directory first is not needed by our CLI
-    // (which already changes to that location) but it will make this API usable when linked as a
-    // library without changing the parent thread's location for keeps.
-    let previous_cwd = env::current_dir()?;
-    env::set_current_dir(
-        socket_path
-            .parent()
-            .context("Invalid socket creation location")?,
-    )?;
-    let listener = UnixListener::bind(strip_current_dir(socket_path))?;
-    env::set_current_dir(previous_cwd)?;
-    debug!("Listening on UNIX socket: {}", socket_path.display());
+    #[cfg(unix)]
+    {
+        // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
+        // length that matters is only the segment it is asked to handle. If passed an absolute path
+        // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
+        // relative path effectively sidesteps this limitation. Stripping the leading path segments will
+        // result in a relative path that won't have a long cumbersome prefix that fails safety checks.
+        // The extra song and dance to change into the parent directory first is not needed by our CLI
+        // (which already changes to that location) but it will make this API usable when linked as a
+        // library without changing the parent thread's location for keeps.
+        let previous_cwd = env::current_dir()?;
+        env::set_current_dir(parent_path)?;
+        let listener = UnixListener::bind(strip_current_dir(listener_path))?;
+        env::set_current_dir(previous_cwd)?;
+        debug!("Listening on UNIX socket: {}", listener_path.display());
 
-    tokio::spawn({
-        let ui = ui.clone();
-        async move {
-            loop {
-                match listener.accept().await {
-                    Ok((stream, _addr)) => {
-                        let id = document_handle.clone().next_editor_id();
-                        let document_handle_clone = document_handle.clone();
-                        tokio::spawn({
-                            let ui = ui.clone();
-                            async move {
-                                handle_editor_connection(
-                                    stream,
-                                    document_handle_clone.clone(),
-                                    id,
-                                    &ui,
-                                )
-                                .await;
-                            }
-                        })
-                    }
-                    Err(err) => {
-                        panic!("Error while accepting socket connection: {err}");
-                    }
-                };
+        tokio::spawn({
+            let ui = ui.clone();
+            async move {
+                loop {
+                    match listener.accept().await {
+                        Ok((stream, _addr)) => {
+                            let id = document_handle.clone().next_editor_id();
+                            let document_handle_clone = document_handle.clone();
+                            tokio::spawn({
+                                let ui = ui.clone();
+                                async move {
+                                    handle_editor_connection(
+                                        stream,
+                                        document_handle_clone.clone(),
+                                        id,
+                                        &ui,
+                                    )
+                                    .await;
+                                }
+                            })
+                        }
+                        Err(err) => {
+                            panic!("Error while accepting socket connection: {err}");
+                        }
+                    };
+                }
             }
-        }
-    });
+        });
+    }
+
+    #[cfg(windows)]
+    {
+        let pipe_name = format!(
+            r"\\.\pipe\{}",
+            listener_path.to_str().unwrap().split('\\').last().unwrap()
+        );
+
+        tokio::spawn({
+            let ui = ui.clone();
+            async move {
+                loop {
+                    let mut server_options = ServerOptions::new();
+                    server_options.pipe_mode(PipeMode::Byte);
+                    // Only allow local connections.
+                    server_options.reject_remote_clients(true);
+                    // TODO: only allow current user to connect => custom security_descriptor => server_options.create_with_security_attributes_raw()
+                    let listener: NamedPipeServer = server_options.create(&pipe_name).unwrap();
+                    debug!("Listening for connections on named pipe: {}", pipe_name);
+                    match listener.connect().await {
+                        Ok(()) => {
+                            let id = document_handle.clone().next_editor_id();
+                            let document_handle_clone = document_handle.clone();
+                            tokio::spawn({
+                                let ui = ui.clone();
+                                async move {
+                                    handle_editor_connection(
+                                        listener,
+                                        document_handle_clone.clone(),
+                                        id,
+                                        &ui,
+                                    )
+                                    .await;
+                                }
+                            })
+                        }
+                        Err(err) => {
+                            panic!("Error while accepting named pipe connection: {err}");
+                        }
+                    };
+                }
+            }
+        });
+    }
 
     Ok(())
 }
 
 async fn handle_editor_connection(
-    stream: UnixStream,
+    stream: EditorStream,
     document_handle: DocumentActorHandle,
     editor_id: EditorId,
     ui: &UserInterface,
