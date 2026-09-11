@@ -7,15 +7,16 @@
 
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand};
+use clap::builder::{BoolishValueParser, TypedValueParser as _};
+use clap::{ArgAction, Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
     /// Suppress non-essential informational messages in the console output.
-    #[arg(short, long, global = true)]
-    pub quiet: bool,
+    #[arg(short, long, global = true, action = ArgAction::SetTrue, value_parser = BoolishValueParser::new().map(ConsoleVerbosity::from))]
+    pub quiet: ConsoleVerbosity,
     #[command(subcommand)]
     pub command: Commands,
     /// The shared directory. Defaults to current directory.
@@ -80,4 +81,17 @@ pub enum Commands {
     },
     /// Open a JSON-RPC connection to the Teamtype daemon on stdin/stdout. Used by text editor plugins.
     Client,
+}
+
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConsoleVerbosity {
+    #[default]
+    Verbose,
+    Quiet,
+}
+
+impl From<bool> for ConsoleVerbosity {
+    fn from(value: bool) -> Self {
+        if value { Self::Quiet } else { Self::Verbose }
+    }
 }

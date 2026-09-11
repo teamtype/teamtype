@@ -8,9 +8,21 @@ use nu_ansi_term::{Color, Style};
 use teamtype::traits::Interactions;
 use tracing::debug;
 
+use crate::cli::ConsoleVerbosity;
+use crate::logging::LoggingDisplay;
+
 #[derive(Clone, Debug)]
 pub struct ConsoleInteractions {
-    pub quiet: bool,
+    pub verbosity: ConsoleVerbosity,
+}
+
+impl From<ConsoleVerbosity> for LoggingDisplay {
+    fn from(value: ConsoleVerbosity) -> Self {
+        match value {
+            ConsoleVerbosity::Quiet => Self::Compact,
+            ConsoleVerbosity::Verbose => Self::Pretty,
+        }
+    }
 }
 
 impl Interactions for ConsoleInteractions {
@@ -24,7 +36,7 @@ impl Interactions for ConsoleInteractions {
 
     fn log(&self, message: &str) {
         debug!("UI log event: {message}");
-        if !self.quiet {
+        if matches!(self.verbosity, ConsoleVerbosity::Verbose) {
             let dimmed = Style::new().dimmed();
             println!("{}", dimmed.paint(message));
         }
