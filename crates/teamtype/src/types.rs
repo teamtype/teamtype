@@ -5,8 +5,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::borrow::Cow;
+use std::fmt::{self, Display, Formatter};
 use std::sync::Arc;
-use std::{fmt, vec};
+use std::vec::{IntoIter, Vec};
 
 use anyhow::bail;
 use anyhow::{Context, Error, Result};
@@ -27,7 +28,7 @@ use crate::traits::Interactions;
 pub struct InteractionsHandle(Arc<dyn Interactions>);
 
 impl fmt::Debug for InteractionsHandle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(self.0.type_name())
     }
 }
@@ -61,15 +62,15 @@ impl UserInterface {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextDelta(pub Vec<TextOp>);
 
-impl fmt::Display for TextDelta {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for TextDelta {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let op_strings: Vec<String> = self.0.iter().map(|op| format!("{op}")).collect();
         write!(f, "[{}]", op_strings.join(", "))
     }
 }
 
 impl TextDelta {
-    pub fn apply_to(&self, text: &str) -> Result<String> {
+    pub(crate) fn apply_to(&self, text: &str) -> Result<String> {
         let chars: Vec<char> = text.chars().collect();
         let mut pos = 0;
         let mut result = String::new();
@@ -102,7 +103,7 @@ impl TextDelta {
 }
 
 impl IntoIterator for TextDelta {
-    type IntoIter = vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     type Item = TextOp;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -117,8 +118,8 @@ pub enum TextOp {
     Delete(usize),
 }
 
-impl fmt::Display for TextOp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for TextOp {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Retain(n) => write!(f, "{n}"),
             Self::Insert(str) => write!(f, "\"{str}\""),
@@ -131,7 +132,7 @@ impl fmt::Display for TextOp {
 pub struct EditorTextDelta(pub Vec<EditorTextOp>);
 
 impl IntoIterator for EditorTextDelta {
-    type IntoIter = vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
     type Item = EditorTextOp;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -189,7 +190,7 @@ impl FileTextDelta {
     }
 }
 
-pub type CursorId = String;
+pub(crate) type CursorId = String;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct CursorState {
@@ -629,7 +630,7 @@ impl From<Vec<Chunk<'_>>> for TextDelta {
 }
 
 impl EditorTextDelta {
-    pub fn try_from_delta(delta: TextDelta, content: &str) -> Result<Self> {
+    pub(crate) fn try_from_delta(delta: TextDelta, content: &str) -> Result<Self> {
         let mut editor_ops = vec![];
         let mut position = 0;
         for op in delta {

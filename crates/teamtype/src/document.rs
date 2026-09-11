@@ -135,14 +135,14 @@ impl Document {
     }
 
     #[must_use]
-    pub fn generate_sync_message(
+    pub(crate) fn generate_sync_message(
         &mut self,
         peer_state: &mut AutomergeSyncState,
     ) -> Option<AutomergeSyncMessage> {
         self.doc.sync().generate_sync_message(peer_state)
     }
 
-    pub fn apply_delta_to_doc(
+    pub(crate) fn apply_delta_to_doc(
         &mut self,
         delta: &TextDelta,
         file_path: &RelativePath,
@@ -192,7 +192,6 @@ impl Document {
         self.files.get(file_path)
     }
 
-    // TODO: Refactor such that file_content_at can also return bytes (and get rid of get_bytes_at)
     pub fn file_content_at(
         &self,
         file_path: &RelativePath,
@@ -205,29 +204,9 @@ impl Document {
         })
     }
 
-    /// Used to get the contents of a binary file at a specific state.
-    pub fn get_bytes_at(&self, file_path: &RelativePath, heads: &[ChangeHash]) -> Result<Vec<u8>> {
-        let file_map = self
-            .top_level_map_obj("files")
-            .expect("Failed to get files Map object");
-
-        // If the content hasn't changed, don't write to the file. This prevents irrelevant watcher events.
-
-        match self.doc.get_at(&file_map, file_path, heads) {
-            Ok(Some((Value::Scalar(Cow::Owned(ScalarValue::Bytes(bytes))), _))) => Ok(bytes),
-            Ok(Some((Value::Scalar(Cow::Borrowed(ScalarValue::Bytes(bytes))), _))) => {
-                // TODO: Potentially memory-heavy operation. Figure out how to deal with Cows. Moo.
-                Ok(bytes.clone())
-            }
-            _ => {
-                bail!("Failed to provide contents of binary file at {file_path}");
-            }
-        }
-    }
-
     // This function is used to integrate text that was changed while the daemon was offline.
     // We need to calculate the patches compared to the current CRDT content, and apply them.
-    pub fn update_text(
+    pub(crate) fn update_text(
         &mut self,
         desired_text: &str,
         file_path: &RelativePath,

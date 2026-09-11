@@ -9,7 +9,6 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-// TODO: Define these constants in the teamtype crate, and use them here.
 #[derive(Parser)]
 #[command(about, long_about = None)]
 #[command(propagate_version = true)]
