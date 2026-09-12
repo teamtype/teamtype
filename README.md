@@ -74,6 +74,16 @@ sudo pacman -S teamtype
 </details>
 
 <details>
+<summary>Gentoo</summary>
+
+First, [enable the GURU repository](https://wiki.gentoo.org/wiki/Project:GURU/Information_for_End_Users), then:
+
+```bash
+emerge --ask app-editors/teamtype
+```
+</details>
+
+<details>
 <summary>Homebrew</summary>
 
 ```bash
