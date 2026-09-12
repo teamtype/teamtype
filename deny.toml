@@ -11,11 +11,9 @@ multiple-versions = "allow"
 
 [advisories]
 ignore = [
-    "chacha20@0.10.1", # yanked: (via automerge, iroh, and rand)
     "RUSTSEC-2023-0089", # unmaintained: atomic-polyfill (via iroh and postcard)
     "RUSTSEC-2024-0436", # unmaintained: paste (via iroh)
     "RUSTSEC-2026-0058", # unmaintained: tokio-io (via futures)
-    "RUSTSEC-2026-0258", # vulnerability: h2 (via iroh)
 ]
 
 # This is not an exhaustive list of licenses we could accept, it is just
