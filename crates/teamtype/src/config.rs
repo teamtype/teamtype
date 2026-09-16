@@ -46,6 +46,29 @@ pub enum Peer {
     JoinCode(String),
 }
 
+impl Peer {
+    /// Derive a username to identify a client from the join code it used to connect, if any. This
+    /// only works once on a client's first connection because after that we join with a verbose
+    /// peer id, not a join code. But for first time joiners that don't otherwise have a username
+    /// configured it's a nicer fallback than 'Anonymous'.
+    pub fn to_username(&self) -> Option<String> {
+        let Self::JoinCode(code) = self else {
+            return None;
+        };
+        let username = code
+            .split('-')
+            .skip(1)
+            .take(2)
+            .collect::<Vec<_>>()
+            .join("-");
+        if username.is_empty() {
+            None
+        } else {
+            Some(username)
+        }
+    }
+}
+
 /// Defines the base project directory of a Teamtype share. Everything Teamtype does should be
 /// sandboxed in this location and nowhere outside of this location should ever be written to.
 #[derive(Debug)]
@@ -190,9 +213,16 @@ impl Config {
             &empty_properties_section
         };
 
-        // we do the computation of username before initializing the struct, because we need to
-        // reference project_dir, which gets moved into the struct
-        let username = get_username(config_cli.username, &project_dir, general_section, ui);
+        // We do the computation of username before initializing the struct, because we need to
+        // reference project_dir and peer, which get moved into the struct (and resolved).
+        let username = resolve_a_username(
+            config_cli.username,
+            config_cli.peer.as_ref(),
+            general_section,
+            &project_dir,
+            ui,
+        );
+
         Ok(Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that project_dir won't ever be in the config file.
@@ -321,16 +351,18 @@ pub(crate) fn has_local_user_config(project_dir: &ProjectDir) -> Result<bool> {
     Ok(false)
 }
 
-fn get_username(
+fn resolve_a_username(
     config_cli_username: Option<String>,
-    project_dir: &ProjectDir,
+    config_cli_peer: Option<&Peer>,
     general_section: &Properties,
+    project_dir: &ProjectDir,
     ui: &UserInterface,
 ) -> String {
     config_cli_username
         .map(|u| get_username_from_cli(u, ui))
         .or_else(|| get_username_from_config_file(general_section, ui))
         .or_else(|| get_username_from_git(project_dir, ui))
+        .or_else(|| get_username_from_join_code(config_cli_peer))
         .unwrap_or_else(|| get_username_from_fallback_value(ui))
 }
 
@@ -367,6 +399,10 @@ fn get_username_from_git(project_dir: &ProjectDir, ui: &UserInterface) -> Option
         ));
     }
     username
+}
+
+fn get_username_from_join_code(peer: Option<&Peer>) -> Option<String> {
+    peer.and_then(Peer::to_username)
 }
 
 fn get_username_from_fallback_value(ui: &UserInterface) -> String {
