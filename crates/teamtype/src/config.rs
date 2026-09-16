@@ -11,7 +11,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use docstr::docstr;
 use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
@@ -357,7 +357,7 @@ fn get_username_from_config_file(
 }
 
 fn get_username_from_git(project_dir: &ProjectDir, ui: &UserInterface) -> Option<String> {
-    let username = get_git_username(project_dir);
+    let username = get_git_username(project_dir, ui);
     if let Some(ref username) = username {
         ui.log(&docstr!(format!
                 /// Using the Git username '{username}' as username, to display next to the cursors other people see.
@@ -380,13 +380,26 @@ fn get_username_from_fallback_value(ui: &UserInterface) -> String {
 }
 
 #[must_use]
-fn get_git_username(project_dir: &ProjectDir) -> Option<String> {
+fn get_git_username(project_dir: &ProjectDir, ui: &UserInterface) -> Option<String> {
     local_git_username(project_dir)
-        .or_else(|_| global_git_username())
+        .or_else(|_| {
+            let check_global_anyway: bool = ui
+                .confirm(&docstr!(format!
+                    /// The directory '{project_dir}' is not initialized as a Git repository.
+                    ///
+                    /// Should we ascend to the user's home directory to check for a Git username anyway?
+                ))
+                .unwrap_or(false);
+            if check_global_anyway {
+                global_git_username()
+            } else {
+                Err(anyhow!("Not allowed"))
+            }
+        })
         .ok()
-        .filter(|username| !username.is_empty()) // If the username is empty, return None. This can
-    // happen if Git is installed, but no username is
-    // set on any level of Git configuration.
+        // If the username is empty, return None. This can happen if Git is installed, but no
+        // username is set on any level of Git configuration.
+        .filter(|username| !username.is_empty())
 }
 
 fn local_git_username(project_dir: &ProjectDir) -> Result<String> {
