@@ -95,6 +95,9 @@ default-features = false
 version = "0.9"
 optional = true
 
+[dependencies.iroh-mdns-address-lookup]
+version = "0.5"
+
 [dependencies.notify]
 version = "8"
 default-features = false
