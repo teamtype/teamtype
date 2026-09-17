@@ -90,8 +90,6 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
         ));
     }
 
-    debug!("Starting Teamtype on {}.", config.base_dir);
-
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
     // so the calling context can determine when to terminate.
