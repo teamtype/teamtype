@@ -85,9 +85,11 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
     let has_dir = canonical_dir_path.exists() && canonical_dir_path.is_dir();
     if !has_dir {
-        fs::create_dir(&canonical_dir_path)?;
+        fs::create_dir(&canonical_dir_path)
+            .context("Unable to create directory with FS function")?;
         let permissions = fs::Permissions::from_mode(0o700);
-        fs::set_permissions(canonical_dir_path, permissions)?;
+        fs::set_permissions(canonical_dir_path, permissions)
+            .context("Unable to set permissions with FS function")?;
     }
     Ok(())
 }
@@ -95,7 +97,8 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
 fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
-    fs::create_dir_all(canonical_dir_path)?;
+    fs::create_dir_all(canonical_dir_path)
+        .context("Unable to create directory(s) with FS function")?;
     Ok(())
 }
 

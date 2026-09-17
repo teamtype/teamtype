@@ -73,8 +73,10 @@ pub fn setup_temporary_directory() -> Result<TempDir> {
 }
 
 fn get_app_cache_dir() -> Result<PathBuf> {
-    let xdg = XdgApp::new("teamtype")?;
-    let app_cache_dir = xdg.app_cache()?;
+    let xdg = XdgApp::new("teamtype").context("Unable to create XDG app namespace")?;
+    let app_cache_dir = xdg
+        .app_cache()
+        .context("Unable to resolve XDG app cache dir")?;
     let app_cache_dir_parent = app_cache_dir.parent().with_context(|| {
         format!(
             "Failed to get parent directory of the directory {}",
@@ -83,7 +85,8 @@ fn get_app_cache_dir() -> Result<PathBuf> {
     })?;
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)?;
+    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)
+        .context("Unable to create app cache dir using sandbox")?;
     Ok(app_cache_dir)
 }
 
