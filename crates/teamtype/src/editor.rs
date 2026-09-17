@@ -48,6 +48,11 @@ pub type EditorStream = UnixStream;
 #[cfg(windows)]
 pub type EditorStream = NamedPipeServer;
 
+#[cfg(unix)]
+type PlatformListener = UnixListener;
+#[cfg(windows)]
+type PlatformListener = NamedPipeServer;
+
 #[derive(Debug)]
 pub struct OutgoingProtocolCodec;
 
@@ -90,11 +95,7 @@ pub fn strip_current_dir(path: &Path) -> PathBuf {
 /// Will panic if we fail to setup a listener using a socket (Unix) or named pipe (Windows), or if
 /// we fail to accept an incoming connection.
 #[expect(clippy::unused_async)]
-pub async fn spawn_listener(
-    listener_path: &Path,
-    document_handle: DocumentActorHandle,
-    ui: &UserInterface,
-) -> Result<()> {
+pub fn spawn_listener(listener_path: &Path, ui: &UserInterface) -> Result<PlatformListener> {
     let parent_path = listener_path
         .parent()
         .context("Invalid socket creation location")?;
@@ -138,7 +139,7 @@ pub async fn spawn_listener(
     }
 
     #[cfg(unix)]
-    {
+    let listener = {
         // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
         // length that matters is only the segment it is asked to handle. If passed an absolute path
         // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
@@ -152,7 +153,40 @@ pub async fn spawn_listener(
         let listener = UnixListener::bind(strip_current_dir(listener_path))?;
         env::set_current_dir(previous_cwd)?;
         debug!("Listening on UNIX socket: {}", listener_path.display());
+        listener
+    };
 
+    #[cfg(windows)]
+    let listener = {
+        let pipe_name = format!(
+            r"\\.\pipe\{}",
+            listener_path.to_str().unwrap().split('\\').last().unwrap()
+        );
+        let mut server_options = ServerOptions::new();
+        server_options.pipe_mode(PipeMode::Byte);
+        // Only allow local connections.
+        server_options.reject_remote_clients(true);
+        // TODO: only allow current user to connect => custom security_descriptor => server_options.create_with_security_attributes_raw()
+        let listener: NamedPipeServer = server_options.create(&pipe_name).unwrap();
+        debug!("Listening for connections on named pipe: {}", pipe_name);
+        listener
+    };
+
+    Ok(listener)
+}
+
+/// # Panics
+///
+/// Will panic if we fail to setup a listener using a socket (Unix) or named pipe (Windows), or if
+/// we fail to accept an incoming connection.
+#[expect(clippy::unused_async)]
+pub async fn initialize_listener(
+    listener: PlatformListener,
+    document_handle: DocumentActorHandle,
+    ui: &UserInterface,
+) -> Result<()> {
+    #[cfg(unix)]
+    {
         tokio::spawn({
             let ui = ui.clone();
             async move {
@@ -185,22 +219,10 @@ pub async fn spawn_listener(
 
     #[cfg(windows)]
     {
-        let pipe_name = format!(
-            r"\\.\pipe\{}",
-            listener_path.to_str().unwrap().split('\\').last().unwrap()
-        );
-
         tokio::spawn({
             let ui = ui.clone();
             async move {
                 loop {
-                    let mut server_options = ServerOptions::new();
-                    server_options.pipe_mode(PipeMode::Byte);
-                    // Only allow local connections.
-                    server_options.reject_remote_clients(true);
-                    // TODO: only allow current user to connect => custom security_descriptor => server_options.create_with_security_attributes_raw()
-                    let listener: NamedPipeServer = server_options.create(&pipe_name).unwrap();
-                    debug!("Listening for connections on named pipe: {}", pipe_name);
                     match listener.connect().await {
                         Ok(()) => {
                             let id = document_handle.clone().next_editor_id();

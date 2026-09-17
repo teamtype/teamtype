@@ -1041,11 +1041,17 @@ impl Daemon {
     ) -> Result<Self> {
         debug!("Starting Teamtype on {:?}.", config.base_dir);
 
+        let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+
+        // Start a platform-appropriate listener.
+        let listener = editor::spawn_listener(&listener_path, ui)?;
+
+        // This scans the entire project at base_dir and constructs a CRDT document with all files.
+        // This can be very expensive to run.
         let document_handle = DocumentActorHandle::new(&config, ui, init, persist);
 
-        // Start socket listener.
-        let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
-        editor::spawn_listener(&listener_path, document_handle.clone(), ui).await?;
+        // Initialize listener with our CRDT chain.
+        editor::initialize_listener(listener, document_handle.clone(), ui).await?;
 
         // Start file watcher.
         spawn_file_watcher(&config, document_handle.clone());
