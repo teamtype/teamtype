@@ -11,7 +11,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use docstr::docstr;
 use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
@@ -36,6 +36,29 @@ const USERNAME_FALLBACK: &str = "Anonymous";
 pub enum Peer {
     SecretAddress(String),
     JoinCode(String),
+}
+
+impl Peer {
+    /// Derive a username to identify a client from the join code it used to connect, if any. This
+    /// only works once on a client's first connection because after that we join with a verbose
+    /// peer id, not a join code. But for first time joiners that don't otherwise have a username
+    /// configured it's a nicer fallback than 'Anonymous'.
+    pub fn to_username(&self) -> Option<String> {
+        let Self::JoinCode(code) = self else {
+            return None;
+        };
+        let username = code
+            .split('-')
+            .skip(1)
+            .take(2)
+            .collect::<Vec<_>>()
+            .join("-");
+        if username.is_empty() {
+            None
+        } else {
+            Some(username)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -159,9 +182,16 @@ impl Config {
             &empty_properties_section
         };
 
-        // we do the computation of username before initializing the struct, because we need to
-        // reference base_dir, which gets moved into the struct
-        let username = get_username(config_cli.username, &base_dir, general_section, ui);
+        // We do the computation of username before initializing the struct, because we need to
+        // reference base_dir and peer, which get moved into the struct (and resolved).
+        let username = resolve_a_username(
+            config_cli.username,
+            config_cli.peer.as_ref(),
+            general_section,
+            &base_dir,
+            ui,
+        );
+
         Ok(Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
             // around the fact that base_dir won't ever be in the config file.
@@ -290,16 +320,18 @@ pub(crate) fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
     Ok(false)
 }
 
-fn get_username(
+fn resolve_a_username(
     config_cli_username: Option<String>,
-    base_dir: &BaseDir,
+    config_cli_peer: Option<&Peer>,
     general_section: &Properties,
+    base_dir: &BaseDir,
     ui: &UserInterface,
 ) -> String {
     config_cli_username
         .map(|u| get_username_from_cli(u, ui))
         .or_else(|| get_username_from_config_file(general_section, ui))
         .or_else(|| get_username_from_git(base_dir, ui))
+        .or_else(|| get_username_from_join_code(config_cli_peer))
         .unwrap_or_else(|| get_username_from_fallback_value(ui))
 }
 
@@ -326,7 +358,7 @@ fn get_username_from_config_file(
 }
 
 fn get_username_from_git(base_dir: &BaseDir, ui: &UserInterface) -> Option<String> {
-    let username = get_git_username(base_dir);
+    let username = get_git_username(base_dir, ui);
     if let Some(ref username) = username {
         ui.log(&docstr!(format!
                 /// Using the Git username '{username}' as username, to display next to the cursors other people see.
@@ -336,6 +368,10 @@ fn get_username_from_git(base_dir: &BaseDir, ui: &UserInterface) -> Option<Strin
         ));
     }
     username
+}
+
+fn get_username_from_join_code(peer: Option<&Peer>) -> Option<String> {
+    peer.and_then(Peer::to_username)
 }
 
 fn get_username_from_fallback_value(ui: &UserInterface) -> String {
@@ -349,13 +385,26 @@ fn get_username_from_fallback_value(ui: &UserInterface) -> String {
 }
 
 #[must_use]
-fn get_git_username(base_dir: &BaseDir) -> Option<String> {
+fn get_git_username(base_dir: &BaseDir, ui: &UserInterface) -> Option<String> {
     local_git_username(base_dir)
-        .or_else(|_| global_git_username())
+        .or_else(|_| {
+            let check_global_anyway: bool = ui
+                .confirm(&docstr!(format!
+                    /// The directory '{base_dir}' is not initialized as a Git repository.
+                    ///
+                    /// Should we ascend to the user's home directory to check for a Git username anyway?
+                ))
+                .unwrap_or(false);
+            if check_global_anyway {
+                global_git_username()
+            } else {
+                Err(anyhow!("Not allowed"))
+            }
+        })
         .ok()
-        .filter(|username| !username.is_empty()) // If the username is empty, return None. This can
-    // happen if Git is installed, but no username is
-    // set on any level of Git configuration.
+        // If the username is empty, return None. This can happen if Git is installed, but no
+        // username is set on any level of Git configuration.
+        .filter(|username| !username.is_empty())
 }
 
 fn local_git_username(base_dir: &BaseDir) -> Result<String> {
