@@ -85,7 +85,7 @@ fn get_app_cache_dir() -> Result<PathBuf> {
     })?;
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::create_dir(app_cache_dir_parent, &app_cache_dir)
+    sandbox::create_dir_all(app_cache_dir_parent, &app_cache_dir)
         .context("Unable to create app cache dir using sandbox")?;
     Ok(app_cache_dir)
 }

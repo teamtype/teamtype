@@ -94,7 +94,7 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
     Ok(())
 }
 
-fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+pub(crate) fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
     fs::create_dir_all(canonical_dir_path)
