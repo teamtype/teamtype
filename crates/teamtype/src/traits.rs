@@ -36,8 +36,8 @@ pub trait Interactions: Send + Sync {
     /// may no longer be functioning as expected.
     fn warn(&self, message: &str);
 
-    /// Enable a blanket [`Debug`] implementation for [`UserInterface`] by returning the name of
-    /// the UI struct in use.
+    /// Enable a blanket [`Debug`] implementation for [`crate::types::UserInterface`] by returning
+    /// the name of the UI struct in use.
     fn type_name(&self) -> &'static str {
         type_name::<Self>()
     }
