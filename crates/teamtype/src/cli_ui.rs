@@ -9,7 +9,7 @@ use teamtype::traits::Interactions;
 use tracing::debug;
 
 use crate::cli::ConsoleVerbosity;
-use crate::logging::LoggingDisplay;
+use crate::cli_logging::LoggingDisplay;
 
 #[derive(Clone, Debug)]
 pub struct ConsoleInteractions {
