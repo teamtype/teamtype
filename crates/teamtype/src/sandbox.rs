@@ -207,7 +207,7 @@ fn check_inside_base_dir_and_canonicalize(base_dir: &Path, path: &Path) -> Resul
 }
 
 fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
-    if !path.is_absolute() {
+    if !path.has_root() {
         bail!("Path is not absolute.");
     }
 
