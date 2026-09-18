@@ -46,6 +46,7 @@ automerge = "0.10"
 clap_complete = "4"
 clap_mangen = "0.3"
 regex = "1"
+static_vcruntime = "3"
 
 [build-dependencies.clap]
 version = "4"
