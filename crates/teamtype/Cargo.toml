@@ -76,6 +76,7 @@ rust-ini = "0.21"
 serde_json.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 data-encoding = "2.10.0"
 url = "2"
 
@@ -123,11 +124,6 @@ features = ["rt", "rt-multi-thread", "io-std", "io-util", "macros", "net", "time
 [dependencies.tokio-util]
 version = "0.7"
 features = ["codec"]
-
-[dependencies.tracing-subscriber]
-version = "0.3"
-default-features = false
-features = ["ansi", "fmt", "time", "env-filter"]
 
 [dev-dependencies]
 pretty_assertions.workspace = true
