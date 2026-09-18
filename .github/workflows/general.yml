@@ -58,6 +58,8 @@ jobs:
       - if: ${{ matrix.os != 'windows-latest' }}
         name: Run default unit tests
         run: cargo test --locked --no-default-features -p teamtype
+      - name: Enable debug logging
+        run: echo 'RUST_LOG=teamtype=debug' >> "$GITHUB_ENV"
       - if: ${{ matrix.os != 'windows-latest' }}
         name: Run default e2e tests
         run: cargo test --locked --no-default-features -p e2e-tests
