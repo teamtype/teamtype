@@ -16,7 +16,7 @@ use clap_mangen::generate_to as generate_manpages_to;
 use regex::Regex;
 use vergen_git2::{Emitter, Git2Builder};
 
-include!("src/cli.rs");
+include!("src/cli/args.rs");
 
 fn main() -> Result<()> {
     instantiate_initial_automerge_doc()?;

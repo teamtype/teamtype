@@ -10,7 +10,6 @@
 pub mod client;
 pub mod config;
 pub mod daemon;
-pub mod logging;
 pub mod sandbox;
 pub mod setup;
 pub mod traits;

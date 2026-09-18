@@ -8,8 +8,8 @@ use nu_ansi_term::{Color, Style};
 use teamtype::traits::Interactions;
 use tracing::debug;
 
-use crate::cli::ConsoleVerbosity;
-use crate::logging::LoggingDisplay;
+use super::args::ConsoleVerbosity;
+use super::logging::LoggingDisplay;
 
 #[derive(Clone, Debug)]
 pub struct ConsoleInteractions {
