@@ -13,13 +13,13 @@ use tracing::subscriber;
 use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::UtcTime};
 
 #[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum LoggingDisplay {
+pub enum LoggingDisplay {
     #[default]
     Pretty,
     Compact,
 }
 
-pub(crate) fn configure_cli_logging(display: LoggingDisplay) -> Result<()> {
+pub fn configure_cli_logging(display: LoggingDisplay) -> Result<()> {
     if env::var("RUST_LOG").is_ok() {
         let filter = EnvFilter::builder().from_env()?;
 
