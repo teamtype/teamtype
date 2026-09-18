@@ -106,15 +106,15 @@ impl Watcher {
                     // TODO: Better errors?
                     let event = event.unwrap().unwrap();
                     match event.kind {
-                        EventKind::Create(CreateKind::File) => {
+                        EventKind::Create(CreateKind::File | CreateKind::Any) => {
                             assert_eq!(event.paths.len(), 1);
                             self.maybe_created(&event.paths[0]);
                         }
-                        EventKind::Remove(RemoveKind::File) => {
+                        EventKind::Remove(RemoveKind::File | RemoveKind::Any) => {
                             assert_eq!(event.paths.len(), 1);
                             self.maybe_removed(&event.paths[0]);
                         }
-                        EventKind::Modify(ModifyKind::Data(_)) => {
+                        EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Any) => {
                             assert_eq!(event.paths.len(), 1);
                             self.maybe_modified(&event.paths[0]);
                         }
@@ -128,7 +128,7 @@ impl Watcher {
                         // MacOS doesn't give us details on moving a file, so we need to infer what
                         // happened.
                         EventKind::Modify(ModifyKind::Name(
-                            RenameMode::Any,
+                            RenameMode::From | RenameMode::To | RenameMode::Any,
                         )) => {
                             assert_eq!(event.paths.len(), 1);
                             let file_path = event.paths[0].clone();
