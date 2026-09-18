@@ -36,7 +36,7 @@ impl TryFrom<PathBuf> for AbsolutePath {
     type Error = anyhow::Error;
 
     fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
-        if !path.is_absolute() {
+        if !path.has_root() {
             bail!("Path '{}' is not absolute", path.display());
         }
 

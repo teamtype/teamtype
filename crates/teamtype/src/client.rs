@@ -5,10 +5,10 @@
 use anyhow::{Context, Result};
 
 use crate::config::Config;
-use crate::jsonrpc_forwarder::{JSONRPCForwarder, UnixJSONRPCForwarder};
+use crate::jsonrpc_forwarder::{JSONRPCForwarder, RPCForwarder};
 
 pub async fn run_client(config: Config) -> Result<()> {
-    let jsonrpc_forwarder = UnixJSONRPCForwarder {};
+    let jsonrpc_forwarder = JSONRPCForwarder {};
     jsonrpc_forwarder
         .connection(&config.base_dir)
         .await

@@ -11,3 +11,6 @@ target-dir = "target"
 [env]
 CARGO_WORKSPACE_DIR = { value = "", relative = true }
 TEAMTYPE_DEBUG_BINARY = { value = "target/debug/teamtype", relative = true }
+
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]
