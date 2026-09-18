@@ -55,6 +55,13 @@ fn has_teamtype_directory(dir: &Path) -> bool {
 }
 
 pub(crate) fn get_app_cache_dir() -> Result<PathBuf> {
+    // The XDG base directory specification doesn't apply on Windows, and the microxdg crate only
+    // looks for the `HOME` & `USER` environment variables, which standard Windows shells don't set.
+    // Use the Windows standard per-user temporary directory (based on '%TEMP%') instead.
+    if cfg!(windows) {
+        return Ok(std::env::temp_dir());
+    }
+
     let xdg = XdgApp::new("teamtype").context("Unable to create XDG app namespace")?;
     let app_cache_dir = xdg
         .app_cache()

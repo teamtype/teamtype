@@ -48,9 +48,10 @@ pub struct ShareJoinFlags {
     pub username: Option<String>,
     /// Create a new temporary directory and use it as the shared directory.
     /// The temporary directory is removed on exit.
-    /// The temporary directory is created in `$XDG_CACHE_DIR/teamtype/`,
+    /// For Unix systems, a temporary directory is created in `$XDG_CACHE_DIR/teamtype/`,
     /// or if `XDG_CACHE_DIR` is not set in `$HOME/.cache/teamtype/`,
     /// or if `HOME` is not set in `/home/$USER/.cache/teamtype/`.
+    /// For Windows systems, it is created in the per-user temporary directory (`%TEMP%`).
     #[arg(short, long)]
     pub temporary_directory: bool,
 }
