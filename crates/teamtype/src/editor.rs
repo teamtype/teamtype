@@ -101,7 +101,7 @@ pub async fn spawn_listener(
     // operations through the sandbox module.
     // TODO: Use correct directory as guard.
     if sandbox::exists(Path::new("/"), Path::new(&listener_path))
-        .expect("Failed to check existence of path")
+        .context("Problem checking existence of path in sandbox")?
     {
         // If there's an existing socket, try to connect to it as a client. If that fails, we assume
         // there's no other daemon running and we can delete the socket.
