@@ -38,7 +38,7 @@ crate-type = ["rlib", "cdylib"]
 [features]
 # This is unfortunate, but users of the crate as a library should use `default-features = false`.
 default = ["cli"]
-cli = ["dep:clap", "dep:inquire", "tokio/signal", "tokio/rt-multi-thread"]
+cli = ["dep:clap", "dep:inquire", "tokio/signal"]
 
 [build-dependencies]
 anyhow.workspace = true
@@ -46,6 +46,7 @@ automerge = "0.10"
 clap_complete = "4"
 clap_mangen = "0.3"
 regex = "1"
+static_vcruntime = "3"
 
 [build-dependencies.clap]
 version = "4"
@@ -118,7 +119,7 @@ features = ["formatting", "macros"]
 
 [dependencies.tokio]
 version = "1"
-features = ["rt", "io-std", "io-util", "macros", "net", "time"]
+features = ["rt", "rt-multi-thread", "io-std", "io-util", "macros", "net", "time"]
 
 [dependencies.tokio-util]
 version = "0.7"

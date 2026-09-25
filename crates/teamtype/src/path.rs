@@ -27,16 +27,47 @@ impl AbsolutePath {
     }
 
     pub fn to_file_uri(&self) -> FileUri {
-        FileUri::try_from(format!("file://{}", self.0.display()))
-            .expect("Should be able to create File URI from absolute path")
+        // Figure out how to prefix paths to make them file URLs. On *nix this is simple. On Windows
+        // it is a three ring circus. Not my circus not my monkeys.
+        let uri = match Url::from_file_path(&self.0) {
+            // If the url crate likes the path, we don't need any monkey business.
+            Ok(url) => url.to_string(),
+            // On the other hand if the url crate thinks the path is nonsense, it probably is.
+            // Windows has several wonkey options it gives back when we canonicalize() relative to
+            // the project. There are multiple possible absolute prefixes we need to normalize.
+            Err(()) => pseudo_absolute_path_to_file_uri(&self.0),
+        };
+        // Percent-encode the file path to be valid as a URI.
+        FileUri::try_from(uri).expect("Should be able to create File URI from absolute path")
     }
+}
+
+fn pseudo_absolute_path_to_file_uri(path: &Path) -> String {
+    let path = path.to_string_lossy();
+    // On Windows, `canonicalize()` prefixes results with a verbatim `\\?\` marker. This doesn't
+    // help determine which 'root' drive to start from, so strip it. We should be left with a drive
+    // letter or UNC drive form.
+    let path = path.trim_start_matches(r"\\?\");
+    let path = if cfg!(windows) {
+        path.replace('\\', "/")
+    } else {
+        path.to_string()
+    };
+    // At this point if we have a UNC drive form it will start with '/'. Otherwise it will be
+    // a drive letter and we should add the pseudo-root morker ourselves.
+    let path = if path.starts_with('/') {
+        path
+    } else {
+        format!("/{path}")
+    };
+    format!("file://{path}")
 }
 
 impl TryFrom<PathBuf> for AbsolutePath {
     type Error = anyhow::Error;
 
     fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
-        if !path.is_absolute() {
+        if !path.has_root() {
             bail!("Path '{}' is not absolute", path.display());
         }
 
