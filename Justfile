@@ -77,11 +77,11 @@ build *ARGS:
 
 [group('build')]
 build-release *ARGS:
-    {{ just }} --set profile release build {{ ARGS }}
+    {{ just }} --set profile release --set target {{ target }} build {{ ARGS }}
 
 [group('build')]
 build-test *ARGS:
-    {{ just }} --set profile test build {{ ARGS }}
+    {{ just }} --set profile test --set target {{ target }} build {{ ARGS }}
 
 [group('format')]
 [parallel]
