@@ -12,19 +12,17 @@ use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
 use teamtype::client::run_client;
 use teamtype::daemon::run_daemon;
-use teamtype::logging;
 use teamtype::types::UserInterface;
 use tokio::signal;
 
 mod cli;
-mod cli_config;
-mod cli_ui;
 
-use self::cli::{Cli, Commands};
-use self::cli_config::parse_client_config;
-use self::cli_config::parse_join_config;
-use self::cli_config::parse_share_config;
-use self::cli_ui::ConsoleInteractions;
+use cli::args::{Cli, Commands};
+use cli::config::parse_client_config;
+use cli::config::parse_join_config;
+use cli::config::parse_share_config;
+use cli::logging::configure_cli_logging;
+use cli::ui::ConsoleInteractions;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,7 +41,7 @@ async fn main() -> Result<()> {
 
     let verbosity = cli.quiet;
 
-    logging::initialize(verbosity.into()).context("Failed to initialize logging")?;
+    configure_cli_logging(verbosity.into()).context("Failed to initialize logging")?;
 
     let ui = &UserInterface::new(ConsoleInteractions { verbosity });
 

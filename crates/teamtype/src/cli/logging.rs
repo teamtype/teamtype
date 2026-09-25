@@ -19,7 +19,7 @@ pub enum LoggingDisplay {
     Compact,
 }
 
-pub fn initialize(display: LoggingDisplay) -> Result<()> {
+pub fn configure_cli_logging(display: LoggingDisplay) -> Result<()> {
     if env::var("RUST_LOG").is_ok() {
         let filter = EnvFilter::builder().from_env()?;
 

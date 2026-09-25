@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use teamtype::config::{self, BaseDir, Config, VcsMode};
 use teamtype::types::UserInterface;
 
-use super::cli::{Cli, Commands, ShareJoinFlags};
+use super::args::{Cli, Commands, ShareJoinFlags};
 
 #[expect(clippy::needless_pass_by_value)]
 pub fn parse_client_config(cli: Cli, _ui: &UserInterface) -> Result<Config> {

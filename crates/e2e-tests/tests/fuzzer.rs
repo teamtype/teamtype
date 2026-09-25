@@ -14,13 +14,14 @@ use pretty_assertions::assert_eq;
 use rand::RngExt;
 use teamtype::config::{BaseDir, Config, Peer};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
-use teamtype::logging::{self, LoggingDisplay};
 use teamtype::sandbox;
 use teamtype::traits::Interactions;
 use teamtype::types::UserInterface;
 use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
+use tracing::subscriber;
 use tracing::{debug, info, warn};
+use tracing_subscriber::FmtSubscriber;
 
 async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     for _ in 1..500 {
@@ -72,7 +73,9 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    logging::initialize(LoggingDisplay::Pretty)?;
+    // Setup logging to taste specifically for e2e tests.
+    let formatter = FmtSubscriber::builder().compact().finish();
+    subscriber::set_global_default(formatter)?;
 
     let ui = &UserInterface::new(FuzzerInteractions {});
 
