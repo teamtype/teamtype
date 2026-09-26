@@ -281,7 +281,7 @@ fn store_peer_in_config(
 }
 
 #[must_use]
-pub(crate) fn has_git_remote(base_dir: &BaseDir) -> bool {
+pub fn has_git_remote(base_dir: &BaseDir) -> bool {
     if let Ok(repo) = find_git_repo(base_dir)
         && let Ok(remotes) = repo.remotes()
     {
@@ -291,7 +291,7 @@ pub(crate) fn has_git_remote(base_dir: &BaseDir) -> bool {
 }
 
 /// Test if the local Git config has *any* user config.
-pub(crate) fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
+pub fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
     let snapshot = find_git_repo(base_dir)?.config()?.snapshot()?;
     let mut entries = snapshot.entries(Some("user\\."))?;
     while let Some(Ok(entry)) = entries.next() {
