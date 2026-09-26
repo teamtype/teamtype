@@ -22,7 +22,7 @@ use tokio::{
 };
 use tracing::debug;
 
-use crate::config::{BaseDir, VcsMode};
+use crate::config::{ProjectDir, VcsMode};
 use crate::sandbox;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -43,11 +43,11 @@ struct PendingEvent {
     timestamp: SystemTime,
 }
 
-/// Returns events among the files in `base_dir` that are not ignored.
+/// Returns events among the files in `project_dir` that are not ignored.
 #[must_use]
 pub struct Watcher {
     _inner: RecommendedWatcher,
-    base_dir: BaseDir,
+    project_dir: ProjectDir,
     vcs_mode: VcsMode,
     notify_receiver: Receiver<NotifyResult<Event>>,
     event_tx: Sender<WatcherEvent>,
@@ -55,7 +55,7 @@ pub struct Watcher {
 }
 
 impl Watcher {
-    pub fn spawn(base_dir: BaseDir, vcs_mode: VcsMode) -> Receiver<WatcherEvent> {
+    pub fn spawn(project_dir: ProjectDir, vcs_mode: VcsMode) -> Receiver<WatcherEvent> {
         let (event_tx, event_rx) = mpsc::channel(1);
 
         let (tx, rx) = mpsc::channel(1);
@@ -69,13 +69,13 @@ impl Watcher {
         .expect("Could not construct watcher");
 
         watcher
-            .watch(&base_dir, RecursiveMode::Recursive)
+            .watch(&project_dir, RecursiveMode::Recursive)
             .expect("Failed to watch directory");
 
         let mut watcher = Self {
             // Keep the watcher, so that it's not dropped.
             _inner: watcher,
-            base_dir,
+            project_dir,
             vcs_mode,
             notify_receiver: rx,
             event_tx,
@@ -132,7 +132,7 @@ impl Watcher {
                         )) => {
                             assert_eq!(event.paths.len(), 1);
                             let file_path = event.paths[0].clone();
-                            match sandbox::exists(&self.base_dir, &file_path) {
+                            match sandbox::exists(&self.project_dir, &file_path) {
                                 Ok(path_exists) => {
                                     if path_exists {
                                         self.maybe_created(&file_path);
@@ -197,7 +197,7 @@ impl Watcher {
     }
 
     fn maybe_created(&mut self, file_path: &Path) {
-        match sandbox::ignored(&self.base_dir, self.vcs_mode, file_path) {
+        match sandbox::ignored(&self.project_dir, self.vcs_mode, file_path) {
             Ok(is_ignored) => {
                 if is_ignored {
                     debug!("Ignoring creation of '{}'", file_path.display());
@@ -224,7 +224,7 @@ impl Watcher {
     }
 
     fn maybe_modified(&mut self, file_path: &Path) {
-        match sandbox::ignored(&self.base_dir, self.vcs_mode, file_path) {
+        match sandbox::ignored(&self.project_dir, self.vcs_mode, file_path) {
             Ok(is_ignored) => {
                 if is_ignored {
                     debug!("Ignoring modification of '{}'", file_path.display());
@@ -293,7 +293,7 @@ mod tests {
         let dir_path = dir.path().canonicalize().unwrap();
 
         let config = Config {
-            base_dir: BaseDir::Temporary(dir),
+            project_dir: ProjectDir::Temporary(dir),
             ..Default::default()
         };
 
@@ -307,7 +307,7 @@ mod tests {
         let mut file = dir_path.clone();
         file.push("file");
 
-        let mut watcher = Watcher::spawn(config.base_dir, config.vcs_mode);
+        let mut watcher = Watcher::spawn(config.project_dir, config.vcs_mode);
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
         assert_eq!(
@@ -328,7 +328,7 @@ mod tests {
         file.push("file");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config.base_dir, config.vcs_mode);
+        let mut watcher = Watcher::spawn(config.project_dir, config.vcs_mode);
 
         sandbox::write_file(&dir_path, &file, b"yo").unwrap();
 
@@ -349,7 +349,7 @@ mod tests {
         file.push("file");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config.base_dir, config.vcs_mode);
+        let mut watcher = Watcher::spawn(config.project_dir, config.vcs_mode);
 
         sandbox::remove_file(&dir_path, &file).unwrap();
 
@@ -372,7 +372,7 @@ mod tests {
         file_new.push("file2");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config.base_dir, config.vcs_mode);
+        let mut watcher = Watcher::spawn(config.project_dir, config.vcs_mode);
 
         sandbox::rename_file(&dir_path, &file, &file_new).unwrap();
 
@@ -402,7 +402,7 @@ mod tests {
         sandbox::write_file(&dir_path, &gitignore, b"file").unwrap();
 
         sleep(Duration::from_millis(100)).await;
-        let mut watcher = Watcher::spawn(config.base_dir, config.vcs_mode);
+        let mut watcher = Watcher::spawn(config.project_dir, config.vcs_mode);
 
         let mut file = dir_path.clone();
         file.push("file");
@@ -429,7 +429,7 @@ mod tests {
         file.push("file");
         sandbox::write_file(&dir_path, &file, b"hi").unwrap();
 
-        let mut watcher = Watcher::spawn(config.base_dir, config.vcs_mode);
+        let mut watcher = Watcher::spawn(config.project_dir, config.vcs_mode);
 
         sandbox::remove_file(&dir_path, &file).unwrap();
         sandbox::write_file(&dir_path, &file, b"i'm back").unwrap();

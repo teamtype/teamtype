@@ -30,7 +30,7 @@ async fn plugin_loaded() {
 #[tokio::test]
 async fn nvim_sends_something_to_listener() {
     init_logging();
-    let (_nvim, _test_file, mut listener, _base_dir) = Neovim::new_teamtype_enabled("hi").await;
+    let (_nvim, _test_file, mut listener, _project_dir) = Neovim::new_teamtype_enabled("hi").await;
     timeout(Duration::from_secs(1), async {
         listener.acknowledge_open().await;
     })
@@ -43,7 +43,7 @@ async fn assert_nvim_deltas_yield_content(
     deltas: Vec<EditorTextOp>,
     expected_content: &str,
 ) {
-    let (nvim, test_file, mut listener, _base_dir) =
+    let (nvim, test_file, mut listener, _project_dir) =
         Neovim::new_teamtype_enabled(initial_content).await;
     listener.acknowledge_open().await;
 
@@ -121,7 +121,7 @@ async fn assert_nvim_input_yields_replacements(
     mut expected_replacements: Vec<EditorTextOp>,
 ) {
     timeout(Duration::from_secs(5), async {
-                let (nvim, _test_file, mut listener, _base_dir) = Neovim::new_teamtype_enabled(initial_content).await;
+                let (nvim, _test_file, mut listener, _project_dir) = Neovim::new_teamtype_enabled(initial_content).await;
                 listener.acknowledge_open().await;
 
                 {

@@ -126,4 +126,4 @@ This is the approach used by [pcp](https://github.com/dennis-tra/pcp).
 
 Another piece of our "security concept":
 
-The daemon should only ever read and write in its base directory, not outside of it. We try to enforce this by routing all file I/O through a "sandbox" module, which takes a base directory as an additional argument, and tries to make sure all I/O stays inside of it. One exception is the UNIX socket file, which is written to `/tmp` right now.
+The daemon should only ever read and write in its project directory, not outside of it. We try to enforce this by routing all file I/O through a "sandbox" module, which takes a project directory as an additional argument, and tries to make sure all I/O stays inside of it. One exception is the UNIX socket file, which is written to `/tmp` right now.
