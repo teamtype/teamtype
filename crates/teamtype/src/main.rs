@@ -10,8 +10,8 @@ use std::process::exit;
 
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
-use teamtype::client::run_client;
-use teamtype::daemon::run_daemon;
+use teamtype::run_client;
+use teamtype::run_daemon;
 use teamtype::types::UserInterface;
 use tokio::signal;
 
