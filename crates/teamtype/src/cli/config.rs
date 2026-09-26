@@ -6,17 +6,17 @@ use std::env::current_dir;
 
 use anyhow::{Context, Result};
 use teamtype::types::UserInterface;
-use teamtype::{BaseDir, Config, Peer, VcsMode};
+use teamtype::{ProjectDir, Config, Peer, VcsMode};
 
 use super::args::{Cli, Commands, ShareJoinFlags};
 
 #[expect(clippy::needless_pass_by_value)]
 pub fn parse_client_config(cli: Cli, _ui: &UserInterface) -> Result<Config> {
-    let base_dir = resolve_directory(&cli)?;
+    let project_dir = resolve_directory(&cli)?;
     if matches!(cli.command, Commands::Client) {
         // The only thing the client can configure at runtime is where to find the socket.
         let conf = Config {
-            base_dir,
+            project_dir,
             ..Default::default()
         };
         Ok(conf)
@@ -26,7 +26,7 @@ pub fn parse_client_config(cli: Cli, _ui: &UserInterface) -> Result<Config> {
 }
 
 pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
-    let base_dir = resolve_directory(&cli)?;
+    let project_dir = resolve_directory(&cli)?;
     if let Commands::Join {
         join_code,
         shared_flags:
@@ -43,7 +43,7 @@ pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
     } = cli.command
     {
         let config_cli = Config {
-            base_dir,
+            project_dir,
             peer: join_code.map(Peer::JoinCode),
             emit_join_code: false,
             emit_secret_address: false,
@@ -62,7 +62,7 @@ pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
 }
 
 pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
-    let base_dir = resolve_directory(&cli)?;
+    let project_dir = resolve_directory(&cli)?;
     if let Commands::Share {
         no_join_code,
         shared_flags:
@@ -80,7 +80,7 @@ pub fn parse_share_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
     } = cli.command
     {
         let config_cli = Config {
-            base_dir,
+            project_dir,
             peer: None,
             emit_join_code: !no_join_code,
             emit_secret_address: show_secret_address,
@@ -111,7 +111,7 @@ fn from_sync_vcs_flag(sync_vcs: bool) -> VcsMode {
 
 // Determine if the CLI flags request proceeding with a temporary directory, some user
 // specified directory, or fallback to just the current directory.
-fn resolve_directory(cli: &Cli) -> Result<BaseDir> {
+fn resolve_directory(cli: &Cli) -> Result<ProjectDir> {
     match cli.command {
         Commands::Share {
             shared_flags:
@@ -130,7 +130,7 @@ fn resolve_directory(cli: &Cli) -> Result<BaseDir> {
             ..
         } => {
             if temporary_directory {
-                return BaseDir::new_temporary();
+                return ProjectDir::new_temporary();
             }
         }
         Commands::Client => {}
