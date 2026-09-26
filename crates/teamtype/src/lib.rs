@@ -7,8 +7,6 @@
 #![doc = include_str!("../README.md")]
 
 // Public modules, either used by CLI or exported via crate or bindings
-pub mod client;
-pub mod daemon;
 pub mod sandbox;
 pub mod setup;
 pub mod types;
@@ -19,12 +17,17 @@ pub mod document;
 #[doc(hidden)]
 pub mod editor_protocol;
 
+#[doc(hidden)]
+pub use daemon::TEST_FILE_PATH; // Only for use by the fuzzer.
+
 // Used by unit tests and hence compiled in a different crate context, but not public
 #[cfg(test)]
 pub(crate) mod testing;
 
 // Private modules
+mod client;
 mod config;
+mod daemon;
 mod editor;
 mod editor_connection;
 mod jsonrpc_forwarder;
@@ -39,5 +42,6 @@ mod wormhole;
 // Explicitly export public API bits
 pub use client::run_client;
 pub use config::{BaseDir, Config, Peer, VcsMode};
+pub use daemon::Daemon;
 pub use daemon::run_daemon;
 pub use traits::Interactions;
