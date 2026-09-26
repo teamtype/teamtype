@@ -12,7 +12,7 @@ use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::RngExt;
 use teamtype::config::CONFIG_DIR;
-use teamtype::daemon::Daemon;
+use teamtype::Daemon;
 use teamtype::config::BaseDir;
 use teamtype::config::DEFAULT_LISTENER_NAME;
 use teamtype::setup::setup_teamtype_directory;
