@@ -5,7 +5,7 @@
 use anyhow::{Context, Result};
 use inquire::Confirm;
 use nu_ansi_term::{Color, Style};
-use teamtype::traits::Interactions;
+use teamtype::Interactions;
 use tracing::debug;
 
 use super::args::ConsoleVerbosity;
