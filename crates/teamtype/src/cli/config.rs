@@ -5,8 +5,8 @@
 use std::env::current_dir;
 
 use anyhow::{Context, Result};
-use teamtype::config::{self, BaseDir, Config, VcsMode};
 use teamtype::types::UserInterface;
+use teamtype::{BaseDir, Config, Peer, VcsMode};
 
 use super::args::{Cli, Commands, ShareJoinFlags};
 
@@ -44,7 +44,7 @@ pub fn parse_join_config(cli: Cli, ui: &UserInterface) -> Result<Config> {
     {
         let config_cli = Config {
             base_dir,
-            peer: join_code.map(config::Peer::JoinCode),
+            peer: join_code.map(Peer::JoinCode),
             emit_join_code: false,
             emit_secret_address: false,
             magic_wormhole_relay,
