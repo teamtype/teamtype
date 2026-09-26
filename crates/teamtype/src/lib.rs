@@ -38,4 +38,5 @@ mod wormhole;
 
 // Explicitly export public API bits
 pub use config::{BaseDir, Config, Peer, VcsMode};
-pub use config::{CONFIG_DIR, CONFIG_FILE, DEFAULT_LISTENER_NAME};
+#[doc(hidden)]
+pub use config::{CONFIG_DIR, CONFIG_FILE, LISTENER_NAME};

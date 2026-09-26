@@ -33,7 +33,7 @@ use tracing::debug;
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
 use crate::config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
-use crate::config::{CONFIG_DIR, DEFAULT_LISTENER_NAME};
+use crate::config::{CONFIG_DIR, LISTENER_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
@@ -1042,7 +1042,7 @@ impl Daemon {
     ) -> Result<Self> {
         debug!("Starting Teamtype on {:?}.", config.base_dir);
 
-        let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        let listener_path = config.base_dir.join(CONFIG_DIR).join(LISTENER_NAME);
 
         // Start a platform-appropriate listener.
         let listener = editor::spawn_listener(&listener_path, ui).await?;
@@ -1275,7 +1275,7 @@ mod tests {
             sandbox::create_dir_with_privacy(&base_dir, &teamtype_dir)
                 .expect("Failed to create config directory");
 
-            let listener_path = teamtype_dir.join(DEFAULT_LISTENER_NAME);
+            let listener_path = teamtype_dir.join(LISTENER_NAME);
             sandbox::write_file(&base_dir, &listener_path, b"")
                 .expect("Failed to create pretend socket file");
 

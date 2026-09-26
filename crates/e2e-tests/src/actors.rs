@@ -13,7 +13,7 @@ pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::hand
 use rand::RngExt;
 use teamtype::BaseDir;
 use teamtype::CONFIG_DIR;
-use teamtype::DEFAULT_LISTENER_NAME;
+use teamtype::LISTENER_NAME;
 use teamtype::daemon::Daemon;
 use teamtype::daemon::TEST_FILE_PATH;
 use teamtype::setup::setup_teamtype_directory;
@@ -214,7 +214,7 @@ impl Neovim {
         let base_dir = BaseDir::new_temporary().expect("Failed to create temp directory");
         setup_teamtype_directory(&base_dir, ui).expect("Failed to setup Teamtype directory");
         let test_file = base_dir.join(TEST_FILE_PATH);
-        let listener_path = base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        let listener_path = base_dir.join(CONFIG_DIR).join(LISTENER_NAME);
 
         sandbox::write_file(&base_dir, &test_file, initial_content.as_bytes())
             .expect("Failed to write initial file content");

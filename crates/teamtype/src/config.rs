@@ -24,9 +24,9 @@ use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
 #[cfg(unix)]
-pub const DEFAULT_LISTENER_NAME: &str = "socket";
+pub const LISTENER_NAME: &str = "socket";
 #[cfg(windows)]
-pub const DEFAULT_LISTENER_NAME: &str = "namedpipe";
+pub const LISTENER_NAME: &str = "namedpipe";
 pub const CONFIG_DIR: &str = ".teamtype";
 pub const CONFIG_FILE: &str = "config";
 
