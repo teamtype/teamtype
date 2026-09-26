@@ -38,7 +38,6 @@ fn initialize_directory() -> (BaseDir, PathBuf) {
     sandbox::create_dir(&base_dir, &teamtype_dir).expect("Failed to create .teamtype directory");
 
     let file = base_dir.join(TEST_FILE_PATH);
-    sandbox::write_file(&base_dir, &file, b"").expect("Failed to create file in temp directory");
 
     (base_dir, file)
 }
@@ -81,29 +80,32 @@ async fn main() -> Result<()> {
     let (base_dir1, file1) = initialize_directory();
     let (base_dir2, file2) = initialize_directory();
 
+    // Seed an empty starting file to what will be the sharing daemon side of the test session.
+    sandbox::write_file(&base_dir1, &file1, b"").expect("Failed to create file in temp directory");
+
     // Set up the actors.
     let config1 = Config {
         base_dir: base_dir1,
         ..Default::default()
     };
-    let daemon = Daemon::new(config1, true, false, ui).await?;
+    let daemon1 = Daemon::new(config1, true, false, ui).await?;
 
     // Wait until iroh's DNS discovery (hopefully) works.
     sleep(Duration::from_millis(1000)).await;
 
-    let nvim = Neovim::new(Some(file1)).await;
+    let nvim1 = Neovim::new(Some(file1)).await;
 
     let config2 = Config {
         base_dir: base_dir2,
-        peer: Some(Peer::SecretAddress(daemon.secret_address().to_string())),
+        peer: Some(Peer::SecretAddress(daemon1.secret_address().to_string())),
         ..Default::default()
     };
-    let peer = Daemon::new(config2, false, false, ui).await?;
+    let daemon2 = Daemon::new(config2, false, false, ui).await?;
 
     // Wait until file2 appears.
     while !file2.exists() {
         dbg!("{&file2} doesnt");
-        sleep(Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(500)).await;
     }
 
     let nvim2 = Neovim::new(Some(file2)).await;
@@ -112,9 +114,9 @@ async fn main() -> Result<()> {
     sleep(Duration::from_millis(1000)).await;
 
     let mut actors: HashMap<String, Box<dyn Actor>> = HashMap::new();
-    actors.insert("daemon".to_string(), Box::new(daemon));
-    actors.insert("nvim".to_string(), Box::new(nvim));
-    actors.insert("peer".to_string(), Box::new(peer));
+    actors.insert("daemon1".to_string(), Box::new(daemon1));
+    actors.insert("nvim1".to_string(), Box::new(nvim1));
+    actors.insert("daemon2".to_string(), Box::new(daemon2));
     actors.insert("nvim2".to_string(), Box::new(nvim2));
 
     ui.log("Performing edits");
