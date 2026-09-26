@@ -1023,6 +1023,8 @@ impl DocumentActorHandle {
     }
 }
 
+/// A Teamtype daemon, either a host (sharing) peer or joining peer, that manages the p2p network
+/// link, watches the project dirctory, and exposes what is happening to clients via a listener.
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
