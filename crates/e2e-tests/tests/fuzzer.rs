@@ -16,6 +16,7 @@ use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
 use teamtype::config::CONFIG_DIR;
+use teamtype::Interactions;
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::sandbox;
 use teamtype::types::UserInterface;
