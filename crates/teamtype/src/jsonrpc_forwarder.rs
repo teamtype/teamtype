@@ -34,7 +34,7 @@ use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient, PipeMode};
 use tokio_util::bytes::{Buf, BytesMut};
 use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
-use super::config::BaseDir;
+use super::config::ProjectDir;
 use super::config::CONFIG_DIR;
 use super::config::LISTENER_NAME;
 #[cfg(unix)]
@@ -52,8 +52,8 @@ pub trait RPCForwarder<
         directory: &Path,
     ) -> anyhow::Result<(FramedRead<R, LinesCodec>, FramedWrite<W, LinesCodec>)>;
 
-    async fn connection(&self, base_dir: &BaseDir) -> anyhow::Result<()> {
-        let (mut reader, mut writer) = self.connect_stream(base_dir).await?;
+    async fn connection(&self, project_dir: &ProjectDir) -> anyhow::Result<()> {
+        let (mut reader, mut writer) = self.connect_stream(project_dir).await?;
 
         // Construct stdin/stdout objects, which send/receive messages with a Content-Length header.
         let mut stdin = FramedRead::new(BufReader::new(io::stdin()), ContentLengthCodec);

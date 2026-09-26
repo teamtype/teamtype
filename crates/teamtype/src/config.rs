@@ -42,12 +42,12 @@ pub enum Peer {
 }
 
 #[derive(Debug)]
-pub enum BaseDir {
+pub enum ProjectDir {
     Permanent(PathBuf),
     Temporary(TempDir),
 }
 
-impl BaseDir {
+impl ProjectDir {
     pub fn new_temporary() -> Result<Self> {
         let parent_dir = get_app_cache_dir()?;
         let tempdir = tempdir_in(&parent_dir).context(format!(
@@ -58,21 +58,21 @@ impl BaseDir {
     }
 }
 
-impl TryFrom<&Path> for BaseDir {
+impl TryFrom<&Path> for ProjectDir {
     type Error = anyhow::Error;
 
     fn try_from(path: &Path) -> Result<Self> {
-        let base_dir = path.canonicalize().with_context(|| {
+        let project_dir = path.canonicalize().with_context(|| {
             format!(
                 "Could not compute the absolute, canonical form of the path of directory {}",
                 path.display(),
             )
         })?;
-        Ok(Self::Permanent(base_dir))
+        Ok(Self::Permanent(project_dir))
     }
 }
 
-impl Deref for BaseDir {
+impl Deref for ProjectDir {
     type Target = Path;
 
     fn deref(&self) -> &Self::Target {
@@ -83,7 +83,7 @@ impl Deref for BaseDir {
     }
 }
 
-impl AsRef<Path> for BaseDir {
+impl AsRef<Path> for ProjectDir {
     fn as_ref(&self) -> &Path {
         match self {
             Self::Permanent(path) => path.as_ref(),
@@ -92,14 +92,14 @@ impl AsRef<Path> for BaseDir {
     }
 }
 
-impl Default for BaseDir {
+impl Default for ProjectDir {
     /// This will default to the current working directory of the process.
     fn default() -> Self {
         Self::Permanent(PathBuf::default())
     }
 }
 
-impl Display for BaseDir {
+impl Display for ProjectDir {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Permanent(path) => write!(f, "{}", path.display()),
@@ -108,7 +108,7 @@ impl Display for BaseDir {
     }
 }
 
-impl Clone for BaseDir {
+impl Clone for ProjectDir {
     fn clone(&self) -> Self {
         match self {
             Self::Permanent(path) => Self::Permanent(path.clone()),
@@ -134,7 +134,7 @@ pub enum NetworkMode {
 
 #[derive(Default, Debug, Clone)]
 pub struct Config {
-    pub base_dir: BaseDir,
+    pub project_dir: ProjectDir,
     pub peer: Option<Peer>,
     pub emit_join_code: bool,
     pub emit_secret_address: bool,
@@ -152,12 +152,12 @@ impl Config {
     // It depends on the attribute how we're merging it:
     // - For strings, the CLI app config attribute has precedence.
     // - For booleans, if a value deviates from the default, it "wins".
-    // - The `base_dir` will be taken from the CLI app config.
+    // - The `project_dir` will be taken from the CLI app config.
     pub fn from_config_file_and_cli(config_cli: Self, ui: &UserInterface) -> Result<Self> {
         let empty_properties_section = Properties::new();
-        let base_dir = config_cli.base_dir;
+        let project_dir = config_cli.project_dir;
         let conf;
-        let config_file = base_dir.join(CONFIG_DIR).join(CONFIG_FILE);
+        let config_file = project_dir.join(CONFIG_DIR).join(CONFIG_FILE);
         let general_section = if config_file.exists() {
             conf = Ini::load_from_file(config_file)
                 .context("Could not access config file, even though it exists")?;
@@ -167,12 +167,12 @@ impl Config {
         };
 
         // we do the computation of username before initializing the struct, because we need to
-        // reference base_dir, which gets moved into the struct
-        let username = get_username(config_cli.username, &base_dir, general_section, ui);
+        // reference project_dir, which gets moved into the struct
+        let username = get_username(config_cli.username, &project_dir, general_section, ui);
         Ok(Self {
             // TODO: extract all the other fields to its own struct, s.t. we don't have to work
-            // around the fact that base_dir won't ever be in the config file.
-            base_dir,
+            // around the fact that project_dir won't ever be in the config file.
+            project_dir,
             peer: config_cli.peer.or_else(|| {
                 general_section
                     .get("peer")
@@ -218,7 +218,7 @@ impl Config {
     }
 
     fn config_file(&self) -> PathBuf {
-        self.base_dir.join(CONFIG_DIR).join(CONFIG_FILE)
+        self.project_dir.join(CONFIG_DIR).join(CONFIG_FILE)
     }
 
     /// If we have a join code, try to use that and overwrite the config file.
@@ -236,7 +236,7 @@ impl Config {
                     )?;
             ui.log("Derived peer from join code. Storing in config (overwriting previous config).");
             let config_file = self.config_file();
-            store_peer_in_config(&self.base_dir, &config_file, &secret_address, ui)?;
+            store_peer_in_config(&self.project_dir, &config_file, &secret_address, ui)?;
             // Create a new Config struct with the resolved peer in place of the join code.
             Self {
                 peer: Some(Peer::SecretAddress(secret_address)),
@@ -259,7 +259,7 @@ impl Config {
 }
 
 fn store_peer_in_config(
-    base_dir: &BaseDir,
+    project_dir: &ProjectDir,
     config_file: &Path,
     peer: &str,
     ui: &UserInterface,
@@ -270,13 +270,13 @@ fn store_peer_in_config(
     ));
 
     let content = format!("peer={peer}\n");
-    sandbox::write_file(base_dir, config_file, content.as_bytes())
+    sandbox::write_file(project_dir, config_file, content.as_bytes())
         .context("Failed to write to config file")
 }
 
 #[must_use]
-pub(crate) fn has_git_remote(base_dir: &BaseDir) -> bool {
-    if let Ok(repo) = find_git_repo(base_dir)
+pub(crate) fn has_git_remote(project_dir: &ProjectDir) -> bool {
+    if let Ok(repo) = find_git_repo(project_dir)
         && let Ok(remotes) = repo.remotes()
     {
         return !remotes.is_empty();
@@ -285,8 +285,8 @@ pub(crate) fn has_git_remote(base_dir: &BaseDir) -> bool {
 }
 
 /// Test if the local Git config has *any* user config.
-pub(crate) fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
-    let snapshot = find_git_repo(base_dir)?.config()?.snapshot()?;
+pub(crate) fn has_local_user_config(project_dir: &ProjectDir) -> Result<bool> {
+    let snapshot = find_git_repo(project_dir)?.config()?.snapshot()?;
     let mut entries = snapshot.entries(Some("user\\."))?;
     while let Some(Ok(entry)) = entries.next() {
         match entry.level() {
@@ -299,14 +299,14 @@ pub(crate) fn has_local_user_config(base_dir: &BaseDir) -> Result<bool> {
 
 fn get_username(
     config_cli_username: Option<String>,
-    base_dir: &BaseDir,
+    project_dir: &ProjectDir,
     general_section: &Properties,
     ui: &UserInterface,
 ) -> String {
     config_cli_username
         .map(|u| get_username_from_cli(u, ui))
         .or_else(|| get_username_from_config_file(general_section, ui))
-        .or_else(|| get_username_from_git(base_dir, ui))
+        .or_else(|| get_username_from_git(project_dir, ui))
         .unwrap_or_else(|| get_username_from_fallback_value(ui))
 }
 
@@ -332,8 +332,8 @@ fn get_username_from_config_file(
         })
 }
 
-fn get_username_from_git(base_dir: &BaseDir, ui: &UserInterface) -> Option<String> {
-    let username = get_git_username(base_dir);
+fn get_username_from_git(project_dir: &ProjectDir, ui: &UserInterface) -> Option<String> {
+    let username = get_git_username(project_dir);
     if let Some(ref username) = username {
         ui.log(&docstr!(format!
                 /// Using the Git username '{username}' as username, to display next to the cursors other people see.
@@ -356,8 +356,8 @@ fn get_username_from_fallback_value(ui: &UserInterface) -> String {
 }
 
 #[must_use]
-fn get_git_username(base_dir: &BaseDir) -> Option<String> {
-    local_git_username(base_dir)
+fn get_git_username(project_dir: &ProjectDir) -> Option<String> {
+    local_git_username(project_dir)
         .or_else(|_| global_git_username())
         .ok()
         .filter(|username| !username.is_empty()) // If the username is empty, return None. This can
@@ -365,8 +365,8 @@ fn get_git_username(base_dir: &BaseDir) -> Option<String> {
     // set on any level of Git configuration.
 }
 
-fn local_git_username(base_dir: &BaseDir) -> Result<String> {
-    Ok(find_git_repo(base_dir)?
+fn local_git_username(project_dir: &ProjectDir) -> Result<String> {
+    Ok(find_git_repo(project_dir)?
         .config()?
         .snapshot()?
         .get_str("user.name")?
@@ -387,41 +387,42 @@ mod tests {
     use anyhow::{Context, Result};
     use tempfile::tempdir;
 
-    use super::BaseDir;
+    use super::ProjectDir;
 
     #[test]
-    fn try_into_basedir_from_pathbuf() -> Result<()> {
+    fn try_into_projectdir_from_pathbuf() -> Result<()> {
         let temp = tempdir().context("Unable to create directory for tests")?;
         let dir = temp.path();
-        let base_dir: BaseDir = dir.try_into()?;
-        match base_dir {
-            BaseDir::Permanent(ref path) => {
+        let project_dir: ProjectDir = dir.try_into()?;
+        match project_dir {
+            ProjectDir::Permanent(ref path) => {
                 assert_eq!(*path, dir.canonicalize()?);
             }
-            BaseDir::Temporary(_) => panic!("Expected a permanent base directory"),
+            ProjectDir::Temporary(_) => panic!("Expected a permanent project directory"),
         }
-        drop(base_dir);
+        drop(project_dir);
         assert!(dir.exists(), "Permanent directory removed by drop");
         Ok(())
     }
 
     #[test]
-    fn try_into_basedir_from_nonexistent() {
+    fn try_into_projectdir_from_nonexistent() {
         let nonexistent = PathBuf::from("does-not-exist");
-        let result: Result<BaseDir> = nonexistent.as_path().try_into();
+        let result: Result<ProjectDir> = nonexistent.as_path().try_into();
         assert!(result.is_err());
     }
 
     #[test]
     fn temporary_creates_and_destroys_directory() -> Result<()> {
-        let base_dir = BaseDir::new_temporary().context("Unable to create temporary directory")?;
+        let project_dir =
+            ProjectDir::new_temporary().context("Unable to create temporary directory")?;
         assert!(
-            matches!(base_dir, BaseDir::Temporary(_)),
-            "BaseDir not an expected temporary directory"
+            matches!(project_dir, ProjectDir::Temporary(_)),
+            "ProjectDir not an expected temporary directory"
         );
-        let path: PathBuf = base_dir.to_path_buf();
+        let path: PathBuf = project_dir.to_path_buf();
         assert!(path.exists(), "Temporary directory was not created");
-        drop(base_dir);
+        drop(project_dir);
         assert!(!path.exists(), "Temporary directory exists after drop");
         Ok(())
     }
