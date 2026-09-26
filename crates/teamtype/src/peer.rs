@@ -31,7 +31,7 @@ use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::config::CONFIG_DIR;
-use crate::config::{BaseDir, Config};
+use crate::config::{Config, ProjectDir};
 use crate::daemon::DocumentActorHandle;
 use crate::permissions::{create_private_file, ensure_private_dir, ensure_private_file};
 use crate::types::UserInterface;
@@ -127,7 +127,7 @@ impl ConnectionManager {
     }
 
     async fn build_endpoint(config: &Config) -> Result<(Endpoint, SecretKey)> {
-        let (secret_key, my_passphrase) = Self::get_keypair(&config.base_dir);
+        let (secret_key, my_passphrase) = Self::get_keypair(&config.project_dir);
 
         let mut builder = match &config.iroh_dns_server {
             Some(_) => Endpoint::builder(presets::Minimal),
@@ -182,8 +182,8 @@ impl ConnectionManager {
         Ok((endpoint, my_passphrase))
     }
 
-    fn get_keypair(base_dir: &BaseDir) -> (SecretKey, SecretKey) {
-        let config_dir = base_dir.join(CONFIG_DIR);
+    fn get_keypair(project_dir: &ProjectDir) -> (SecretKey, SecretKey) {
+        let config_dir = project_dir.join(CONFIG_DIR);
         ensure_private_dir(&config_dir).expect("Refusing to create a key in non-private directory");
         let keyfile = config_dir.join("key");
         if keyfile.exists() {
