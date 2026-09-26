@@ -8,7 +8,6 @@
 
 // Public modules, either used by CLI or exported via crate or bindings
 pub mod client;
-pub mod config;
 pub mod daemon;
 pub mod sandbox;
 pub mod setup;
@@ -26,6 +25,7 @@ pub mod editor_protocol;
 pub(crate) mod testing;
 
 // Private modules
+mod config;
 mod editor;
 mod editor_connection;
 mod jsonrpc_forwarder;
@@ -35,3 +35,6 @@ mod peer;
 mod permissions;
 mod watcher;
 mod wormhole;
+
+// Explicitly export public API bits
+pub use config::{BaseDir, Config, Peer, VcsMode};
