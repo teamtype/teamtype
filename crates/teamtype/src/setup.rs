@@ -10,33 +10,33 @@ use docstr::docstr;
 use git2::{Error as GitError, Repository};
 use microxdg::XdgApp;
 
-use crate::config::BaseDir;
 use crate::config::CONFIG_DIR;
+use crate::config::ProjectDir;
 use crate::sandbox;
 use crate::types::UserInterface;
 
-// Once we know what the base directory is going to be, either validate our access to it and
+// Once we know what the project directory is going to be, either validate our access to it and
 // an existing config therein or setup a new config. In the event this step creates a temporary
 // directory we need to hang onto the handle as long as we're running.
-pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Result<()> {
-    if !has_teamtype_directory(base_dir) {
-        let teamtype_dir = base_dir.join(CONFIG_DIR);
-        match base_dir {
-            BaseDir::Temporary(_) => {
+pub fn setup_teamtype_directory(project_dir: &ProjectDir, ui: &UserInterface) -> Result<()> {
+    if !has_teamtype_directory(project_dir) {
+        let teamtype_dir = project_dir.join(CONFIG_DIR);
+        match project_dir {
+            ProjectDir::Temporary(_) => {
                 ui.log(&format!(
                     "'{}' is the temporary directory that is used as a Teamtype directory.",
-                    base_dir.display()
+                    project_dir.display()
                 ));
-                sandbox::create_dir(base_dir, &teamtype_dir)?;
+                sandbox::create_dir(project_dir, &teamtype_dir)?;
             }
-            BaseDir::Permanent(_) => {
+            ProjectDir::Permanent(_) => {
                 if ui.confirm(&docstr!(format!
                     /// '{}' hasn't been used as a Teamtype directory before.
                     ///
                     /// Do you want to enable live collaboration here? (This will create a {CONFIG_DIR}/ directory.)
-                    base_dir.display(),
+                    project_dir.display(),
                 ))? {
-                    sandbox::create_dir(base_dir, &teamtype_dir)?;
+                    sandbox::create_dir(project_dir, &teamtype_dir)?;
                     ui.log("Created! Resuming launch.");
                 } else {
                     bail!("Aborting launch. Teamtype needs a {CONFIG_DIR}/ directory to function");
@@ -79,17 +79,17 @@ pub(crate) fn get_app_cache_dir() -> Result<PathBuf> {
     Ok(app_cache_dir)
 }
 
-pub(crate) fn ensure_teamtype_is_ignored(base_dir: &BaseDir) -> Result<()> {
-    if teamtype_directory_should_be_ignored_but_isnt(base_dir) {
-        add_teamtype_to_local_gitignore(base_dir)?;
+pub(crate) fn ensure_teamtype_is_ignored(project_dir: &ProjectDir) -> Result<()> {
+    if teamtype_directory_should_be_ignored_but_isnt(project_dir) {
+        add_teamtype_to_local_gitignore(project_dir)?;
     }
     Ok(())
 }
 
 #[must_use]
-fn teamtype_directory_should_be_ignored_but_isnt(base_dir: &BaseDir) -> bool {
-    if let Ok(repo) = find_git_repo(base_dir) {
-        let teamtype_dir = base_dir.join(CONFIG_DIR);
+fn teamtype_directory_should_be_ignored_but_isnt(project_dir: &ProjectDir) -> bool {
+    if let Ok(repo) = find_git_repo(project_dir) {
+        let teamtype_dir = project_dir.join(CONFIG_DIR);
         return !repo
             .is_path_ignored(teamtype_dir)
             .expect("Should have been able to determine ignore state of path");
@@ -117,6 +117,6 @@ fn add_teamtype_to_local_gitignore(directory: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn find_git_repo(base_dir: &BaseDir) -> Result<Repository, GitError> {
-    Repository::discover(base_dir)
+pub(crate) fn find_git_repo(project_dir: &ProjectDir) -> Result<Repository, GitError> {
+    Repository::discover(project_dir)
 }

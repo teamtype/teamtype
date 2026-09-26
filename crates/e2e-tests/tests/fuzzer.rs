@@ -13,11 +13,11 @@ use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
-use teamtype::config::{BaseDir, Config, Peer};
-use teamtype::daemon::{Daemon, TEST_FILE_PATH};
+use teamtype::Interactions;
+use teamtype::UserInterface;
 use teamtype::sandbox;
-use teamtype::traits::Interactions;
-use teamtype::types::UserInterface;
+use teamtype::{ProjectDir, Config, Peer};
+use teamtype::{Daemon, TEST_FILE_PATH};
 use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
 use tracing::subscriber;
@@ -33,16 +33,16 @@ async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     }
 }
 
-fn initialize_directory() -> (BaseDir, PathBuf) {
+fn initialize_directory() -> (ProjectDir, PathBuf) {
     let dir = tempdir().expect("Failed to create temp directory");
-    let base_dir = BaseDir::Temporary(dir);
-    let teamtype_dir = base_dir.join(".teamtype");
-    sandbox::create_dir(&base_dir, &teamtype_dir).expect("Failed to create .teamtype directory");
+    let project_dir = ProjectDir::Temporary(dir);
+    let teamtype_dir = project_dir.join(".teamtype");
+    sandbox::create_dir(&project_dir, &teamtype_dir).expect("Failed to create .teamtype directory");
 
-    let file = base_dir.join(TEST_FILE_PATH);
-    sandbox::write_file(&base_dir, &file, b"").expect("Failed to create file in temp directory");
+    let file = project_dir.join(TEST_FILE_PATH);
+    sandbox::write_file(&project_dir, &file, b"").expect("Failed to create file in temp directory");
 
-    (base_dir, file)
+    (project_dir, file)
 }
 
 struct FuzzerInteractions {}
@@ -83,12 +83,12 @@ async fn main() -> Result<()> {
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
-    let (base_dir1, file1) = initialize_directory();
-    let (base_dir2, file2) = initialize_directory();
+    let (project_dir1, file1) = initialize_directory();
+    let (project_dir2, file2) = initialize_directory();
 
     // Set up the actors.
     let config1 = Config {
-        base_dir: base_dir1,
+        project_dir: project_dir1,
         ..Default::default()
     };
     let daemon = Daemon::new(config1, true, false, ui).await?;
@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
     let nvim = Neovim::new(Some(file1)).await;
 
     let config2 = Config {
-        base_dir: base_dir2,
+        project_dir: project_dir2,
         peer: Some(Peer::SecretAddress(daemon.secret_address().to_string())),
         ..Default::default()
     };

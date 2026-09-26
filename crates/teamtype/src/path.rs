@@ -96,11 +96,11 @@ impl RelativePath {
         Self(path.into())
     }
 
-    pub fn try_from_absolute(base_dir: &Path, path: &AbsolutePath) -> Result<Self, anyhow::Error> {
-        let shared_dir = path::absolute(base_dir).with_context(|| {
+    pub fn try_from_absolute(project_dir: &Path, path: &AbsolutePath) -> Result<Self, anyhow::Error> {
+        let shared_dir = path::absolute(project_dir).with_context(|| {
             format!(
                 "Failed to get absolute path for shared directory '{}'",
-                base_dir.display()
+                project_dir.display()
             )
         })?;
         let relative_path = path.strip_prefix(&shared_dir).with_context(|| {
@@ -111,15 +111,15 @@ impl RelativePath {
         })?;
 
         if relative_path.iter().count() == 0 {
-            bail!("base_dir was equal to path when computing relative path");
+            bail!("project_dir was equal to path when computing relative path");
         }
 
         Ok(Self(relative_path.to_path_buf()))
     }
 
-    pub fn try_from_path(base_dir: &Path, path: &Path) -> Result<Self, anyhow::Error> {
+    pub fn try_from_path(project_dir: &Path, path: &Path) -> Result<Self, anyhow::Error> {
         let absolute_path = AbsolutePath::try_from(path.to_path_buf())?;
-        Self::try_from_absolute(base_dir, &absolute_path)
+        Self::try_from_absolute(project_dir, &absolute_path)
     }
 }
 
@@ -172,39 +172,39 @@ mod test {
     }
 
     #[test]
-    fn test_file_path_for_uri_fails_not_within_base_dir() {
-        let base_dir = Path::new("/an/absolute/path");
+    fn test_file_path_for_uri_fails_not_within_project_dir() {
+        let project_dir = Path::new("/an/absolute/path");
         let path = AbsolutePath::try_from("/a/very/different/path").unwrap();
 
-        assert!(RelativePath::try_from_absolute(base_dir, &path,).is_err());
+        assert!(RelativePath::try_from_absolute(project_dir, &path,).is_err());
     }
 
     #[test]
-    fn test_file_path_for_uri_fails_not_within_base_dir_suffix() {
-        let base_dir = Path::new("/an/absolute/path");
+    fn test_file_path_for_uri_fails_not_within_project_dir_suffix() {
+        let project_dir = Path::new("/an/absolute/path");
         let path = AbsolutePath::try_from("/an/absolute/path2/file").unwrap();
 
-        assert!(RelativePath::try_from_absolute(base_dir, &path,).is_err());
+        assert!(RelativePath::try_from_absolute(project_dir, &path,).is_err());
     }
 
     #[test]
-    fn test_file_path_for_uri_fails_only_base_dir() {
-        let base_dir = Path::new("/an/absolute/path");
+    fn test_file_path_for_uri_fails_only_project_dir() {
+        let project_dir = Path::new("/an/absolute/path");
         let path = AbsolutePath::try_from("/an/absolute/path").unwrap();
 
-        assert!(RelativePath::try_from_absolute(base_dir, &path,).is_err());
+        assert!(RelativePath::try_from_absolute(project_dir, &path,).is_err());
     }
 
     #[test]
     fn test_file_path_for_uri_works() {
-        let base_dir = Path::new("/an/absolute/path");
+        let project_dir = Path::new("/an/absolute/path");
 
         let file_paths = vec!["file1", "sub/file3", "sub"];
         for &expected in &file_paths {
             let uri =
-                FileUri::try_from(format!("file://{}/{}", base_dir.display(), expected)).unwrap();
+                FileUri::try_from(format!("file://{}/{}", project_dir.display(), expected)).unwrap();
             let absolute_path = uri.to_absolute_path();
-            let relative_path = RelativePath::try_from_absolute(base_dir, &absolute_path).unwrap();
+            let relative_path = RelativePath::try_from_absolute(project_dir, &absolute_path).unwrap();
 
             assert_eq!(RelativePath::new(expected), relative_path);
         }

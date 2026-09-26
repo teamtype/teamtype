@@ -28,7 +28,7 @@ use tracing::debug;
 use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
-use crate::config::{BaseDir, Config};
+use crate::config::{ProjectDir, Config};
 use crate::daemon::DocumentActorHandle;
 use crate::permissions::{check_mode, create_with_mode};
 use crate::types::UserInterface;
@@ -124,7 +124,7 @@ impl ConnectionManager {
     }
 
     async fn build_endpoint(config: &Config) -> Result<(Endpoint, SecretKey)> {
-        let (secret_key, my_passphrase) = Self::get_keypair(&config.base_dir);
+        let (secret_key, my_passphrase) = Self::get_keypair(&config.project_dir);
 
         let mut builder = Endpoint::builder(presets::N0)
             .secret_key(secret_key)
@@ -163,8 +163,8 @@ impl ConnectionManager {
         Ok((endpoint, my_passphrase))
     }
 
-    fn get_keypair(base_dir: &BaseDir) -> (SecretKey, SecretKey) {
-        let keyfile = base_dir.join(".teamtype").join("key");
+    fn get_keypair(project_dir: &ProjectDir) -> (SecretKey, SecretKey) {
+        let keyfile = project_dir.join(".teamtype").join("key");
         if keyfile.exists() {
             let metadata =
                 fs::metadata(&keyfile).expect("Expected to have access to metadata of the keyfile");
