@@ -13,9 +13,9 @@ pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::hand
 use rand::RngExt;
 use teamtype::BaseDir;
 use teamtype::CONFIG_DIR;
+use teamtype::Daemon;
 use teamtype::LISTENER_NAME;
-use teamtype::daemon::Daemon;
-use teamtype::daemon::TEST_FILE_PATH;
+use teamtype::TEST_FILE_PATH;
 use teamtype::setup::setup_teamtype_directory;
 use teamtype::types::UserInterface;
 use teamtype::{document, sandbox};

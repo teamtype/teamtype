@@ -55,7 +55,6 @@ use crate::watcher::WatcherEvent;
 use crate::watcher::{Watcher, WatcherEventType};
 use crate::wormhole::put_secret_address_into_wormhole;
 
-#[doc(hidden)]
 pub const TEST_FILE_PATH: &str = "text";
 
 pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> Result<Daemon> {
@@ -100,7 +99,7 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
 
 // These messages are sent to the task that owns the document.
 #[must_use]
-pub(crate) enum DocMessage {
+pub enum DocMessage {
     GetContent {
         response_tx: oneshot::Sender<Option<document::Content>>,
     },
