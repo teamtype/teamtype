@@ -13,7 +13,7 @@ pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::hand
 use rand::RngExt;
 use teamtype::config::BaseDir;
 use teamtype::config::DEFAULT_LISTENER_NAME;
-use teamtype::daemon::Daemon;
+use teamtype::Daemon;
 use teamtype::setup::setup_teamtype_directory;
 use teamtype::types::UserInterface;
 use teamtype::config::CONFIG_DIR;
