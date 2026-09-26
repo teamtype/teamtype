@@ -14,7 +14,7 @@ use rand::RngExt;
 use teamtype::config::BaseDir;
 use teamtype::config::CONFIG_DIR;
 use teamtype::config::DEFAULT_LISTENER_NAME;
-use teamtype::daemon::Daemon;
+use teamtype::Daemon;
 use teamtype::daemon::TEST_FILE_PATH;
 use teamtype::setup::setup_teamtype_directory;
 use teamtype::types::UserInterface;
