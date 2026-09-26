@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
 
     // Wait until file2 appears.
     while !file2.exists() {
-        dbg!("{&file2} doesnt");
+        debug!("{file2:?} doesn't exist yet, sleeping");
         sleep(Duration::from_millis(500)).await;
     }
 

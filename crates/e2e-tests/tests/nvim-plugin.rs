@@ -26,8 +26,7 @@ async fn plugin_loaded() {
 
 #[tokio::test]
 async fn nvim_sends_something_to_socket() {
-    let (nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled("hi").await;
-    dbg!(nvim.content().await);
+    let (_nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled("hi").await;
     timeout(Duration::from_secs(1), async {
         socket.acknowledge_open().await;
     })
