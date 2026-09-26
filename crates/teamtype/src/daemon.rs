@@ -33,7 +33,7 @@ use tracing::debug;
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
 use crate::config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
-use crate::config::{CONFIG_DIR, DEFAULT_LISTENER_NAME};
+use crate::config::{CONFIG_DIR, LISTENER_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
@@ -1042,7 +1042,7 @@ impl Daemon {
     ) -> Result<Self> {
         debug!("Starting Teamtype on {:?}.", config.base_dir);
 
-        let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        let listener_path = config.base_dir.join(CONFIG_DIR).join(LISTENER_NAME);
 
         // Start a platform-appropriate listener.
         let listener = editor::spawn_listener(&listener_path, ui)?;
