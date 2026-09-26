@@ -36,7 +36,7 @@ use tokio_util::codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec};
 
 use super::config::BaseDir;
 use super::config::CONFIG_DIR;
-use super::config::DEFAULT_LISTENER_NAME;
+use super::config::LISTENER_NAME;
 #[cfg(unix)]
 use super::editor::strip_current_dir;
 
@@ -90,7 +90,7 @@ impl RPCForwarder<ReadHalf<UnixStream>, WriteHalf<UnixStream>> for JSONRPCForwar
         FramedRead<ReadHalf<UnixStream>, LinesCodec>,
         FramedWrite<WriteHalf<UnixStream>, LinesCodec>,
     )> {
-        let listener_path = directory.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        let listener_path = directory.join(CONFIG_DIR).join(LISTENER_NAME);
         // See comment about SUN_LEN in editor.rs, but the TL;DR is that referencing a socket node
         // from a deeply nested or overly verbose path will fail on some platforms.
         // The extra song and dance to change into the parent directory first is not needed by our CLI
@@ -121,7 +121,7 @@ impl RPCForwarder<ReadHalf<NamedPipeClient>, WriteHalf<NamedPipeClient>> for JSO
         FramedRead<ReadHalf<NamedPipeClient>, LinesCodec>,
         FramedWrite<WriteHalf<NamedPipeClient>, LinesCodec>,
     )> {
-        let listener_path = directory.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        let listener_path = directory.join(CONFIG_DIR).join(LISTENER_NAME);
         // Convert the Path to a UTF-8 string and prepend the named pipe prefix
         let pipe_name = format!(
             r"\\.\pipe\{}",

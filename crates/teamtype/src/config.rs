@@ -24,11 +24,11 @@ use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
 #[cfg(unix)]
-pub const DEFAULT_LISTENER_NAME: &str = "socket";
+pub(crate) const LISTENER_NAME: &str = "socket";
 #[cfg(windows)]
-pub const DEFAULT_LISTENER_NAME: &str = "namedpipe";
-pub const CONFIG_DIR: &str = ".teamtype";
-pub const CONFIG_FILE: &str = "config";
+pub(crate) const LISTENER_NAME: &str = "namedpipe";
+pub(crate) const CONFIG_DIR: &str = ".teamtype";
+pub(crate) const CONFIG_FILE: &str = "config";
 
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
