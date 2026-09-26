@@ -4,7 +4,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use anyhow::bail;
@@ -12,6 +12,8 @@ use automerge::Prop;
 use derive_more::{AsRef, Deref, Display};
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use crate::sandbox::absolute_and_canonicalized;
 
 /// Paths like these are guaranteed to be absolute.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Deref, AsRef, Display)]
@@ -66,16 +68,20 @@ impl RelativePath {
     }
 
     pub fn try_from_absolute(base_dir: &Path, path: &AbsolutePath) -> Result<Self, anyhow::Error> {
-        let shared_dir = path::absolute(base_dir).with_context(|| {
+        // Both sides of this need to be canonicalized before starting. The base_dir is user input
+        // and may or not have had symlinks resolved. The same is for path. This is especially
+        // a problem on macOS where /var is a symlink to /private/var and that abstraction is often
+        // hidden even from users and apps. This is going to be processing filesystem events and
+        // those might have a different prefix from our sandbox and yet still be legitimately inside
+        // it — in which case we should succeed in making a relative path.
+        let canonicalized_base = absolute_and_canonicalized(base_dir)?;
+        let canonicalized_path = absolute_and_canonicalized(&path.0)?;
+
+        let relative_path = canonicalized_path.strip_prefix(&canonicalized_base).with_context(|| {
             format!(
-                "Failed to get absolute path for shared directory '{}'",
-                base_dir.display()
-            )
-        })?;
-        let relative_path = path.strip_prefix(&shared_dir).with_context(|| {
-            format!(
-                "The path {path} is not in the shared directory '{}'. Your plugin probably doesn't support opening files from multiple Teamtype directories.",
-                shared_dir.display()
+                "The path '{}' is not in the shared directory '{}'. Your plugin probably doesn't support opening files from multiple Teamtype directories.",
+                canonicalized_path.display(),
+                canonicalized_base.display(),
             )
         })?;
 
