@@ -37,5 +37,7 @@ mod watcher;
 mod wormhole;
 
 // Explicitly export public API bits
+pub use client::run_client;
 pub use config::{BaseDir, Config, Peer, VcsMode};
+pub use daemon::run_daemon;
 pub use traits::Interactions;
