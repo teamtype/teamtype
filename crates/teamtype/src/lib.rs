@@ -47,7 +47,7 @@ pub(crate) mod testing;
 
 // Explicitly export bits from our modules that we have picked to be the public API.
 pub use client::run_client;
-pub use config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
+pub use config::{ProjectDir, Config, NetworkMode, Peer, VcsMode};
 pub use daemon::Daemon;
 pub use daemon::run_daemon;
 pub use traits::Interactions;

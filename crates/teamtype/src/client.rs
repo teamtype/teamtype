@@ -10,7 +10,7 @@ use crate::jsonrpc_forwarder::{JSONRPCForwarder, RPCForwarder};
 pub async fn run_client(config: Config) -> Result<()> {
     let jsonrpc_forwarder = JSONRPCForwarder {};
     jsonrpc_forwarder
-        .connection(&config.base_dir)
+        .connection(&config.project_dir)
         .await
         .context("JSON-RPC forwarder failed")
 }

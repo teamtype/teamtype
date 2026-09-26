@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! 👮🚨🚓
-//! The functions in this module are supposed to prevent file I/O outside the base directory.
+//! The functions in this module are supposed to prevent file I/O outside the project directory.
 //! All our file I/O should go through them.
 
 use std::fs::{self, OpenOptions};
@@ -21,70 +21,70 @@ use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
 use crate::config::CONFIG_DIR;
-use crate::config::{BaseDir, VcsMode};
+use crate::config::{ProjectDir, VcsMode};
 use crate::permissions::{create_private_dir, ensure_private_dir};
 
-pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
+pub(crate) fn read_file(absolute_project_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path)?;
     let bytes = fs::read(canonical_file_path)?;
     Ok(bytes)
 }
 
 /// Writes content to a file, creating the parent directories, if they don't exist.
 pub fn write_file(
-    absolute_base_dir: &Path,
+    absolute_project_dir: &Path,
     absolute_file_path: &Path,
     content: &[u8],
 ) -> Result<()> {
     let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path)?;
 
     // Create the parent directory(s), if necessary.
     let parent_dir = canonical_file_path
         .parent()
         .context("Failed to get parent directory")?;
-    create_dir_all(absolute_base_dir, parent_dir).context("Failed to create parent directory")?;
+    create_dir_all(absolute_project_dir, parent_dir).context("Failed to create parent directory")?;
 
     fs::write(canonical_file_path, content)?;
     Ok(())
 }
 
 pub(crate) fn append_file(
-    absolute_base_dir: &Path,
+    absolute_project_dir: &Path,
     absolute_file_path: &Path,
     content: &[u8],
 ) -> Result<()> {
     let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path)?;
     let mut file = OpenOptions::new().append(true).open(canonical_file_path)?;
     file.write_all(content)?;
     Ok(())
 }
 
 pub fn rename_file(
-    absolute_base_dir: &Path,
+    absolute_project_dir: &Path,
     absolute_file_path_old: &Path,
     absolute_file_path_new: &Path,
 ) -> Result<()> {
     let canonical_file_path_old =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path_old)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path_old)?;
     let canonical_file_path_new =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path_new)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path_new)?;
     fs::rename(canonical_file_path_old, canonical_file_path_new)?;
     Ok(())
 }
 
-pub fn remove_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<()> {
+pub fn remove_file(absolute_project_dir: &Path, absolute_file_path: &Path) -> Result<()> {
     let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path)?;
     fs::remove_file(canonical_file_path)?;
     Ok(())
 }
 
-pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+pub fn create_dir(absolute_project_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_dir_path)?;
     if !canonical_dir_path.exists() {
         fs::create_dir(&canonical_dir_path)
             .context("Unable to create directory with FS function")?;
@@ -92,9 +92,9 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
     Ok(())
 }
 
-pub fn create_dir_with_privacy(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+pub fn create_dir_with_privacy(absolute_project_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_dir_path)?;
     if canonical_dir_path.exists() {
         ensure_private_dir(&canonical_dir_path).context("Safety check on directory failed")?;
     } else {
@@ -103,9 +103,9 @@ pub fn create_dir_with_privacy(absolute_base_dir: &Path, absolute_dir_path: &Pat
     Ok(())
 }
 
-pub(crate) fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+pub(crate) fn create_dir_all(absolute_project_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_dir_path)?;
     if !canonical_dir_path.exists() {
         fs::create_dir_all(canonical_dir_path)
             .context("Unable to create directory(s) with FS function")?;
@@ -113,19 +113,22 @@ pub(crate) fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path)
     Ok(())
 }
 
-pub fn exists(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<bool> {
+pub fn exists(absolute_project_dir: &Path, absolute_file_path: &Path) -> Result<bool> {
     let canonical_file_path =
-        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_file_path)?;
+        check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path)?;
     Ok(canonical_file_path.exists())
 }
 
-pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, vcs_mode: VcsMode) -> Vec<PathBuf> {
+pub(crate) fn enumerate_non_ignored_files(
+    project_dir: &ProjectDir,
+    vcs_mode: VcsMode,
+) -> Vec<PathBuf> {
     let mut ignored_things = vec![CONFIG_DIR];
     if vcs_mode == VcsMode::Ignore {
         ignored_things.extend([CONFIG_DIR, ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
     }
 
-    let walk = WalkBuilder::new(base_dir)
+    let walk = WalkBuilder::new(project_dir)
         .add_custom_ignore_filename(".teamtypeignore")
         .standard_filters(true)
         .hidden(false)
@@ -159,14 +162,14 @@ pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, vcs_mode: VcsMode)
     // ignored.
     // So do a second walk, and merge the results.
     if matches!(vcs_mode, VcsMode::Sync) {
-        let overrides = OverrideBuilder::new(base_dir)
+        let overrides = OverrideBuilder::new(project_dir)
             .add(".jj/")
             .expect("Failed to add pattern to OverrideBuilder")
             .add(".jj/**")
             .expect("Failed to add pattern to OverrideBuilder")
             .build()
             .expect("Failed to build Overrides");
-        let walk = WalkBuilder::new(base_dir).overrides(overrides).build();
+        let walk = WalkBuilder::new(project_dir).overrides(overrides).build();
         let jj_files: Vec<PathBuf> = walk
             .filter_map(Result::ok)
             .filter(|dir_entry| {
@@ -189,28 +192,29 @@ pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, vcs_mode: VcsMode)
 // TODO: Allow calling this for non-existing files.
 // TODO: Consider a custom type for sandbox-relative paths
 pub(crate) fn ignored(
-    base_dir: &BaseDir,
+    project_dir: &ProjectDir,
     vcs_mode: VcsMode,
     absolute_file_path: &Path,
 ) -> Result<bool> {
-    let canonical_file_path = check_inside_base_dir_and_canonicalize(base_dir, absolute_file_path)?;
+    let canonical_file_path =
+        check_inside_project_dir_and_canonicalize(project_dir, absolute_file_path)?;
 
-    Ok(!enumerate_non_ignored_files(base_dir, vcs_mode)
+    Ok(!enumerate_non_ignored_files(project_dir, vcs_mode)
         .into_iter()
         .map(|path_buf| absolute_and_canonicalized(&path_buf))
         .collect::<Result<Vec<_>>>()?
         .contains(&canonical_file_path))
 }
 
-fn check_inside_base_dir_and_canonicalize(base_dir: &Path, path: &Path) -> Result<PathBuf> {
-    let canonical_base_dir = absolute_and_canonicalized(base_dir)?;
+fn check_inside_project_dir_and_canonicalize(project_dir: &Path, path: &Path) -> Result<PathBuf> {
+    let canonical_project_dir = absolute_and_canonicalized(project_dir)?;
     let canonical_path = absolute_and_canonicalized(path)?;
 
-    if !canonical_path.starts_with(&canonical_base_dir) {
+    if !canonical_path.starts_with(&canonical_project_dir) {
         let canonical_path_str = &canonical_path.display();
-        let canonical_base_dir_str = &canonical_base_dir.display();
+        let canonical_project_dir_str = &canonical_project_dir.display();
         bail!(
-            "File path {canonical_path_str} is not inside the base directory {canonical_base_dir_str}"
+            "File path {canonical_path_str} is not inside the project directory {canonical_project_dir_str}"
         );
     }
 
@@ -354,16 +358,16 @@ mod tests {
         // Not a file.
         assert!(read_file(&project_dir, &project_dir).is_err());
 
-        // Not a file *and* now within base dir.
+        // Not a file *and* now within project dir.
         assert!(read_file(&project_dir, &project_dir.join("..")).is_err());
 
-        // Definitely not within base dir.
+        // Definitely not within project dir.
         assert!(read_file(&project_dir, Path::new("/etc/passwd")).is_err());
 
         // File path is not absolute.
         assert!(read_file(&project_dir, Path::new("project/a")).is_err());
 
-        // Base dir is not absolute.
+        // Project dir is not absolute.
         assert!(read_file(Path::new("project"), &project_dir.join("a")).is_err());
 
         // File not exist.
@@ -378,31 +382,31 @@ mod tests {
 
         fs::write(&teamtypeignore, b"a\n").expect("Failed to write .teamtypeignore");
 
-        let base_dir = BaseDir::Permanent(project_dir.clone());
+        let project_dir = ProjectDir::Permanent(project_dir.clone());
 
         assert!(
-            ignored(&base_dir, VcsMode::Ignore, &project_dir.join("a")).unwrap(),
+            ignored(&project_dir, VcsMode::Ignore, &project_dir.join("a")).unwrap(),
             "a should be ignored"
         );
         assert!(
-            !ignored(&base_dir, VcsMode::Ignore, &project_dir.join("dir/b")).unwrap(),
+            !ignored(&project_dir, VcsMode::Ignore, &project_dir.join("dir/b")).unwrap(),
             "b should be not ignored"
         );
 
         fs::write(&teamtypeignore, b"a\ndir\n").expect("Failed to write .teamtypeignore");
 
         assert!(
-            ignored(&base_dir, VcsMode::Ignore, &project_dir.join("dir/b")).unwrap(),
+            ignored(&project_dir, VcsMode::Ignore, &project_dir.join("dir/b")).unwrap(),
             "now b should be ignored"
         );
     }
 
     #[test]
-    fn fail_check_inside_base_dir() {
+    fn fail_check_inside_project_dir() {
         let dir = temp_dir_setup();
         let project_dir = dir.path().join("project");
 
-        // Not within the base dir.
+        // Not within the project dir.
         assert!(
             read_file(
                 &project_dir,
@@ -411,9 +415,9 @@ mod tests {
             .is_err()
         );
 
-        // It "starts" with the base dir, but it's not inside it.
+        // It "starts" with the project dir, but it's not inside it.
         assert!(
-            check_inside_base_dir_and_canonicalize(
+            check_inside_project_dir_and_canonicalize(
                 &project_dir,
                 Path::new(&format!(
                     "{}{}",
