@@ -32,8 +32,8 @@ use tracing::debug;
 
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
-use crate::config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
 use crate::config::{CONFIG_DIR, LISTENER_NAME};
+use crate::config::{Config, NetworkMode, Peer, ProjectDir, VcsMode};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
@@ -58,7 +58,7 @@ use crate::wormhole::put_secret_address_into_wormhole;
 pub const TEST_FILE_PATH: &str = "text";
 
 pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> Result<Daemon> {
-    setup_teamtype_directory(&config.base_dir, ui)
+    setup_teamtype_directory(&config.project_dir, ui)
         .context(format!("Failed to setup {CONFIG_DIR}/ directory"))?;
 
     // We *may* be in join mode and *may* be doing so from a join code. If so make sure that's
@@ -68,7 +68,7 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
         .await
         .context("Failed to resolve peer")?;
 
-    let persist = !has_git_remote(&config.base_dir);
+    let persist = !has_git_remote(&config.project_dir);
     if !persist {
         // TODO: drop .teamtype/doc here? Would that be rude?
         ui.log(
@@ -76,10 +76,10 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
         );
     }
 
-    ensure_teamtype_is_ignored(&config.base_dir)?;
+    ensure_teamtype_is_ignored(&config.project_dir)?;
 
     if (config.vcs_mode == VcsMode::Sync)
-        && has_local_user_config(&config.base_dir).is_ok_and(|v| v)
+        && has_local_user_config(&config.project_dir).is_ok_and(|v| v)
     {
         ui.warn(docstr!(
             /// You have a local user configuration in your .git/config.
@@ -168,7 +168,7 @@ struct DocumentActor {
     ephemeral_states: HashMap<CursorId, EphemeralMessage>,
     /// The Document is the main I/O managed resource of this actor.
     crdt_doc: Document,
-    base_dir: BaseDir,
+    project_dir: ProjectDir,
     username: Option<String>,
     save_mode: SaveMode,
     vcs_mode: VcsMode,
@@ -182,7 +182,7 @@ impl DocumentActor {
         doc_message_rx: mpsc::Receiver<DocMessage>,
         doc_changed_ping_tx: DocChangedSender,
         ephemeral_message_tx: EphemeralMessageSender,
-        base_dir: BaseDir,
+        project_dir: ProjectDir,
         username: Option<String>,
         init: bool,
         persist: bool,
@@ -190,9 +190,9 @@ impl DocumentActor {
         vcs_mode: VcsMode,
         ui: &UserInterface,
     ) -> Self {
-        // If there is a persisted version in base_dir/.teamtype/doc, load it.
-        let persistence_file = base_dir.join(CONFIG_DIR).join("doc");
-        let persistence_file_exists = sandbox::exists(&base_dir, &persistence_file)
+        // If there is a persisted version in project_dir/.teamtype/doc, load it.
+        let persistence_file = project_dir.join(CONFIG_DIR).join("doc");
+        let persistence_file_exists = sandbox::exists(&project_dir, &persistence_file)
             .expect("Could not check for the existence of the persistence file");
 
         let load_crdt_doc = persistence_file_exists && !init && persist;
@@ -201,7 +201,7 @@ impl DocumentActor {
                 "Loading persisted CRDT document from '{}'.",
                 persistence_file.display()
             );
-            let bytes = sandbox::read_file(&base_dir, &persistence_file)
+            let bytes = sandbox::read_file(&project_dir, &persistence_file)
                 .unwrap_or_else(|_| panic!("Could not read file '{}'", persistence_file.display()));
             Document::load(&bytes, ui)
         } else {
@@ -215,7 +215,7 @@ impl DocumentActor {
             ephemeral_message_tx,
             editor_connections: HashMap::default(),
             ephemeral_states: HashMap::default(),
-            base_dir,
+            project_dir,
             username,
             crdt_doc,
             save_mode: SaveMode::Full,
@@ -273,12 +273,12 @@ impl DocumentActor {
                 self.read_current_content_from_dir(false);
             }
             DocMessage::Persist => {
-                let persistence_file = &self.base_dir.join(CONFIG_DIR).join("doc");
+                let persistence_file = &self.project_dir.join(CONFIG_DIR).join("doc");
                 match self.save_mode {
                     SaveMode::Full => {
                         debug!("Persisting CRDT document fully.");
                         let bytes = self.crdt_doc.save();
-                        sandbox::write_file(&self.base_dir, persistence_file, &bytes)
+                        sandbox::write_file(&self.project_dir, persistence_file, &bytes)
                             .unwrap_or_else(|_| {
                                 panic!("Failed to persist to '{}'", persistence_file.display())
                             });
@@ -287,7 +287,7 @@ impl DocumentActor {
                     SaveMode::Incremental => {
                         debug!("Persisting CRDT document incrementally.");
                         let bytes = self.crdt_doc.save_incremental();
-                        sandbox::append_file(&self.base_dir, persistence_file, &bytes)
+                        sandbox::append_file(&self.project_dir, persistence_file, &bytes)
                             .unwrap_or_else(|_| {
                                 panic!("Failed to persist to '{}'", persistence_file.display())
                             });
@@ -317,7 +317,7 @@ impl DocumentActor {
                                 self.ui.inform(&format!("Removing file {file_path}."));
 
                                 sandbox::remove_file(
-                                    &self.base_dir,
+                                    &self.project_dir,
                                     &self.absolute_path_for_file_path(&file_path),
                                 )
                                 .unwrap_or_else(|err| {
@@ -406,7 +406,7 @@ impl DocumentActor {
                     (
                         EditorConnection::new(
                             editor_connection_id,
-                            self.base_dir.clone(),
+                            self.project_dir.clone(),
                             self.vcs_mode,
                             self.username.clone(),
                         ),
@@ -437,7 +437,8 @@ impl DocumentActor {
     }
 
     fn absolute_path_for_file_path(&self, file_path: &RelativePath) -> AbsolutePath {
-        AbsolutePath::from_parts(&self.base_dir, file_path).expect("base_dir should be absolute")
+        AbsolutePath::from_parts(&self.project_dir, file_path)
+            .expect("project_dir should be absolute")
     }
 
     // Returns the messages to send back to the editor which made the request.
@@ -521,8 +522,8 @@ impl DocumentActor {
 
     fn handle_watcher_event(&mut self, watcher_event: &WatcherEvent) {
         let relative_file_path =
-            RelativePath::try_from_path(&self.base_dir, &watcher_event.file_path)
-                .expect("Watcher event should have a path within the base directory");
+            RelativePath::try_from_path(&self.project_dir, &watcher_event.file_path)
+                .expect("Watcher event should have a path within the project directory");
 
         if self.owns(&relative_file_path) {
             match watcher_event.event_type {
@@ -546,7 +547,7 @@ impl DocumentActor {
     // contains the file already in the `update_text` method anyway.
     fn file_created_or_changed(&mut self, relative_file_path: &RelativePath) {
         let file_path = self.absolute_path_for_file_path(relative_file_path);
-        let new_content = match sandbox::read_file(&self.base_dir, &file_path) {
+        let new_content = match sandbox::read_file(&self.project_dir, &file_path) {
             Ok(content) => content,
             Err(e) => {
                 self.ui.warn(&format!(
@@ -656,7 +657,7 @@ impl DocumentActor {
 
     fn ensure_file_has_bytes(&self, file_path: &RelativePath, bytes: &[u8]) {
         let abs_path = self.absolute_path_for_file_path(file_path);
-        if sandbox::exists(&self.base_dir, &abs_path)
+        if sandbox::exists(&self.project_dir, &abs_path)
             .expect("Failed to check for file existence before writing to it")
         {
             // Special case: If we want to write a .git/objects/... file, and there's one already
@@ -668,7 +669,7 @@ impl DocumentActor {
                 return;
             }
 
-            if let Ok(current_bytes) = sandbox::read_file(&self.base_dir, &abs_path) {
+            if let Ok(current_bytes) = sandbox::read_file(&self.project_dir, &abs_path) {
                 if bytes == current_bytes {
                     debug!("File content is already the desired one, not writing.");
                     return;
@@ -680,18 +681,18 @@ impl DocumentActor {
             self.ui.inform(&format!("Creating file {file_path}."));
         }
 
-        sandbox::write_file(&self.base_dir, &abs_path, bytes)
+        sandbox::write_file(&self.project_dir, &abs_path, bytes)
             .unwrap_or_else(|err| panic!("Failed to write to file {abs_path}: {err}"));
     }
 
     fn read_current_content_from_dir(&mut self, init: bool) {
         debug!("Reading current contents from disk (init: {init}).");
-        for file_path in sandbox::enumerate_non_ignored_files(&self.base_dir, self.vcs_mode) {
-            match sandbox::read_file(&self.base_dir, &file_path) {
+        for file_path in sandbox::enumerate_non_ignored_files(&self.project_dir, self.vcs_mode) {
+            match sandbox::read_file(&self.project_dir, &file_path) {
                 Ok(bytes) => {
                     let relative_file_path =
-                        RelativePath::try_from_path(&self.base_dir, &file_path)
-                            .expect("Walked file path should be within base directory");
+                        RelativePath::try_from_path(&self.project_dir, &file_path)
+                            .expect("Walked file path should be within project directory");
                     if self.owns(&relative_file_path) {
                         if let Ok(text) = String::from_utf8(bytes.clone()) {
                             if init {
@@ -719,7 +720,7 @@ impl DocumentActor {
 
         for relative_file_path in self.crdt_doc.files() {
             let absolute_file_path = self.absolute_path_for_file_path(&relative_file_path);
-            if !sandbox::exists(&self.base_dir, &absolute_file_path)
+            if !sandbox::exists(&self.project_dir, &absolute_file_path)
                 .expect(
                     "Should have been able to check for file existence while reading current directory content"
                 )
@@ -963,7 +964,7 @@ impl DocumentActorHandle {
             doc_message_rx,
             doc_changed_ping_tx.clone(),
             ephemeral_message_tx.clone(),
-            config.base_dir.clone(),
+            config.project_dir.clone(),
             config.username.clone(),
             init,
             persist,
@@ -1039,14 +1040,14 @@ impl Daemon {
         persist: bool,
         ui: &UserInterface,
     ) -> Result<Self> {
-        debug!("Starting Teamtype on {:?}.", config.base_dir);
+        debug!("Starting Teamtype on {:?}.", config.project_dir);
 
-        let listener_path = config.base_dir.join(CONFIG_DIR).join(LISTENER_NAME);
+        let listener_path = config.project_dir.join(CONFIG_DIR).join(LISTENER_NAME);
 
         // Start a platform-appropriate listener.
         let listener = editor::spawn_listener(&listener_path, ui)?;
 
-        // This scans the entire project at base_dir and constructs a CRDT document with all files.
+        // This scans the entire project at project_dir and constructs a CRDT document with all files.
         // This can be very expensive to run.
         let document_handle = DocumentActorHandle::new(&config, ui, init, persist);
 
@@ -1102,7 +1103,7 @@ impl Daemon {
 impl Drop for Daemon {
     fn drop(&mut self) {
         debug!("Daemon dropped, removing socket");
-        sandbox::remove_file(&self.config.base_dir, &self.listener_path)
+        sandbox::remove_file(&self.config.project_dir, &self.listener_path)
             .expect("Could not remove socket");
     }
 }
@@ -1111,7 +1112,7 @@ impl Drop for Daemon {
 // In addition, a short timeout after the last event, do a full re-scan, so that we don't miss any
 // file changes - the watcher isn't necessarily exhaustive.
 fn spawn_file_watcher(config: &Config, document_handle: DocumentActorHandle) {
-    let mut event_rx = Watcher::spawn(config.base_dir.clone(), config.vcs_mode);
+    let mut event_rx = Watcher::spawn(config.project_dir.clone(), config.vcs_mode);
 
     tokio::spawn(async move {
         let debounce_duration = Duration::from_millis(100);
@@ -1212,7 +1213,7 @@ mod tests {
                     doc_message_rx,
                     doc_changed_ping_tx,
                     ephemeral_message_tx,
-                    BaseDir::Permanent(directory.path().to_path_buf()),
+                    ProjectDir::Permanent(directory.path().to_path_buf()),
                     Some(String::new()),
                     true,  // init
                     false, // persist
