@@ -7,7 +7,7 @@ pub mod actors;
 pub mod socket;
 
 use anyhow::Result;
-use teamtype::traits::Interactions;
+use teamtype::Interactions;
 use tracing::{debug, info, warn};
 use tracing_subscriber::{EnvFilter, fmt};
 

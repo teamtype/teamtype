@@ -11,7 +11,6 @@ pub mod client;
 pub mod daemon;
 pub mod sandbox;
 pub mod setup;
-pub mod traits;
 pub mod types;
 
 // Used by e2e test crate, but not officially public
@@ -33,6 +32,7 @@ mod ot;
 mod path;
 mod peer;
 mod permissions;
+mod traits;
 mod watcher;
 mod wormhole;
 
@@ -40,3 +40,4 @@ mod wormhole;
 pub use config::{BaseDir, Config, Peer, VcsMode};
 #[doc(hidden)]
 pub use config::{CONFIG_DIR, CONFIG_FILE, LISTENER_NAME};
+pub use traits::Interactions;
