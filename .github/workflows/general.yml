@@ -52,9 +52,15 @@ jobs:
       - name: Run default unit tests
         run: cargo test --locked --no-default-features -p teamtype
       - name: Run default e2e tests
+        env:
+          RUST_LOG: teamtype=debug
+        timeout-minutes: 15
         run: cargo test --locked --no-default-features -p e2e-tests
       - if: ${{ matrix.nvim-version == 'v0.12.5' }}
         name: Run e2e fuzzer
+        env:
+          RUST_LOG: teamtype=debug
+        timeout-minutes: 15
         run: cargo test --locked --no-default-features -p e2e-tests --test fuzzer
 
   check_formatting:
