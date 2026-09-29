@@ -12,6 +12,7 @@ use microxdg::XdgApp;
 
 use crate::config::BaseDir;
 use crate::config::CONFIG_DIR;
+use crate::permissions::ensure_private_dir;
 use crate::sandbox;
 use crate::types::UserInterface;
 
@@ -27,7 +28,7 @@ pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Resul
                     "'{}' is the temporary directory that is used as a Teamtype directory.",
                     base_dir.display()
                 ));
-                sandbox::create_dir(base_dir, &teamtype_dir)?;
+                sandbox::create_dir_with_privacy(base_dir, &teamtype_dir)?;
             }
             BaseDir::Permanent(_) => {
                 if ui.confirm(&docstr!(format!
@@ -36,7 +37,7 @@ pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Resul
                     /// Do you want to enable live collaboration here? (This will create a {CONFIG_DIR}/ directory.)
                     base_dir.display(),
                 ))? {
-                    sandbox::create_dir(base_dir, &teamtype_dir)?;
+                    sandbox::create_dir_with_privacy(base_dir, &teamtype_dir)?;
                     ui.log("Created! Resuming launch.");
                 } else {
                     bail!("Aborting launch. Teamtype needs a {CONFIG_DIR}/ directory to function");
@@ -49,6 +50,8 @@ pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Resul
 
 fn has_teamtype_directory(dir: &Path) -> bool {
     let teamtype_dir = dir.join(CONFIG_DIR);
+    ensure_private_dir(&teamtype_dir)
+        .expect("Refusing to use an existing directory not marked as private");
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
     sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
