@@ -11,6 +11,7 @@ use anyhow::Result;
 use e2e_tests::TestInteractions;
 #[cfg(unix)]
 use e2e_tests::actors::{Actor, Neovim};
+use e2e_tests::init_logging;
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
@@ -21,9 +22,7 @@ use teamtype::sandbox;
 use teamtype::types::UserInterface;
 use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
-use tracing::subscriber;
 use tracing::debug;
-use tracing_subscriber::FmtSubscriber;
 
 async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     for _ in 1..500 {
@@ -55,9 +54,7 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }));
 
-    // Setup logging to taste specifically for e2e tests.
-    let formatter = FmtSubscriber::builder().compact().finish();
-    subscriber::set_global_default(formatter)?;
+    init_logging();
 
     let ui = &UserInterface::new(TestInteractions {});
 

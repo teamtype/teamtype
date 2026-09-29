@@ -9,6 +9,15 @@ pub mod socket;
 use anyhow::Result;
 use teamtype::traits::Interactions;
 use tracing::{debug, info, warn};
+use tracing_subscriber::{EnvFilter, fmt};
+
+/// Initialize logging in a way that associates it to each unit test but also responds to env vars.
+pub fn init_logging() {
+    let _ = fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_test_writer()
+        .try_init();
+}
 
 pub struct TestInteractions {}
 
