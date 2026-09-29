@@ -30,7 +30,7 @@ use url::Url;
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::config::{BaseDir, Config};
 use crate::daemon::DocumentActorHandle;
-use crate::permissions::{check_mode, create_with_mode};
+use crate::permissions::{create_private_file, ensure_private_dir, ensure_private_file};
 use crate::types::UserInterface;
 
 mod sync;
@@ -164,12 +164,14 @@ impl ConnectionManager {
     }
 
     fn get_keypair(base_dir: &BaseDir) -> (SecretKey, SecretKey) {
-        let keyfile = base_dir.join(".teamtype").join("key");
+        let config_dir = base_dir.join(".teamtype");
+        ensure_private_dir(&config_dir).expect("Refusing to create a key in non-private directory");
+        let keyfile = config_dir.join("key");
         if keyfile.exists() {
             let metadata =
                 fs::metadata(&keyfile).expect("Expected to have access to metadata of the keyfile");
 
-            check_mode(keyfile.as_path(), 0o100_600).expect("For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
+            ensure_private_file(keyfile.as_path()).expect("For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
 
             assert!(
                 metadata.len() == 64,
@@ -196,7 +198,7 @@ impl ConnectionManager {
             let secret_key = SecretKey::generate();
             let passphrase = SecretKey::generate();
 
-            let mut file = create_with_mode(keyfile, 0o600)
+            let mut file = create_private_file(keyfile)
                 .expect("Should have been able to create key file that did not exist before");
 
             file.write_all(&secret_key.to_bytes())
