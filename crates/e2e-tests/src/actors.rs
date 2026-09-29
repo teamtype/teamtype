@@ -208,7 +208,7 @@ impl Neovim {
         let file_path = dir_path.join("test");
         let listener_path = teamtype_dir.clone().join("socket");
 
-        sandbox::create_dir(dir_path, &teamtype_dir).unwrap();
+        sandbox::create_dir(dir_path, &teamtype_dir).expect("Can't create dir in sandbox");
 
         sandbox::write_file(dir_path, &file_path, initial_content.as_bytes())
             .expect("Failed to write initial file content");

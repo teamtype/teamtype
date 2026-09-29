@@ -29,7 +29,7 @@ use crate::daemon::{DocMessage, DocumentActorHandle};
 use crate::editor_protocol::{
     EditorProtocolMessageError, IncomingMessage, JSONRPCResponse, OutgoingMessage,
 };
-use crate::permissions::check_mode;
+use crate::permissions::ensure_private_dir;
 use crate::sandbox;
 use crate::types::UserInterface;
 
@@ -95,7 +95,7 @@ pub async fn spawn_listener(
         .parent()
         .context("Invalid socket creation location")?;
     // Make sure the parent directory of the socket is only accessible by the current user.
-    check_mode(parent_path, 0o77700u32)?;
+    ensure_private_dir(parent_path)?;
 
     // Using the sandbox method here is technically unnecessary, but we want to really run all path
     // operations through the sandbox module.
