@@ -11,7 +11,9 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::RngExt;
+use teamtype::config::CONFIG_DIR;
 use teamtype::daemon::Daemon;
+use teamtype::daemon::TEST_FILE_PATH;
 use teamtype::{document, sandbox};
 use tempfile::{TempDir, tempdir};
 use tokio::process::{ChildStdin, Command};
@@ -204,8 +206,8 @@ impl Neovim {
     ) -> (Self, PathBuf, MockListener, TempDir) {
         let dir = tempdir().expect("Failed to create temp directory");
         let dir_path = dir.path();
-        let teamtype_dir = dir_path.join(".teamtype");
-        let file_path = dir_path.join("test");
+        let teamtype_dir = dir_path.join(CONFIG_DIR);
+        let file_path = dir_path.join(TEST_FILE_PATH);
         let listener_path = teamtype_dir.clone().join("socket");
 
         sandbox::create_dir(dir_path, &teamtype_dir).expect("Can't create dir in sandbox");
