@@ -21,7 +21,7 @@ use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
 use crate::config::{BaseDir, VcsMode};
-use crate::permissions::set_mode;
+use crate::permissions::{create_private_dir, ensure_private_dir};
 
 pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -42,8 +42,8 @@ pub fn write_file(
     // Create the parent directory(s), if necessary.
     let parent_dir = canonical_file_path
         .parent()
-        .expect("Failed to get parent directory");
-    create_dir_all(absolute_base_dir, parent_dir).expect("Failed to create parent directory");
+        .context("Failed to get parent directory")?;
+    create_dir_all(absolute_base_dir, parent_dir).context("Failed to create parent directory")?;
 
     fs::write(canonical_file_path, content)?;
     Ok(())
@@ -84,12 +84,31 @@ pub fn remove_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Resul
 pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
-    let has_dir = canonical_dir_path.exists() && canonical_dir_path.is_dir();
-    if !has_dir {
+    if !canonical_dir_path.exists() {
         fs::create_dir(&canonical_dir_path)
             .context("Unable to create directory with FS function")?;
-        set_mode(canonical_dir_path, 0o700)
-            .context("Unable to set permissions with FS function")?;
+    }
+    Ok(())
+}
+
+// Create a directory with safe attributes from the outset, or confirm that such already exists.
+//
+// Creating a directory or file and then later changing the permissions later is technically not as
+// safe as it sounds. It is possible for a malicious watcher to intercept the filesystem creation
+// event and use that info to open a file handle before unblocking. Then when the process continues
+// and changes the permissions, the existing file open handle will persist even if it no longer has
+// permissions. This loophole only lasts as long as the malicious watching process keeps the handle
+// open, but that's still a security hole we can plug by creating directories and files with the
+// private permission bits set in the kernel umask from the outset.
+//
+// Always use this to create directories we want to be considered secure.
+pub fn create_dir_with_privacy(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+    let canonical_dir_path =
+        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
+    if canonical_dir_path.exists() {
+        ensure_private_dir(&canonical_dir_path).context("Safety check on directory failed")?;
+    } else {
+        create_private_dir(&canonical_dir_path).context("Unable to safely create directory")?;
     }
     Ok(())
 }
@@ -97,8 +116,10 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
 pub(crate) fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
-    fs::create_dir_all(canonical_dir_path)
-        .context("Unable to create directory(s) with FS function")?;
+    if !canonical_dir_path.exists() {
+        fs::create_dir_all(canonical_dir_path)
+            .context("Unable to create directory(s) with FS function")?;
+    }
     Ok(())
 }
 
