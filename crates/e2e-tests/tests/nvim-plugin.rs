@@ -6,6 +6,7 @@
 
 #[cfg(unix)]
 use e2e_tests::actors::*;
+use e2e_tests::init_logging;
 use pretty_assertions::assert_eq;
 use serial_test::serial;
 use teamtype::{
@@ -19,6 +20,7 @@ use tokio::time::{Duration, timeout};
 
 #[tokio::test]
 async fn plugin_loaded() {
+    init_logging();
     let nvim = Neovim::new(None).await.nvim;
     nvim.command("TeamtypeInfo")
         .await
@@ -27,6 +29,7 @@ async fn plugin_loaded() {
 
 #[tokio::test]
 async fn nvim_sends_something_to_listener() {
+    init_logging();
     let (_nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled("hi").await;
     timeout(Duration::from_secs(1), async {
         socket.acknowledge_open().await;
@@ -68,6 +71,7 @@ async fn assert_nvim_deltas_yield_content(
 #[tokio::test]
 #[serial]
 async fn nvim_processes_deltas_correctly() {
+    init_logging();
     assert_nvim_deltas_yield_content("", vec![replace_ed((0, 0), (0, 0), "a")], "a").await;
     assert_nvim_deltas_yield_content("x\n", vec![replace_ed((0, 1), (1, 0), "")], "x").await;
     assert_nvim_deltas_yield_content("x\n", vec![replace_ed((0, 1), (1, 0), "y")], "xy").await;
@@ -152,6 +156,7 @@ async fn assert_nvim_input_yields_replacements(
 #[tokio::test]
 #[serial]
 async fn nvim_sends_correct_delta() {
+    init_logging();
     // Edits on a single line.
     assert_nvim_input_yields_replacements("", "ia", vec![replace_ed((0, 0), (0, 0), "a")]).await;
     assert_nvim_input_yields_replacements("a\n", "x", vec![replace_ed((0, 0), (0, 1), "")]).await;
