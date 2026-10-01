@@ -37,7 +37,8 @@ fn initialize_directory() -> (BaseDir, PathBuf) {
     let dir = tempdir().expect("Failed to create temp directory");
     let base_dir = BaseDir::Temporary(dir);
     let teamtype_dir = base_dir.join(CONFIG_DIR);
-    sandbox::create_dir(&base_dir, &teamtype_dir).expect("Failed to create .teamtype directory");
+    sandbox::create_dir_with_privacy(&base_dir, &teamtype_dir)
+        .expect("Failed to create .teamtype directory");
 
     let file = base_dir.join(TEST_FILE_PATH);
 
