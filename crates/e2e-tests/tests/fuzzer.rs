@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use e2e_tests::TestInteractions;
 #[cfg(unix)]
 use e2e_tests::actors::{Actor, Neovim};
 use e2e_tests::init_logging;
@@ -18,11 +19,10 @@ use teamtype::config::CONFIG_DIR;
 use teamtype::config::{BaseDir, Config, Peer};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::sandbox;
-use teamtype::traits::Interactions;
 use teamtype::types::UserInterface;
 use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
-use tracing::{debug, info, warn};
+use tracing::debug;
 
 async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
     for _ in 1..500 {
@@ -44,27 +44,6 @@ fn initialize_directory() -> (BaseDir, PathBuf) {
     (base_dir, file)
 }
 
-struct FuzzerInteractions {}
-
-impl Interactions for FuzzerInteractions {
-    fn confirm(&self, question: &str) -> Result<bool> {
-        debug!("Fuzzer asked for a confirmation '{question}', answering with 'false'");
-        Ok(false)
-    }
-
-    fn log(&self, message: &str) {
-        debug!(message);
-    }
-
-    fn inform(&self, message: &str) {
-        info!(message);
-    }
-
-    fn warn(&self, message: &str) {
-        warn!(message);
-    }
-}
-
 #[cfg(unix)]
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -76,7 +55,7 @@ async fn main() -> Result<()> {
 
     init_logging();
 
-    let ui = &UserInterface::new(FuzzerInteractions {});
+    let ui = &UserInterface::new(TestInteractions {});
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
