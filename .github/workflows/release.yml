@@ -26,6 +26,8 @@ jobs:
     needs: create-release
     strategy:
       matrix:
+        # Note: If changing the size of this matrix, update the expected number
+        # of release artifacts in the post-release Justfile task to match.
         include:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
