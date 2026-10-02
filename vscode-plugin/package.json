@@ -17,6 +17,10 @@
             {
                 "command": "teamtype.showCursors",
                 "title": "Teamtype: List other cursor positions"
+            },
+            {
+                "command": "teamtype.followCursor",
+                "title": "Teamtype: Follow a cursor"
             }
         ],
         "configuration": {
