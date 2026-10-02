@@ -9,6 +9,7 @@ use std::{borrow::Cow, str::FromStr, time::Duration};
 use anyhow::Result;
 use docstr::docstr;
 use magic_wormhole::{AppConfig, AppID, Code, MailboxConnection, Wormhole, transfer};
+use rand::seq::IteratorRandom;
 use tokio::time::sleep;
 
 const NETWORK_RETRY: Duration = Duration::from_mins(5);
@@ -23,25 +24,41 @@ pub async fn put_secret_address_into_wormhole(
     let payload: Vec<u8> = address.into();
     let config = build_magic_wormhole_config(magic_wormhole_relay, ui);
 
+    let adjectives: Vec<&str> = include_str!("../assets/adjectives.txt").lines().collect();
+    let nouns: Vec<&str> = include_str!("../assets/nouns.txt").lines().collect();
+
     tokio::spawn({
         let ui = ui.clone();
         async move {
             loop {
-                let Ok(mailbox_connection) = MailboxConnection::create(config.clone(), 2).await
+                let adjective = adjectives
+                    .iter()
+                    .choose(&mut rand::rng())
+                    .expect("Word list is not empty");
+                let noun = nouns
+                    .iter()
+                    .choose(&mut rand::rng())
+                    .expect("Word list is not empty");
+                let password = format!("{adjective}-{noun}")
+                    .parse()
+                    .expect("Password is long enough and has enough entropy");
+
+                let Ok(mailbox_connection) =
+                    MailboxConnection::create_with_password(config.clone(), password).await
                 else {
                     ui.warn(&format!(
-                    "Failed to register a new join code via Magic Wormhole. Automatic retry in {NETWORK_RETRY:?}. Peers who joined before can still re-connect without a code."
-                ));
+                            "Failed to register a new join code via Magic Wormhole. Automatic retry in {NETWORK_RETRY:?}. Peers who joined before can still re-connect without a code.",
+                        ));
                     sleep(NETWORK_RETRY).await;
                     continue;
                 };
                 let code = mailbox_connection.code().clone();
 
                 ui.inform(&docstr!(format!
-                    /// One other person can use this to connect to you:
-                    ///
-                    ///    teamtype join {code}
-                    ///
+                        /// One other person can use this to connect to you:
+                        ///
+                        ///    teamtype join {code}
+                        ///
                 ));
 
                 if let Ok(mut wormhole) = Wormhole::connect(mailbox_connection).await {
