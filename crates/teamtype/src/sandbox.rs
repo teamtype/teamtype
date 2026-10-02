@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 axelmartensson <axel.martensson@hotmail.com>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -11,7 +12,6 @@
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::bail;
@@ -21,6 +21,7 @@ use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
 use crate::config::{BaseDir, VcsMode};
+use crate::permissions::{create_private_dir, ensure_private_dir};
 
 pub(crate) fn read_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<Vec<u8>> {
     let canonical_file_path =
@@ -41,8 +42,8 @@ pub fn write_file(
     // Create the parent directory(s), if necessary.
     let parent_dir = canonical_file_path
         .parent()
-        .expect("Failed to get parent directory");
-    create_dir_all(absolute_base_dir, parent_dir).expect("Failed to create parent directory");
+        .context("Failed to get parent directory")?;
+    create_dir_all(absolute_base_dir, parent_dir).context("Failed to create parent directory")?;
 
     fs::write(canonical_file_path, content)?;
     Ok(())
@@ -83,13 +84,20 @@ pub fn remove_file(absolute_base_dir: &Path, absolute_file_path: &Path) -> Resul
 pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
-    let has_dir = canonical_dir_path.exists() && canonical_dir_path.is_dir();
-    if !has_dir {
+    if !canonical_dir_path.exists() {
         fs::create_dir(&canonical_dir_path)
             .context("Unable to create directory with FS function")?;
-        let permissions = fs::Permissions::from_mode(0o700);
-        fs::set_permissions(canonical_dir_path, permissions)
-            .context("Unable to set permissions with FS function")?;
+    }
+    Ok(())
+}
+
+pub fn create_dir_with_privacy(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
+    let canonical_dir_path =
+        check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
+    if canonical_dir_path.exists() {
+        ensure_private_dir(&canonical_dir_path).context("Safety check on directory failed")?;
+    } else {
+        create_private_dir(&canonical_dir_path).context("Unable to safely create directory")?;
     }
     Ok(())
 }
@@ -97,8 +105,10 @@ pub fn create_dir(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<
 pub(crate) fn create_dir_all(absolute_base_dir: &Path, absolute_dir_path: &Path) -> Result<()> {
     let canonical_dir_path =
         check_inside_base_dir_and_canonicalize(absolute_base_dir, absolute_dir_path)?;
-    fs::create_dir_all(canonical_dir_path)
-        .context("Unable to create directory(s) with FS function")?;
+    if !canonical_dir_path.exists() {
+        fs::create_dir_all(canonical_dir_path)
+            .context("Unable to create directory(s) with FS function")?;
+    }
     Ok(())
 }
 
@@ -207,7 +217,7 @@ fn check_inside_base_dir_and_canonicalize(base_dir: &Path, path: &Path) -> Resul
 }
 
 pub(crate) fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
-    if !path.is_absolute() {
+    if !path.has_root() {
         bail!("Path is not absolute.");
     }
 
@@ -243,6 +253,7 @@ pub(crate) fn absolute_and_canonicalized(path: &Path) -> Result<PathBuf> {
     Ok(canonical_path)
 }
 
+#[cfg(unix)]
 #[cfg(test)]
 mod tests {
     use std::os::unix::fs::symlink;

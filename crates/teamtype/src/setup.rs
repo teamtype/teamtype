@@ -12,6 +12,7 @@ use microxdg::XdgApp;
 
 use crate::config::BaseDir;
 use crate::config::CONFIG_DIR;
+use crate::permissions::ensure_private_dir;
 use crate::sandbox;
 use crate::types::UserInterface;
 
@@ -19,15 +20,18 @@ use crate::types::UserInterface;
 // an existing config therein or setup a new config. In the event this step creates a temporary
 // directory we need to hang onto the handle as long as we're running.
 pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Result<()> {
-    if !has_teamtype_directory(base_dir) {
-        let teamtype_dir = base_dir.join(CONFIG_DIR);
+    let teamtype_dir = base_dir.join(CONFIG_DIR);
+    if has_teamtype_directory(base_dir)? {
+        ensure_private_dir(&teamtype_dir)
+            .expect("Refusing to use an existing directory not marked as private");
+    } else {
         match base_dir {
             BaseDir::Temporary(_) => {
                 ui.log(&format!(
                     "'{}' is the temporary directory that is used as a Teamtype directory.",
                     base_dir.display()
                 ));
-                sandbox::create_dir(base_dir, &teamtype_dir)?;
+                sandbox::create_dir_with_privacy(base_dir, &teamtype_dir)?;
             }
             BaseDir::Permanent(_) => {
                 if ui.confirm(&docstr!(format!
@@ -36,7 +40,7 @@ pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Resul
                     /// Do you want to enable live collaboration here? (This will create a {CONFIG_DIR}/ directory.)
                     base_dir.display(),
                 ))? {
-                    sandbox::create_dir(base_dir, &teamtype_dir)?;
+                    sandbox::create_dir_with_privacy(base_dir, &teamtype_dir)?;
                     ui.log("Created! Resuming launch.");
                 } else {
                     bail!("Aborting launch. Teamtype needs a {CONFIG_DIR}/ directory to function");
@@ -47,14 +51,22 @@ pub fn setup_teamtype_directory(base_dir: &BaseDir, ui: &UserInterface) -> Resul
     Ok(())
 }
 
-fn has_teamtype_directory(dir: &Path) -> bool {
-    let teamtype_dir = dir.join(CONFIG_DIR);
+fn has_teamtype_directory(base_dir: &BaseDir) -> Result<bool> {
     // Using the sandbox method here is technically unnecessary,
     // but we want to really run all path operations through the sandbox module.
-    sandbox::exists(dir, &teamtype_dir).expect("Failed to check") && teamtype_dir.is_dir()
+    sandbox::exists(base_dir, &base_dir.join(CONFIG_DIR)).with_context(|| {
+        format!("Unable to check {base_dir} for the existence of a teamtype config directory")
+    })
 }
 
 pub(crate) fn get_app_cache_dir() -> Result<PathBuf> {
+    // The XDG base directory specification doesn't apply on Windows, and the microxdg crate only
+    // looks for the `HOME` & `USER` environment variables, which standard Windows shells don't set.
+    // Use the Windows standard per-user temporary directory (based on '%TEMP%') instead.
+    if cfg!(windows) {
+        return Ok(std::env::temp_dir());
+    }
+
     let xdg = XdgApp::new("teamtype").context("Unable to create XDG app namespace")?;
     let app_cache_dir = xdg
         .app_cache()

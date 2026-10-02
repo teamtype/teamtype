@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use e2e_tests::TestInteractions;
+#[cfg(unix)]
 use e2e_tests::actors::{Actor, Neovim};
 use futures::future::join_all;
 use pretty_assertions::assert_eq;
@@ -15,12 +17,11 @@ use rand::RngExt;
 use teamtype::config::{BaseDir, Config, Peer};
 use teamtype::daemon::{Daemon, TEST_FILE_PATH};
 use teamtype::sandbox;
-use teamtype::traits::Interactions;
 use teamtype::types::UserInterface;
 use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
 use tracing::subscriber;
-use tracing::{debug, info, warn};
+use tracing::debug;
 use tracing_subscriber::FmtSubscriber;
 
 async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
@@ -36,34 +37,15 @@ fn initialize_directory() -> (BaseDir, PathBuf) {
     let dir = tempdir().expect("Failed to create temp directory");
     let base_dir = BaseDir::Temporary(dir);
     let teamtype_dir = base_dir.join(".teamtype");
-    sandbox::create_dir(&base_dir, &teamtype_dir).expect("Failed to create .teamtype directory");
+    sandbox::create_dir_with_privacy(&base_dir, &teamtype_dir)
+        .expect("Failed to create .teamtype directory");
 
     let file = base_dir.join(TEST_FILE_PATH);
 
     (base_dir, file)
 }
 
-struct FuzzerInteractions {}
-
-impl Interactions for FuzzerInteractions {
-    fn confirm(&self, question: &str) -> Result<bool> {
-        debug!("Fuzzer asked for a confirmation '{question}', answering with 'false'");
-        Ok(false)
-    }
-
-    fn log(&self, message: &str) {
-        debug!(message);
-    }
-
-    fn inform(&self, message: &str) {
-        info!(message);
-    }
-
-    fn warn(&self, message: &str) {
-        warn!(message);
-    }
-}
-
+#[cfg(unix)]
 #[tokio::main]
 async fn main() -> Result<()> {
     let default_panic = std::panic::take_hook();
@@ -76,7 +58,7 @@ async fn main() -> Result<()> {
     let formatter = FmtSubscriber::builder().compact().finish();
     subscriber::set_global_default(formatter)?;
 
-    let ui = &UserInterface::new(FuzzerInteractions {});
+    let ui = &UserInterface::new(TestInteractions {});
 
     // Set up files in shared directories. The directories will get cleaned up automatically when
     // the handle goes out of scope. We don't *use* the handle but we do need to keep it in scope.
