@@ -12,7 +12,7 @@ use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::RngExt;
 use teamtype::config::CONFIG_DIR;
-use teamtype::daemon::Daemon;
+use teamtype::Daemon;
 use teamtype::config::BaseDir;
 use teamtype::config::DEFAULT_LISTENER_NAME;
 use teamtype::setup::setup_teamtype_directory;
@@ -211,12 +211,12 @@ impl Neovim {
     ) -> (Self, PathBuf, MockListener, BaseDir) {
         let ui = &UserInterface::new(TestInteractions {});
         debug!("Creating a temporary basedir and setting up for use in test");
-        let base_dir = BaseDir::new_temporary().expect("Failed to create temp directory");
-        setup_teamtype_directory(&base_dir, ui).expect("Failed to setup Teamtype directory");
-        let test_file = base_dir.join(TEST_FILE_PATH);
-        let listener_path =   base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        let project_dir = BaseDir::new_temporary().expect("Failed to create temp directory");
+        setup_teamtype_directory(&project_dir, ui).expect("Failed to setup Teamtype directory");
+        let test_file = project_dir.join(TEST_FILE_PATH);
+        let listener_path =   project_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
 
-        sandbox::write_file(&base_dir, &test_file, initial_content.as_bytes())
+        sandbox::write_file(&project_dir, &test_file, initial_content.as_bytes())
             .expect("Failed to write initial file content");
 
         let canonicalized_file_path = fs::canonicalize(&test_file).expect("Could not canonicalize");
@@ -227,7 +227,7 @@ impl Neovim {
             Self::new(Some(canonicalized_file_path.clone())).await,
             canonicalized_file_path,
             listener,
-            base_dir,
+            project_dir,
         )
     }
 }
