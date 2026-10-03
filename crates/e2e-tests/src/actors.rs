@@ -11,11 +11,13 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::RngExt;
+use teamtype::config::CONFIG_DIR;
 use teamtype::daemon::Daemon;
 use teamtype::config::BaseDir;
 use teamtype::config::DEFAULT_LISTENER_NAME;
 use teamtype::setup::setup_teamtype_directory;
 use teamtype::types::UserInterface;
+use teamtype::daemon::TEST_FILE_PATH;
 use teamtype::{document, sandbox};
 use tokio::process::{ChildStdin, Command};
 use tracing::debug;
@@ -211,8 +213,8 @@ impl Neovim {
         debug!("Creating a temporary basedir and setting up for use in test");
         let base_dir = BaseDir::new_temporary().expect("Failed to create temp directory");
         setup_teamtype_directory(&base_dir, ui).expect("Failed to setup Teamtype directory");
-        let test_file = base_dir.join("test");
-        let listener_path =  base_dir.join(".teamtype").join(DEFAULT_LISTENER_NAME);
+        let test_file = base_dir.join(TEST_FILE_PATH);
+        let listener_path =   base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
 
         sandbox::write_file(&base_dir, &test_file, initial_content.as_bytes())
             .expect("Failed to write initial file content");
