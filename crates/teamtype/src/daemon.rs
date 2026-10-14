@@ -1280,19 +1280,21 @@ mod tests {
                 .expect("Failed to create pretend socket file");
 
             let ui = &UserInterface::new(TestInteractions {});
-            let config = Config {
-                base_dir: base_dir.clone(),
-                ..Default::default()
-            };
-            let document_handle = DocumentActorHandle::new(&config, ui, true, false);
 
-            editor::spawn_listener(&listener_path, document_handle, ui)
+            let listener = editor::spawn_listener(&listener_path, ui)
                 .await
                 .expect("Starting a listener with a defunct socket should succeed");
 
             UnixStream::connect(&listener_path)
                 .await
                 .expect("The new listener socket should accept connections");
+
+            drop(listener);
+
+            assert!(
+                UnixStream::connect(&listener_path).await.is_err(),
+                "Further connection attempts should fail"
+            );
         }
     }
 }
