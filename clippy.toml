@@ -3,3 +3,6 @@
 # SPDX-License-Identifier: CC0-1.0
 
 avoid-breaking-exported-api = false
+# Allow ourselves to use bit masks up to 4 octal values without hitting this lint:
+# https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#verbose_bit_mask
+verbose-bit-mask-threshold = 32_768
