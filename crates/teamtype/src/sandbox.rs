@@ -20,6 +20,7 @@ use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
+use crate::config::CONFIG_DIR;
 use crate::config::{BaseDir, VcsMode};
 use crate::permissions::{create_private_dir, ensure_private_dir};
 
@@ -119,9 +120,9 @@ pub fn exists(absolute_base_dir: &Path, absolute_file_path: &Path) -> Result<boo
 }
 
 pub(crate) fn enumerate_non_ignored_files(base_dir: &BaseDir, vcs_mode: VcsMode) -> Vec<PathBuf> {
-    let mut ignored_things = vec![".teamtype"];
+    let mut ignored_things = vec![CONFIG_DIR];
     if vcs_mode == VcsMode::Ignore {
-        ignored_things.extend([".teamtype", ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
+        ignored_things.extend([CONFIG_DIR, ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
     }
 
     let walk = WalkBuilder::new(base_dir)
