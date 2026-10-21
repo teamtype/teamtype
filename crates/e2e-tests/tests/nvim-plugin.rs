@@ -4,6 +4,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+#[cfg(unix)]
 use e2e_tests::actors::*;
 use pretty_assertions::assert_eq;
 use serial_test::serial;
@@ -25,10 +26,10 @@ async fn plugin_loaded() {
 }
 
 #[tokio::test]
-async fn nvim_sends_something_to_socket() {
-    let (_nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled("hi").await;
+async fn nvim_sends_something_to_listener() {
+    let (_nvim, _test_file, mut listener, _base_dir) = Neovim::new_teamtype_enabled("hi").await;
     timeout(Duration::from_secs(1), async {
-        socket.acknowledge_open().await;
+        listener.acknowledge_open().await;
     })
     .await
     .expect("sends_something test timed out");
@@ -39,19 +40,20 @@ async fn assert_nvim_deltas_yield_content(
     deltas: Vec<EditorTextOp>,
     expected_content: &str,
 ) {
-    let (nvim, file_path, mut socket, _dir) = Neovim::new_teamtype_enabled(initial_content).await;
-    socket.acknowledge_open().await;
+    let (nvim, test_file, mut listener, _base_dir) =
+        Neovim::new_teamtype_enabled(initial_content).await;
+    listener.acknowledge_open().await;
 
     for op in &deltas {
         let editor_message = EditorProtocolMessageToEditor::Edit {
-            uri: format!("file://{}", file_path.display()),
+            uri: format!("file://{}", test_file.display()),
             revision: 0,
             delta: EditorTextDelta(vec![op.clone()]),
         };
         let payload = OutgoingMessage::Notification(editor_message)
             .to_jsonrpc()
             .expect("Could not serialize EditorTextDelta");
-        socket.send(&format!("{payload}\n")).await;
+        listener.send(&format!("{payload}\n")).await;
     }
 
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -115,8 +117,8 @@ async fn assert_nvim_input_yields_replacements(
     mut expected_replacements: Vec<EditorTextOp>,
 ) {
     timeout(Duration::from_secs(5), async {
-                let (nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled(initial_content).await;
-                socket.acknowledge_open().await;
+                let (nvim, _test_file, mut listener, _base_dir) = Neovim::new_teamtype_enabled(initial_content).await;
+                listener.acknowledge_open().await;
 
                 {
                     let input = input.to_string();
@@ -128,7 +130,7 @@ async fn assert_nvim_input_yields_replacements(
                 // Note: This doesn't check whether there are more replacements pending than the
                 // expected ones.
                 while !expected_replacements.is_empty() {
-                    let msg = socket.recv().await;
+                    let msg = listener.recv().await;
                     let message: IncomingMessage = serde_json::from_str(&msg.to_string())
                         .expect("Could not parse EditorProtocolMessage");
                     let IncomingMessage::Request{

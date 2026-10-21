@@ -11,12 +11,18 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 pub use nvim_rs::{compat::tokio::Compat, create::tokio::new_child_cmd, rpc::handler::Dummy};
 use rand::RngExt;
+use teamtype::config::BaseDir;
+use teamtype::config::DEFAULT_LISTENER_NAME;
 use teamtype::daemon::Daemon;
+use teamtype::setup::setup_teamtype_directory;
+use teamtype::types::UserInterface;
 use teamtype::{document, sandbox};
-use tempfile::{TempDir, tempdir};
 use tokio::process::{ChildStdin, Command};
+use tracing::debug;
 
-use crate::socket::MockSocket;
+use crate::TestInteractions;
+#[cfg(unix)]
+use crate::socket::MockListener;
 
 // This is the bin artifact Cargo is building for us so we can test the actual code at the time of
 // testing, not something that may be mix-matched from the system path.
@@ -200,27 +206,26 @@ impl Neovim {
     // The caller should store the TempDir, so that it is not garbage collected.
     pub async fn new_teamtype_enabled(
         initial_content: &str,
-    ) -> (Self, PathBuf, MockSocket, TempDir) {
-        let dir = tempdir().expect("Failed to create temp directory");
-        let dir_path = dir.path();
-        let teamtype_dir = dir_path.join(".teamtype");
-        let file_path = dir_path.join("test");
-        let socket_path = teamtype_dir.clone().join("socket");
+    ) -> (Self, PathBuf, MockListener, BaseDir) {
+        let ui = &UserInterface::new(TestInteractions {});
+        debug!("Creating a temporary basedir and setting up for use in test");
+        let base_dir = BaseDir::new_temporary().expect("Failed to create temp directory");
+        setup_teamtype_directory(&base_dir, ui).expect("Failed to setup Teamtype directory");
+        let test_file = base_dir.join("test");
+        let listener_path = base_dir.join(".teamtype").join(DEFAULT_LISTENER_NAME);
 
-        sandbox::create_dir(dir_path, &teamtype_dir).unwrap();
-
-        sandbox::write_file(dir_path, &file_path, initial_content.as_bytes())
+        sandbox::write_file(&base_dir, &test_file, initial_content.as_bytes())
             .expect("Failed to write initial file content");
 
-        let canonicalized_file_path = fs::canonicalize(&file_path).expect("Could not canonicalize");
+        let canonicalized_file_path = fs::canonicalize(&test_file).expect("Could not canonicalize");
 
-        let socket = MockSocket::new(&socket_path);
+        let listener = MockListener::new(&listener_path);
 
         (
             Self::new(Some(canonicalized_file_path.clone())).await,
             canonicalized_file_path,
-            socket,
-            dir,
+            listener,
+            base_dir,
         )
     }
 }
