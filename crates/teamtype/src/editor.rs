@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
+use derive_more::Deref;
 use futures::StreamExt;
 use tokio::io::WriteHalf;
 #[cfg(windows)]
@@ -41,6 +42,72 @@ pub type EditorWriter = FramedWrite<WriteHalf<EditorStream>, OutgoingProtocolCod
 pub type EditorStream = UnixStream;
 #[cfg(windows)]
 pub type EditorStream = NamedPipeServer;
+
+// Our internal wrapper for Unix Sockets and Windows Named Pipes will normalize some differences
+// in API, work around quirks, and shim things we want.
+#[derive(Debug, Deref)]
+pub struct PlatformListener {
+    #[cfg(unix)]
+    #[deref]
+    listener: UnixListener,
+    #[cfg(windows)]
+    #[deref]
+    listener: NamedPipeServer,
+    #[cfg(windows)]
+    listener_path: PathBuf,
+}
+
+impl PlatformListener {
+    #[cfg(unix)]
+    fn new(parent_path: &Path, listener_path: &Path) -> Result<Self> {
+        // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
+        // length that matters is only the segment it is asked to handle. If passed an absolute path
+        // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
+        // relative path effectively sidesteps this limitation. Stripping the leading path segments will
+        // result in a relative path that won't have a long cumbersome prefix that fails safety checks.
+        // The extra song and dance to change into the parent directory first is not needed by our CLI
+        // (which already changes to that location) but it will make this API usable when linked as a
+        // library without changing the parent thread's location for keeps.
+        let previous_cwd = env::current_dir()?;
+        env::set_current_dir(parent_path)?;
+        let listener = UnixListener::bind(strip_current_dir(listener_path))?;
+        env::set_current_dir(previous_cwd)?;
+        debug!("Listening on UNIX socket: {}", listener_path.display());
+        Ok(Self { listener })
+    }
+
+    #[cfg(windows)]
+    fn new(_parent_path: &Path, listener_path: &Path) -> Result<Self> {
+        let pipe_name = format!(
+            r"\\.\pipe\{}",
+            listener_path
+                .to_str()
+                .context("Failed to parse listener path")?
+                .split('\\')
+                .next_back()
+                .context("Failed to format a name for named pipes")?
+        );
+        let mut server_options = ServerOptions::new();
+        server_options.pipe_mode(PipeMode::Byte);
+        // Only allow local connections.
+        server_options.reject_remote_clients(true);
+        // TODO: consider options to only allow current user to connect => custom security_descriptor => server_options.create_with_security_attributes_raw()
+        // c.f. https://github.com/teamtype/teamtype/issues/654
+        let listener = server_options
+            .create(&pipe_name)
+            .with_context(|| format!("Unable to create named pipe: {pipe_name}"))?;
+        debug!("Listening for connections on named pipe: {pipe_name}");
+        Ok(Self {
+            listener,
+            listener_path: listener_path.to_path_buf(),
+        })
+    }
+
+    #[cfg(windows)]
+    fn respawn(&self) -> Result<Self> {
+        Self::new(Path::new(""), &self.listener_path)
+    }
+}
 
 #[derive(Debug)]
 pub struct OutgoingProtocolCodec;
@@ -82,12 +149,7 @@ pub fn strip_current_dir(path: &Path) -> PathBuf {
 ///
 /// Will panic if we fail to setup a listener using a socket (Unix) or named pipe (Windows), or if
 /// we fail to accept an incoming connection.
-#[expect(clippy::unused_async)]
-pub async fn spawn_listener(
-    listener_path: &Path,
-    document_handle: DocumentActorHandle,
-    ui: &UserInterface,
-) -> Result<()> {
+pub fn spawn_listener(listener_path: &Path, ui: &UserInterface) -> Result<PlatformListener> {
     let parent_path = listener_path
         .parent()
         .context("Invalid socket creation location")?;
@@ -132,22 +194,22 @@ pub async fn spawn_listener(
         });
     }
 
+    let listener = PlatformListener::new(parent_path, listener_path)?;
+    Ok(listener)
+}
+
+/// # Panics
+///
+/// Will panic if we fail to setup a listener using a socket (Unix) or named pipe (Windows), or if
+/// we fail to accept an incoming connection.
+#[expect(clippy::unused_async)]
+pub async fn initialize_listener(
+    listener: PlatformListener,
+    document_handle: DocumentActorHandle,
+    ui: &UserInterface,
+) -> Result<()> {
     #[cfg(unix)]
     {
-        // The std library function used to create sockets requires a path shorter than SUN_LEN, but the
-        // length that matters is only the segment it is asked to handle. If passed an absolute path
-        // here we can potentially be run in a path that exceeds the maximum (~100 chars). Passing it a
-        // relative path effectively sidesteps this limitation. Stripping the leading path segments will
-        // result in a relative path that won't have a long cumbersome prefix that fails safety checks.
-        // The extra song and dance to change into the parent directory first is not needed by our CLI
-        // (which already changes to that location) but it will make this API usable when linked as a
-        // library without changing the parent thread's location for keeps.
-        let previous_cwd = env::current_dir()?;
-        env::set_current_dir(parent_path)?;
-        let listener = UnixListener::bind(strip_current_dir(listener_path))?;
-        env::set_current_dir(previous_cwd)?;
-        debug!("Listening on UNIX socket: {}", listener_path.display());
-
         tokio::spawn({
             let ui = ui.clone();
             async move {
@@ -180,49 +242,29 @@ pub async fn spawn_listener(
 
     #[cfg(windows)]
     {
-        let pipe_name = format!(
-            r"\\.\pipe\{}",
-            listener_path
-                .to_str()
-                .context("Failed to parse listener path")?
-                .split('\\')
-                .next_back()
-                .context("Failed to format a name for named pipes")?
-        );
-
         tokio::spawn({
             let ui = ui.clone();
             async move {
+                let mut listener = listener;
                 loop {
-                    let mut server_options = ServerOptions::new();
-                    server_options.pipe_mode(PipeMode::Byte);
-                    // Only allow local connections.
-                    server_options.reject_remote_clients(true);
-                    // TODO: consider options to only allow current user to connect => custom security_descriptor => server_options.create_with_security_attributes_raw()
-                    // c.f. https://github.com/teamtype/teamtype/issues/654
-                    let listener: NamedPipeServer = server_options.create(&pipe_name).unwrap();
-                    debug!("Listening for connections on named pipe: {}", pipe_name);
-                    match listener.connect().await {
-                        Ok(()) => {
-                            let id = document_handle.clone().next_editor_id();
-                            let document_handle_clone = document_handle.clone();
-                            tokio::spawn({
-                                let ui = ui.clone();
-                                async move {
-                                    handle_editor_connection(
-                                        listener,
-                                        document_handle_clone.clone(),
-                                        id,
-                                        &ui,
-                                    )
-                                    .await;
-                                }
-                            })
-                        }
-                        Err(err) => {
-                            panic!("Error while accepting named pipe connection: {err}");
-                        }
-                    };
+                    listener
+                        .connect()
+                        .await
+                        .expect("Error while accepting named pipe connection.");
+                    // Since the NamedPipeServer is one-time-use, spawn a new one before and hand it
+                    // off to the editor in place of the current one, keeping teh initial pipe
+                    // available for new clients.
+                    let next_listener = listener
+                        .respawn()
+                        .expect("Unable to create the next named pipe instance.");
+                    let connected = std::mem::replace(&mut listener, next_listener);
+                    let id = document_handle.clone().next_editor_id();
+                    let document_handle = document_handle.clone();
+                    let ui = ui.clone();
+                    tokio::spawn(async move {
+                        handle_editor_connection(connected.listener, document_handle, id, &ui)
+                            .await;
+                    });
                 }
             }
         });
