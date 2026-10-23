@@ -14,6 +14,15 @@ ignore = [
     "RUSTSEC-2023-0089", # unmaintained: atomic-polyfill (via iroh and postcard)
     "RUSTSEC-2024-0436", # unmaintained: paste (via iroh)
     "RUSTSEC-2026-0058", # unmaintained: tokio-io (via futures)
+    "RUSTSEC-2026-0346", # vulnerability: rustls (via iroh, tokio)
+    "RUSTSEC-2026-0347", # vulnerability: rustls (via iroh, tokio)
+    "RUSTSEC-2026-0348", # vulnerability: rustls (via iroh, tokio)
+    "RUSTSEC-2026-0349", # vulnerability: rustls (via iroh, tokio)
+    "RUSTSEC-2026-0381", # vulnerability: webpki-root-certs (via iroh)
+    "RUSTSEC-2026-0382", # vulnerability: rustls-webpki (via iroh)
+    "RUSTSEC-2026-0383", # vulnerability: webpki-roots (via iroh)
+    "RUSTSEC-2026-0385", # vulnerability: ctutils (via iroh)
+    "RUSTSEC-2026-0386", # advisory: tokio
 ]
 
 # This is not an exhaustive list of licenses we could accept, it is just
