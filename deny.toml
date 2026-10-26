@@ -11,9 +11,6 @@ multiple-versions = "allow"
 
 [advisories]
 ignore = [
-    "chacha20@0.10.0", # yanked: (via automerge, iroh, and rand)
-    "spin@0.10.0", # yanked: (via iroh)
-    "spin@0.9.8", # yanked: (via iroh)
     "RUSTSEC-2023-0089", # unmaintained: atomic-polyfill (via iroh and postcard)
     "RUSTSEC-2024-0384", # unmaintained: instant (via iroh)
     "RUSTSEC-2024-0436", # unmaintained: paste (via iroh)
@@ -25,14 +22,7 @@ ignore = [
     "RUSTSEC-2026-0104", # reachable panic: rustls-webpki (via iroh)
     "RUSTSEC-2026-0118", # unbounded loop: hickory-proto (via iroh)
     "RUSTSEC-2026-0119", # cpu exhaustion: hickory-proto (via iroh)
-    "RUSTSEC-2026-0258", # vulnerability: h2 (via iroh)
-    "RUSTSEC-2026-0285", # vulnerability: rustls (via iroh)
-    "RUSTSEC-2026-0346", # vulnerability: rustls (via iroh, tokio)
-    "RUSTSEC-2026-0348", # vulnerability: rustls (via iroh, tokio)
-    "RUSTSEC-2026-0349", # vulnerability: rustls (via iroh, tokio)
-    "RUSTSEC-2026-0381", # vulnerability: webpki-root-certs (via iroh)
     "RUSTSEC-2026-0382", # vulnerability: rustls-webpki (via iroh)
-    "RUSTSEC-2026-0386", # advisory: tokio
 ]
 
 # This is not an exhaustive list of licenses we could accept, it is just
