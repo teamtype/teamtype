@@ -5,6 +5,17 @@ SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
+# 0.9.3 (2026-10-28)
+
+*Teamtype enables real-time peer-to-peer collaborative editing of local files using your own text editor or other tools.
+For example, you can use it for pair programming sessions, brainstorming, or note-taking.
+It's the missing real-time complement to Git and other version control systems!*
+
+This is a patch release that bumps Teamtype's dependencies to avoid RUSTSEC advisories related to recent TLS issues.
+
+This effectively removes the emSign certificates from the dependencies of the Magic Wormhole library, see [RUSTSEC-2026-0381](https://rustsec.org/advisories/RUSTSEC-2026-0381.html).
+This removes the possibility for a hard-to-set-up but still hypothetically possible MITM attack when initially sharing the join code.
+
 # 0.9.2 (2026-07-08)
 
 *Teamtype enables real-time peer-to-peer collaborative editing of local files using your own text editor or other tools.
