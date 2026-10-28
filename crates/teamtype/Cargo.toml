@@ -41,7 +41,7 @@ default = ["cli"]
 cli = ["dep:clap", "dep:inquire", "tokio/signal", "tokio/rt-multi-thread"]
 
 [build-dependencies]
-anyhow.workspace = true
+color-eyre.workspace = true
 automerge = "0.12"
 clap_complete = "4"
 clap_mangen = "0.3"
@@ -59,6 +59,7 @@ features = ["emit_and_set"]
 anyhow.workspace = true
 async-trait.workspace = true
 automerge = "0.12"
+color-eyre.workspace = true
 constant_time_eq = "0.6"
 dissimilar = "1"
 docstr.workspace = true
@@ -125,6 +126,7 @@ version = "0.7"
 features = ["codec"]
 
 [dev-dependencies]
+color-eyre.workspace = true
 pretty_assertions.workspace = true
 tracing-test = "0.2"
 

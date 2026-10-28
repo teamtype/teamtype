@@ -7,12 +7,12 @@ use std::env::{var, var_os};
 use std::fs::{create_dir_all, read, remove_dir_all, write};
 use std::path::Path;
 
-use anyhow::Result;
 use automerge::{AutoCommit, ObjType, transaction::Transactable};
 use clap::{CommandFactory as _, ValueEnum as _};
 use clap_complete::Shell;
 use clap_complete::generate_to as generate_completions_to;
 use clap_mangen::generate_to as generate_manpages_to;
+use color_eyre::eyre::{Result, eyre};
 use regex::Regex;
 use vergen_git2::{Emitter, Git2Builder};
 
@@ -95,12 +95,16 @@ fn output_manpages(version: &'static str) -> Result<()> {
 fn derive_version_details() -> Result<&'static str> {
     if var("VERGEN_GIT_SHA").is_err() {
         (|| -> Result<()> {
-            let git2 = Git2Builder::all_git()?;
-            Emitter::default().add_instructions(&git2)?.emit_and_set()?;
+            let git2 = Git2Builder::all_git().map_err(|err| eyre!(Box::new(err)))?;
+            Emitter::default()
+                .add_instructions(&git2)
+                .map_err(|err| eyre!(Box::new(err)))?
+                .emit_and_set()
+                .map_err(|err| eyre!(Box::new(err)))?;
             Ok(())
         })()
         .map_err(|e| {
-            anyhow::anyhow!(
+            eyre!(
                 "Could not determine git version info: {e}\n\
                  Either build from a git checkout, or set VERGEN_GIT_SHA, \
                  VERGEN_GIT_COMMIT_DATE, VERGEN_GIT_DIRTY, and VERGEN_GIT_DESCRIBE."

@@ -8,8 +8,8 @@
 use std::panic;
 use std::process::exit;
 
-use anyhow::{Context, Result};
 use clap::{CommandFactory as _, FromArgMatches as _};
+use color_eyre::eyre::{Result, WrapErr, eyre};
 use teamtype::client::run_client;
 use teamtype::daemon::run_daemon;
 use teamtype::types::UserInterface;
@@ -26,6 +26,7 @@ use cli::ui::ConsoleInteractions;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
     let default_panic = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         default_panic(info);
@@ -52,16 +53,22 @@ async fn main() -> Result<()> {
     // listeners properly listen to the mpsc channel or receive and process a cancellation token.
     let _handle = match cli.command {
         Commands::Client => {
-            let client_config = parse_client_config(cli, ui)?;
-            return run_client(client_config).await;
+            let client_config = parse_client_config(cli, ui).map_err(|err| eyre!(Box::new(err)))?;
+            return run_client(client_config)
+                .await
+                .map_err(|err| eyre!(Box::new(err)));
         }
         Commands::Join { .. } => {
-            let join_config = parse_join_config(cli, ui)?;
-            run_daemon(join_config, false, ui).await
+            let join_config = parse_join_config(cli, ui).map_err(|err| eyre!(Box::new(err)))?;
+            run_daemon(join_config, false, ui)
+                .await
+                .map_err(|err| eyre!(Box::new(err)))
         }
         Commands::Share { init, .. } => {
-            let share_config = parse_share_config(cli, ui)?;
-            run_daemon(share_config, init, ui).await
+            let share_config = parse_share_config(cli, ui).map_err(|err| eyre!(Box::new(err)))?;
+            run_daemon(share_config, init, ui)
+                .await
+                .map_err(|err| eyre!(Box::new(err)))
         }
     }?;
 

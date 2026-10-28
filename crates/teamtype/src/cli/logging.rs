@@ -6,7 +6,7 @@
 
 use std::env;
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Result, WrapErr};
 use time::macros::format_description;
 use tracing::info;
 use tracing::subscriber;
