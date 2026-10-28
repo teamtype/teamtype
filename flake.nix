@@ -40,6 +40,8 @@
           pkgsForEslint = import inputs.nixpkgs-for-eslint { inherit system; };
           devDeps = with pkgs; [
             cargo-deny
+            cargo-edit
+            cargo-semver-checks
             git
             git-cliff
             github-cli
