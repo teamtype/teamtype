@@ -229,7 +229,7 @@ prepare-release semver: pristine (validate-semver semver) perfect
     [[ {{ default-branch }} != {{ rev-parse('HEAD') }} ]]
     # draft changelog from conventional commits
     {{ just }} perfect
-    {{ cargo }} publish --dry-run --allow-dirty
+    {{ cargo }} publish --locked --dry-run --allow-dirty
 
 # - Create a new branch (release-0.x.y)
 #     - Open a PR with it (so CI can run)
@@ -270,7 +270,7 @@ release semver: (release-is-prepared semver) check-credentials perfect
     # add release header to changelog blog
     # TODO: Sign release tags
     {{ git }} tag v{{ semver }} -F teamtype-{{ semver }}.md
-    {{ cargo }} publish --dry-run
+    {{ cargo }} publish --locked --dry-run
     {{ git }} push --atomic {{ default-remote }} {{ default-branch }} v{{ semver }}
     {{ cargo }} publish --locked
 
