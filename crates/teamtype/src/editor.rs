@@ -99,11 +99,8 @@ pub async fn spawn_listener(
     if sandbox::exists(Path::new("/"), Path::new(&listener_path))
         .context("Problem checking existence of path in sandbox")?
     {
-        // If there's an existing socket, try to connect to it as a client. If that fails, we assume
-        // there's no other daemon running and we can delete the socket and start our own. This
-        // check is run in a separate blocking thread so we can get an answer in time to decide what
-        // action we're taking before we return to the parent thread pool.
-        let rt = Runtime::new()?;
+        // If there's an existing listener, try to connect to it as a client. If that fails, we assume
+        // there's no other daemon running and we can delete the listener.
         let existing_listener = strip_current_dir(listener_path);
         let connection = rt.block_on(async {
             #[cfg(unix)]
