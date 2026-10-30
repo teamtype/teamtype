@@ -102,16 +102,10 @@ pub async fn spawn_listener(
         // If there's an existing listener, try to connect to it as a client. If that fails, we assume
         // there's no other daemon running and we can delete the listener.
         let existing_listener = strip_current_dir(listener_path);
-        let connection = rt.block_on(async {
-            #[cfg(unix)]
-            {
-                UnixStream::connect(existing_listener).await
-            }
-            #[cfg(windows)]
-            {
-                ClientOptions::new().open(existing_listener)
-            }
-        });
+        #[cfg(unix)]
+        let connection = UnixStream::connect(existing_listener).await;
+        #[cfg(windows)]
+        let connection = ClientOptions::new().open(existing_listener);
         if connection.is_ok() {
             bail!(
                 "Detected an existing daemon running for this directory. Rejecting to start another one."
