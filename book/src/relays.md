@@ -55,20 +55,6 @@ Then, run:
 This will start a Pkarr relay on port 8080, and a DNS server on port 5300 by default, which resolves subdomains of `irohdns.example`.
 You can provide configuration files for production setups, see the [README of iroh-dns-server](https://github.com/n0-computer/iroh/tree/main/iroh-dns-server).
 
-### DNS testing setup
-
-For a development setup, you need to configure your computer to use your local DNS server.
-Assuming you're on Linux and use `systemd-resolved`, run
-
-    sudo resolvectl dns <interface> 127.0.0.1:5300
-
-to set sets it as a DNS server for a network interface, run `resolvectl status` for your options.
-Then, run
-
-    sudo resolvectl domain <interface> '~irohdns.example'
-
-so that only domains under `irohdns.example` are resolved using your local server.
-
 ### Using it
 
 Run
@@ -77,11 +63,11 @@ Run
 
 and
 
-    teamtype join --iroh-dns-domain irohdns.example <join code>
+    teamtype join --iroh-dns-domain irohdns.example --iroh-dns-server 127.0.0.1:5300 <join code>
 
-or set the `iroh_pkarr_relay` and `iroh_dns_domain` parameters in `.teamtype/config`.
+or set the `iroh_pkarr_relay`, `iroh_dns_domain` and `iroh_dns_server` parameters in `.teamtype/config`.
 
-It doesn't hurt to use both flags on both the sharing and the joining peer.
+It doesn't hurt to use all flags on both the sharing and the joining peer.
 
 ## Iroh relay
 
