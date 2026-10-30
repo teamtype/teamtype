@@ -33,7 +33,7 @@ use tracing::debug;
 use crate::config::has_git_remote;
 use crate::config::has_local_user_config;
 use crate::config::{BaseDir, Config, NetworkMode, Peer, VcsMode};
-use crate::config::{CONFIG_DIR, DEFAULT_SOCKET_NAME};
+use crate::config::{CONFIG_DIR, DEFAULT_LISTENER_NAME};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
 use crate::editor_connection::EditorConnection;
@@ -1026,7 +1026,7 @@ impl DocumentActorHandle {
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
-    socket_path: PathBuf,
+    listener_path: PathBuf,
     config: Config,
     // We need to store the connection manager in order to keep the connection alive.
     connection_manager: peer::ConnectionManager,
@@ -1045,8 +1045,8 @@ impl Daemon {
         let document_handle = DocumentActorHandle::new(&config, ui, init, persist);
 
         // Start socket listener.
-        let socket_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_SOCKET_NAME);
-        editor::spawn_socket_listener(&socket_path, document_handle.clone(), ui)?;
+        let listener_path = config.base_dir.join(CONFIG_DIR).join(DEFAULT_LISTENER_NAME);
+        editor::spawn_listener(&listener_path, document_handle.clone(), ui).await?;
 
         // Start file watcher.
         spawn_file_watcher(&config, document_handle.clone());
@@ -1083,7 +1083,7 @@ impl Daemon {
 
         Ok(Self {
             document_handle,
-            socket_path,
+            listener_path,
             config,
             connection_manager,
         })
@@ -1097,7 +1097,7 @@ impl Daemon {
 impl Drop for Daemon {
     fn drop(&mut self) {
         debug!("Daemon dropped, removing socket");
-        sandbox::remove_file(&self.config.base_dir, &self.socket_path)
+        sandbox::remove_file(&self.config.base_dir, &self.listener_path)
             .expect("Could not remove socket");
     }
 }
@@ -1249,6 +1249,44 @@ mod tests {
             actor.assert_file_content(&RelativePath::new("file1"), "content1");
             actor.assert_file_content(&RelativePath::new("file2"), "content2");
             actor.assert_file_content(&RelativePath::new("sub/file3"), "content3");
+        }
+    }
+
+    #[cfg(unix)]
+    mod listener {
+        use tokio::net::UnixStream;
+
+        use super::*;
+
+        // Test that a defunct socket (e.g. left over from a killed process) gets cleanly recreated
+        // without causing a panic on startup. We should only fail when an active process is still
+        // using the existing socket.
+        #[tokio::test]
+        async fn removes_defunct_socket_without_blocking_startup() {
+            let dir = tempfile::tempdir().expect("Failed to create temp directory");
+            let base_dir = BaseDir::Permanent(dir.path().to_path_buf());
+            let teamtype_dir = base_dir.join(CONFIG_DIR);
+            sandbox::create_dir_with_privacy(&base_dir, &teamtype_dir)
+                .expect("Failed to create config directory");
+
+            let listener_path = teamtype_dir.join(DEFAULT_LISTENER_NAME);
+            sandbox::write_file(&base_dir, &listener_path, b"")
+                .expect("Failed to create pretend socket file");
+
+            let ui = &UserInterface::new(TestInteractions {});
+            let config = Config {
+                base_dir: base_dir.clone(),
+                ..Default::default()
+            };
+            let document_handle = DocumentActorHandle::new(&config, ui, true, false);
+
+            editor::spawn_listener(&listener_path, document_handle, ui)
+                .await
+                .expect("Starting a listener with a defunct socket should succeed");
+
+            UnixStream::connect(&listener_path)
+                .await
+                .expect("The new listener socket should accept connections");
         }
     }
 }
