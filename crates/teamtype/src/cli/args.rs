@@ -40,6 +40,9 @@ pub struct ShareJoinFlags {
     /// Use an alternative Iroh DNS origin domain.
     #[arg(long)]
     pub iroh_dns_domain: Option<String>,
+    /// Use an alternative Iroh DNS server.
+    #[arg(long)]
+    pub iroh_dns_server: Option<String>,
     /// Use an alternative Iroh Pkarr relay server.
     #[arg(long)]
     pub iroh_pkarr_relay: Option<String>,

@@ -8,6 +8,7 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
+use std::net::SocketAddr;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::str::FromStr;
 use std::time::Duration;
@@ -17,6 +18,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use iroh::address_lookup::DnsAddressLookup;
 use iroh::address_lookup::pkarr::PkarrPublisher;
+use iroh::dns::{Builder, NameserverConfig};
 use iroh::endpoint::{
     Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets,
 };
@@ -125,9 +127,12 @@ impl ConnectionManager {
     async fn build_endpoint(config: &Config) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(&config.base_dir);
 
-        let mut builder = Endpoint::builder(presets::N0)
-            .secret_key(secret_key)
-            .alpns(vec![ALPN.to_vec()]);
+        let mut builder = match &config.iroh_dns_server {
+            Some(_) => Endpoint::builder(presets::Minimal),
+            _ => Endpoint::builder(presets::N0),
+        };
+
+        builder = builder.secret_key(secret_key).alpns(vec![ALPN.to_vec()]);
 
         let relay_mode = match &config.iroh_relay {
             Some(iroh_relay) => {
@@ -143,7 +148,25 @@ impl ConnectionManager {
             DnsAddressLookup::n0_dns,
             |iroh_dns_domain| {
                 let iroh_dns_domain_clone = iroh_dns_domain.clone();
-                DnsAddressLookup::builder(iroh_dns_domain_clone)
+                let iroh_dns_address_lookup_builder =
+                    DnsAddressLookup::builder(iroh_dns_domain_clone);
+
+                match &config.iroh_dns_server {
+                    Some(iroh_dns_server) => {
+                        let iroh_dns_server_addr: SocketAddr = iroh_dns_server
+                            .parse()
+                            .expect("Invalid ip:port for custom iroh dns server");
+                        let iroh_dns_resolver = Builder::default()
+                            .add_nameserver_config(
+                                NameserverConfig::udp(iroh_dns_server_addr.ip())
+                                    .with_port(iroh_dns_server_addr.port()),
+                            )
+                            .build();
+
+                        iroh_dns_address_lookup_builder.dns_resolver(iroh_dns_resolver)
+                    }
+                    _ => iroh_dns_address_lookup_builder,
+                }
             },
         );
         builder = builder.address_lookup(iroh_dns_lookup);

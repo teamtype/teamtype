@@ -138,6 +138,7 @@ pub struct Config {
     pub magic_wormhole_relay: Option<String>,
     pub iroh_relay: Option<String>,
     pub iroh_dns_domain: Option<String>,
+    pub iroh_dns_server: Option<String>,
     pub iroh_pkarr_relay: Option<String>,
     pub vcs_mode: VcsMode,
     pub username: Option<String>,
@@ -202,6 +203,11 @@ impl Config {
             iroh_dns_domain: config_cli.iroh_dns_domain.or_else(|| {
                 general_section
                     .get("iroh_dns_domain")
+                    .map(ToString::to_string)
+            }),
+            iroh_dns_server: config_cli.iroh_dns_server.or_else(|| {
+                general_section
+                    .get("iroh_dns_server")
                     .map(ToString::to_string)
             }),
             iroh_pkarr_relay: config_cli.iroh_pkarr_relay.or_else(|| {
