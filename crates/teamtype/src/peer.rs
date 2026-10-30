@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2024 blinry <mail@blinry.org>
 // SPDX-FileCopyrightText: 2024 zormit <nt4u@kpvn.de>
 // SPDX-FileCopyrightText: 2026 Caleb Maclennan <caleb@alerque.com>
+// SPDX-FileCopyrightText: 2026 dommi <dommihd@gmail.com>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! This module provides a [`ConnectionManager`], which can be used to connect to other daemons.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -30,6 +30,7 @@ use url::Url;
 use self::sync::{Connection, PeerMessage, SyncActor};
 use crate::config::{BaseDir, Config};
 use crate::daemon::DocumentActorHandle;
+use crate::permissions::{create_private_file, ensure_private_dir, ensure_private_file};
 use crate::types::UserInterface;
 
 mod sync;
@@ -163,17 +164,14 @@ impl ConnectionManager {
     }
 
     fn get_keypair(base_dir: &BaseDir) -> (SecretKey, SecretKey) {
-        let keyfile = base_dir.join(".teamtype").join("key");
+        let config_dir = base_dir.join(".teamtype");
+        ensure_private_dir(&config_dir).expect("Refusing to create a key in non-private directory");
+        let keyfile = config_dir.join("key");
         if keyfile.exists() {
             let metadata =
                 fs::metadata(&keyfile).expect("Expected to have access to metadata of the keyfile");
 
-            let current_permissions = metadata.permissions().mode();
-            let allowed_permissions = 0o100_600;
-            assert!(
-                current_permissions == allowed_permissions,
-                "For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600)."
-            );
+            ensure_private_file(keyfile.as_path()).expect("For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
 
             assert!(
                 metadata.len() == 64,
@@ -200,11 +198,7 @@ impl ConnectionManager {
             let secret_key = SecretKey::generate();
             let passphrase = SecretKey::generate();
 
-            let mut file = OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o600)
-                .open(keyfile)
+            let mut file = create_private_file(keyfile)
                 .expect("Should have been able to create key file that did not exist before");
 
             file.write_all(&secret_key.to_bytes())
