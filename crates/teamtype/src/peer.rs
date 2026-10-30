@@ -28,6 +28,7 @@ use tracing::debug;
 use url::Url;
 
 use self::sync::{Connection, PeerMessage, SyncActor};
+use crate::config::CONFIG_DIR;
 use crate::config::{BaseDir, Config};
 use crate::daemon::DocumentActorHandle;
 use crate::permissions::{create_private_file, ensure_private_dir, ensure_private_file};
@@ -164,7 +165,7 @@ impl ConnectionManager {
     }
 
     fn get_keypair(base_dir: &BaseDir) -> (SecretKey, SecretKey) {
-        let config_dir = base_dir.join(".teamtype");
+        let config_dir = base_dir.join(CONFIG_DIR);
         ensure_private_dir(&config_dir).expect("Refusing to create a key in non-private directory");
         let keyfile = config_dir.join("key");
         if keyfile.exists() {
