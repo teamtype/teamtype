@@ -81,7 +81,7 @@ pub fn strip_current_dir(path: &Path) -> PathBuf {
 ///
 /// Will panic if we fail to setup a listener using a socket (Unix) or named pipe (Windows), or if
 /// we fail to accept an incoming connection.
-#[expect(clippy::unused_async)]
+#[cfg_attr(windows, expect(clippy::unused_async))]
 pub async fn spawn_listener(
     listener_path: &Path,
     document_handle: DocumentActorHandle,
