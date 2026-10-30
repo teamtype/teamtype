@@ -18,7 +18,6 @@ use tokio::io::WriteHalf;
 use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeServer, PipeMode, ServerOptions};
 #[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
-use tokio::runtime::Runtime;
 use tokio_util::{
     bytes::BytesMut,
     codec::{Decoder, Encoder, FramedRead, FramedWrite, LinesCodec},
