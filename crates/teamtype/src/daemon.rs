@@ -1251,4 +1251,42 @@ mod tests {
             actor.assert_file_content(&RelativePath::new("sub/file3"), "content3");
         }
     }
+
+    #[cfg(unix)]
+    mod listener {
+        use tokio::net::UnixStream;
+
+        use super::*;
+
+        // Test that a defunct socket (e.g. left over from a killed process) gets cleanly recreated
+        // without causing a panic on startup. We should only fail when an active process is still
+        // using the existing socket.
+        #[tokio::test]
+        async fn removes_defunct_socket_without_blocking_startup() {
+            let dir = tempfile::tempdir().expect("Failed to create temp directory");
+            let base_dir = BaseDir::Permanent(dir.path().to_path_buf());
+            let teamtype_dir = base_dir.join(CONFIG_DIR);
+            sandbox::create_dir_with_privacy(&base_dir, &teamtype_dir)
+                .expect("Failed to create config directory");
+
+            let listener_path = teamtype_dir.join(DEFAULT_LISTENER_NAME);
+            sandbox::write_file(&base_dir, &listener_path, b"")
+                .expect("Failed to create pretend socket file");
+
+            let ui = &UserInterface::new(TestInteractions {});
+            let config = Config {
+                base_dir: base_dir.clone(),
+                ..Default::default()
+            };
+            let document_handle = DocumentActorHandle::new(&config, ui, true, false);
+
+            editor::spawn_listener(&listener_path, document_handle, ui)
+                .await
+                .expect("Starting a listener with a defunct socket should succeed");
+
+            UnixStream::connect(&listener_path)
+                .await
+                .expect("The new listener socket should accept connections");
+        }
+    }
 }
