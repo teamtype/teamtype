@@ -7,7 +7,10 @@
 authors = ["blinry", "zormit"]
 language = "en"
 src = "src"
-title = "Teamtype Documentation"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
 
 [output.html]
 site-url = "/teamtype/"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
