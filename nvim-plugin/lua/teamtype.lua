@@ -219,6 +219,10 @@ end
 
 local function activate_config_for_buffer(config_name, buf_nr, root_dir)
     local client = find_or_create_client(config_name, root_dir)
+    if not vim.api.nvim_buf_is_loaded(buf_nr) or vim.tbl_contains(client.buffers, buf_nr) then
+        return
+    end
+    -- Register before sending the request so pending opens are covered as well.
     table.insert(client.buffers, buf_nr)
 
     local filename = vim.api.nvim_buf_get_name(buf_nr)
@@ -241,10 +245,20 @@ local function activate_config_for_buffer(config_name, buf_nr, root_dir)
     end
 
     client.connection:send_request("open", { uri = uri, content = content }, function()
+        if not vim.api.nvim_buf_is_loaded(buf_nr) or not vim.tbl_contains(client.buffers, buf_nr) then
+            return
+        end
         debug("Tracking Edits")
         ensure_autoread_is_off()
         disable_writing()
         track_edits(client, filename, uri, lines)
+    end, function()
+        for i, buffer in ipairs(client.buffers) do
+            if buffer == buf_nr then
+                table.remove(client.buffers, i)
+                return
+            end
+        end
     end)
 end
 

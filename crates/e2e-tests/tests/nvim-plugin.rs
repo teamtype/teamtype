@@ -34,6 +34,25 @@ async fn nvim_sends_something_to_socket() {
     .expect("sends_something test timed out");
 }
 
+#[tokio::test]
+async fn nvim_duplicate_buffer_open_events() {
+    let (nvim, _file_path, mut socket, _dir) = Neovim::new_teamtype_enabled("").await;
+    let open = timeout(Duration::from_secs(1), socket.recv())
+        .await
+        .expect("duplicate buffer open test timed out");
+    assert_eq!(open["method"], "open");
+
+    nvim.nvim
+        .command("lua vim.api.nvim_exec_autocmds('BufRead', {buffer = 0})")
+        .await
+        .expect("Failed to retrigger BufRead");
+    assert!(
+        timeout(Duration::from_millis(200), socket.recv())
+            .await
+            .is_err()
+    );
+}
+
 async fn assert_nvim_deltas_yield_content(
     initial_content: &str,
     deltas: Vec<EditorTextOp>,
