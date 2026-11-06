@@ -31,8 +31,8 @@ end
 ## Secret addresses
 
 Since version 0.7.0 Teamtype uses iroh for making a connection.
-To connect to another daemon, we're using a combination of the iroh [Node Identifier](https://www.iroh.computer/docs/concepts/endpoint#node-identifiers) and a secret key which, smashed together, which looks like `429e94...0e9819#32374e...4a6789`.
-We call this the node's *secret address*.
+To connect to another daemon, we're using a combination of the iroh [Endpoint Identifier](https://docs.iroh.computer/concepts/endpoints#endpoint-identifiers) and a secret key which, smashed together, which looks like `429e94...0e9819#32374e...4a6789`.
+We call this the endpoint's *secret address*.
 Treat it like a password.
 After using a join code, the secret address is stored in your `.teamtype/config`.
 
@@ -48,12 +48,12 @@ participant Ip as Iroh Pkarr relay
 participant Id as Iroh DNS server
 participant Ir as Iroh Relay
 participant B as teamtype join (B)
-A->>Ir: A's Node Identifier + connection information
-A->>Ip: A's Node Identifier + relay
+A->>Ir: A's Endpoint ID + connection information
+A->>Ip: A's Endpoint ID + relay
 Ip->>Id: Publishes on
-B->>Id: A's Node Identifier
+B->>Id: A's Endpoint ID
 Id->>B: A's relay
-B->>Ir: A's Node Identifier
+B->>Ir: A's Endpoint ID
 Ir->>B: A's connection information
 rect rgba(191,233,255,0.5)
 note over A,B: Establish an end-to-end encrypted channel, either directly, or via the relay
@@ -69,7 +69,7 @@ Teamtype also uses a "local discovery" mechanism based on mDNS, which allows pee
 sequenceDiagram
 participant A as teamtype share
 participant B as teamtype join
-A->>B: occasionally broadcasts own Node Identifer + connection information
+A->>B: occasionally broadcasts own Endpoint ID + connection information
 B->>A: direct connection
 ```
 
