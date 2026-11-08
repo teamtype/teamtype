@@ -13,13 +13,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use docstr::docstr;
-use git2::{Config as GitConfig, ConfigLevel};
 use ini::{Ini, Properties};
 use tempfile::{TempDir, tempdir_in};
 
 use crate::sandbox;
-use crate::setup::find_git_repo;
-use crate::setup::get_app_cache_dir;
 use crate::types::UserInterface;
 use crate::wormhole::get_secret_address_from_wormhole;
 
@@ -56,19 +53,6 @@ pub enum ProjectDir {
     /// A temporary location created by Teamtype for joining remote shares that will that will be
     /// removed as soon as we shut down.
     Temporary(TempDir),
-}
-
-impl ProjectDir {
-    /// Create a new temporary directory for joining a project for the duration of a share but not
-    /// keeping the project locally after disconnecting.
-    pub fn new_temporary() -> Result<Self> {
-        let parent_dir = get_app_cache_dir()?;
-        let tempdir = tempdir_in(&parent_dir).context(format!(
-            "Failed to create a temporary directory in the directory {}",
-            parent_dir.display()
-        ))?;
-        Ok(Self::Temporary(tempdir))
-    }
 }
 
 impl TryFrom<&Path> for ProjectDir {
@@ -304,75 +288,13 @@ fn store_peer_in_config(
         .context("Failed to write to config file")
 }
 
-#[must_use]
-pub fn has_git_remote(project_dir: &ProjectDir) -> bool {
-    if let Ok(repo) = find_git_repo(project_dir)
-        && let Ok(remotes) = repo.remotes()
-    {
-        return !remotes.is_empty();
-    }
-    false
-}
-
-/// Test if the local Git config has *any* user config.
-pub fn has_local_user_config(project_dir: &ProjectDir) -> Result<bool> {
-    let snapshot = find_git_repo(project_dir)?.config()?.snapshot()?;
-    let mut entries = snapshot.entries(Some("user\\."))?;
-    while let Some(Ok(entry)) = entries.next() {
-        match entry.level() {
-            ConfigLevel::Local | ConfigLevel::Worktree | ConfigLevel::App => return Ok(true),
-            _ => {}
-        }
-    }
-    Ok(false)
-}
-
 fn get_username(
     config_cli_username: Option<String>,
     project_dir: &ProjectDir,
     general_section: &Properties,
     ui: &UserInterface,
 ) -> String {
-    config_cli_username
-        .map(|u| get_username_from_cli(u, ui))
-        .or_else(|| get_username_from_config_file(general_section, ui))
-        .or_else(|| get_username_from_git(project_dir, ui))
-        .unwrap_or_else(|| get_username_from_fallback_value(ui))
-}
-
-fn get_username_from_cli(username: String, ui: &UserInterface) -> String {
-    ui.log(&format!(
-        "Using the CLI provided username '{username}' to display next to the cursors other people see."
-    ));
-    username
-}
-
-fn get_username_from_config_file(
-    general_section: &Properties,
-    ui: &UserInterface,
-) -> Option<String> {
-    general_section
-        .get("username")
-        .map(ToString::to_string)
-        .map(|username| {
-            ui.log(&format!(
-                "Using the username '{username}' from `.teamtype/config` as username, to display next to the cursors other people see."
-            ));
-            username
-        })
-}
-
-fn get_username_from_git(project_dir: &ProjectDir, ui: &UserInterface) -> Option<String> {
-    let username = get_git_username(project_dir);
-    if let Some(ref username) = username {
-        ui.log(&docstr!(format!
-                /// Using the Git username '{username}' as username, to display next to the cursors other people see.
-                /// Teamtype uses the Git username as username by default.
-                /// You can set the configuration value `username` in your `.teamtype/config` to override this username.
-                /// You can also use the flag `--username` when using the `share`/`join` subcommands.
-        ));
-    }
-    username
+    get_username_from_fallback_value(ui)
 }
 
 fn get_username_from_fallback_value(ui: &UserInterface) -> String {
@@ -383,31 +305,6 @@ fn get_username_from_fallback_value(ui: &UserInterface) -> String {
         /// You can also use the flag `--username` when using the `share`/`join` subcommands.
     ));
     username
-}
-
-#[must_use]
-fn get_git_username(project_dir: &ProjectDir) -> Option<String> {
-    local_git_username(project_dir)
-        .or_else(|_| global_git_username())
-        .ok()
-        .filter(|username| !username.is_empty()) // If the username is empty, return None. This can
-    // happen if Git is installed, but no username is
-    // set on any level of Git configuration.
-}
-
-fn local_git_username(project_dir: &ProjectDir) -> Result<String> {
-    Ok(find_git_repo(project_dir)?
-        .config()?
-        .snapshot()?
-        .get_str("user.name")?
-        .to_string())
-}
-
-fn global_git_username() -> Result<String> {
-    Ok(GitConfig::open_default()?
-        .snapshot()?
-        .get_str("user.name")?
-        .to_string())
 }
 
 #[cfg(test)]

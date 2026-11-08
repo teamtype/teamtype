@@ -12,7 +12,6 @@ mod config;
 mod daemon;
 mod editor;
 mod editor_connection;
-mod jsonrpc_forwarder;
 mod ot;
 mod path;
 mod peer;
@@ -39,7 +38,7 @@ pub mod setup;
 pub mod types;
 
 #[doc(hidden)]
-pub use config::{CONFIG_DIR, CONFIG_FILE, LISTENER_NAME};
+pub use config::{CONFIG_DIR, CONFIG_FILE};
 #[doc(hidden)]
 pub use daemon::TEST_FILE_PATH;
 
@@ -48,7 +47,6 @@ pub use daemon::TEST_FILE_PATH;
 pub(crate) mod testing;
 
 // Explicitly export bits from our modules that we have picked to be the public API.
-pub use client::run_client;
 pub use config::{Config, NetworkMode, Peer, ProjectDir, VcsMode};
 pub use daemon::Daemon;
 pub use daemon::run_daemon;

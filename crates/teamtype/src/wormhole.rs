@@ -27,7 +27,7 @@ pub async fn put_secret_address_into_wormhole(
     let adjectives: Vec<&str> = include_str!("../assets/adjectives.txt").lines().collect();
     let nouns: Vec<&str> = include_str!("../assets/nouns.txt").lines().collect();
 
-    tokio::spawn({
+    wasm_bindgen_futures::spawn_local({
         let ui = ui.clone();
         async move {
             loop {
