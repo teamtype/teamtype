@@ -38,7 +38,7 @@ crate-type = ["rlib", "cdylib"]
 [features]
 # This is unfortunate, but users of the crate as a library should use `default-features = false`.
 default = ["cli"]
-cli = ["dep:clap", "dep:inquire", "tokio/signal"]
+cli = ["dep:clap", "tokio/signal"]
 
 [build-dependencies]
 anyhow.workspace = true
@@ -64,7 +64,6 @@ constant_time_eq = "0.6"
 dissimilar = "1"
 docstr.workspace = true
 futures.workspace = true
-ignore = "0.4"
 iroh = "1"
 magic-wormhole = "0.8"
 microxdg = "0.2"
@@ -89,19 +88,6 @@ optional = true
 version = "2"
 features = ["as_ref", "deref", "display"]
 
-[dependencies.git2]
-version = "0.21"
-default-features = false
-
-[dependencies.inquire]
-version = "0.9"
-optional = true
-
-[dependencies.notify]
-version = "8"
-default-features = false
-features = ["macos_fsevent"]
-
 [dependencies.nu-ansi-term]
 version = "0.50"
 
@@ -119,7 +105,7 @@ features = ["formatting", "macros"]
 
 [dependencies.tokio]
 version = "1"
-features = ["rt", "rt-multi-thread", "io-std", "io-util", "macros", "net", "time"]
+features = ["rt", "io-util", "macros", "time"]
 
 [dependencies.tokio-util]
 version = "0.7"
