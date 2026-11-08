@@ -30,9 +30,7 @@ use tokio::{
 };
 use tracing::debug;
 
-use crate::config::has_git_remote;
-use crate::config::has_local_user_config;
-use crate::config::{CONFIG_DIR, LISTENER_NAME};
+use crate::config::CONFIG_DIR;
 use crate::config::{Config, NetworkMode, Peer, ProjectDir, VcsMode};
 use crate::document::{self, Document};
 use crate::editor::{self, EditorId, EditorWriter};
@@ -44,23 +42,18 @@ use crate::editor_protocol::{
 use crate::path::{AbsolutePath, RelativePath};
 use crate::peer;
 use crate::sandbox;
-use crate::setup::ensure_teamtype_is_ignored;
-use crate::setup::setup_teamtype_directory;
 use crate::types::UserInterface;
 use crate::types::{
     ComponentMessage, CursorId, CursorState, EphemeralMessage, FileTextDelta, PatchEffect,
     TextDelta,
 };
 use crate::watcher::WatcherEvent;
-use crate::watcher::{Watcher, WatcherEventType};
+use crate::watcher::WatcherEventType;
 use crate::wormhole::put_secret_address_into_wormhole;
 
 pub const TEST_FILE_PATH: &str = "text";
 
 pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> Result<Daemon> {
-    setup_teamtype_directory(&config.project_dir, ui)
-        .context(format!("Failed to setup {CONFIG_DIR}/ directory"))?;
-
     // We *may* be in join mode and *may* be doing so from a join code. If so make sure that's
     // resolved to a regular peer before continuing.
     let config = config
@@ -68,26 +61,7 @@ pub async fn run_daemon(config: Config, init_doc: bool, ui: &UserInterface) -> R
         .await
         .context("Failed to resolve peer")?;
 
-    let persist = !has_git_remote(&config.project_dir);
-    if !persist {
-        // TODO: drop .teamtype/doc here? Would that be rude?
-        ui.log(
-            "Detected a Git remote: Assuming a pair-programming use-case and starting a new history."
-        );
-    }
-
-    ensure_teamtype_is_ignored(&config.project_dir)?;
-
-    if (config.vcs_mode == VcsMode::Sync)
-        && has_local_user_config(&config.project_dir).is_ok_and(|v| v)
-    {
-        ui.warn(docstr!(
-            /// You have a local user configuration in your .git/config.
-            /// In --sync-vcs mode, this file will also be synchronized between peers.
-            /// If your version "wins", all peers will have the same Git identity.
-            /// As a workaround, you could use `git commit --author`.
-        ));
-    }
+    let persist = false;
 
     // Setup a new daemon from the derived config. Immediately join the handle because that's what
     // actually starts the local socket and any configured network connections. Return the result
@@ -105,7 +79,6 @@ pub enum DocMessage {
     },
     FromEditor(EditorId, IncomingMessage),
     ToEditor(EditorId, OutgoingMessage),
-    FromWatcher(WatcherEvent),
     RescanFiles,
     Persist,
     RandomEdit,
@@ -129,7 +102,6 @@ impl Debug for DocMessage {
             Self::GetContent { .. } => "GetContent".to_string(),
             Self::FromEditor(id, m) => format!("FromEditor({id}, {m:?})"),
             Self::ToEditor(id, m) => format!("ToEditor({id}, {m:?})"),
-            Self::FromWatcher(e) => format!("FromWatcher({e:?}"),
             Self::RescanFiles => "RescanFiles".to_string(),
             Self::Persist => "Persist".to_string(),
             Self::RandomEdit => "RandomEdit".to_string(),
@@ -223,12 +195,6 @@ impl DocumentActor {
             ui: ui.clone(),
         };
 
-        if persistence_file_exists && persist {
-            s.read_current_content_from_dir(init);
-        } else if network_mode == NetworkMode::Host {
-            s.read_current_content_from_dir(true);
-        }
-
         s
     }
 
@@ -266,11 +232,8 @@ impl DocumentActor {
             DocMessage::ToEditor(editor_id, message) => {
                 self.send_to_editor_client(&editor_id, message).await;
             }
-            DocMessage::FromWatcher(watcher_event) => {
-                self.handle_watcher_event(&watcher_event);
-            }
             DocMessage::RescanFiles => {
-                self.read_current_content_from_dir(false);
+                // noop
             }
             DocMessage::Persist => {
                 let persistence_file = &self.project_dir.join(CONFIG_DIR).join("doc");
@@ -685,56 +648,6 @@ impl DocumentActor {
             .unwrap_or_else(|err| panic!("Failed to write to file {abs_path}: {err}"));
     }
 
-    fn read_current_content_from_dir(&mut self, init: bool) {
-        debug!("Reading current contents from disk (init: {init}).");
-        for file_path in sandbox::enumerate_non_ignored_files(&self.project_dir, self.vcs_mode) {
-            match sandbox::read_file(&self.project_dir, &file_path) {
-                Ok(bytes) => {
-                    let relative_file_path =
-                        RelativePath::try_from_path(&self.project_dir, &file_path)
-                            .expect("Walked file path should be within project directory");
-                    if self.owns(&relative_file_path) {
-                        if let Ok(text) = String::from_utf8(bytes.clone()) {
-                            if init {
-                                self.crdt_doc.set_file(
-                                    document::Content::String(text.clone()),
-                                    &relative_file_path,
-                                );
-                            } else {
-                                self.crdt_doc.update_text(&text, &relative_file_path);
-                            }
-                        } else {
-                            self.crdt_doc
-                                .set_file(document::Content::Bytes(bytes), &relative_file_path);
-                        }
-                    }
-                }
-                Err(e) => {
-                    self.ui.warn(&format!(
-                        "Failed to read file '{}': {e}",
-                        file_path.display()
-                    ));
-                }
-            }
-        }
-
-        for relative_file_path in self.crdt_doc.files() {
-            let absolute_file_path = self.absolute_path_for_file_path(&relative_file_path);
-            if !sandbox::exists(&self.project_dir, &absolute_file_path)
-                .expect(
-                    "Should have been able to check for file existence while reading current directory content"
-                )
-                && self.owns(&relative_file_path)
-            {
-                self.ui.warn(&format!(
-                        "File {relative_file_path} exists in the CRDT, but not on disk. Deleting from CRDT."
-                    ));
-                self.remove_file(&relative_file_path);
-            }
-        }
-        let _ = self.doc_changed_ping_tx.send(());
-    }
-
     fn current_file_content(&self, file_path: &RelativePath) -> Option<&document::Content> {
         self.crdt_doc.current_file_content(file_path)
     }
@@ -822,8 +735,6 @@ impl DocumentActor {
                 let _ = self.ephemeral_message_tx.send(new_cursor_state);
             }
         }
-
-        self.broadcast_to_editors(from_editor, message).await;
 
         to_editor
     }
@@ -1028,7 +939,6 @@ impl DocumentActorHandle {
 #[must_use]
 pub struct Daemon {
     pub document_handle: DocumentActorHandle,
-    listener_path: PathBuf,
     config: Config,
     // We need to store the connection manager in order to keep the connection alive.
     connection_manager: peer::ConnectionManager,
@@ -1044,25 +954,9 @@ impl Daemon {
     ) -> Result<Self> {
         debug!("Starting Teamtype on {:?}.", config.project_dir);
 
-        let listener_path = config.project_dir.join(CONFIG_DIR).join(LISTENER_NAME);
-
-        // Start a platform-appropriate listener.
-        let listener = editor::spawn_listener(&listener_path, ui).await?;
-
         // This scans the entire project at project_dir and constructs a CRDT document with all files.
         // This can be very expensive to run.
         let document_handle = DocumentActorHandle::new(&config, ui, init, persist);
-
-        // Initialize listener with our CRDT chain.
-        editor::initialize_listener(listener, document_handle.clone(), ui).await?;
-
-        // Start file watcher.
-        spawn_file_watcher(&config, document_handle.clone());
-
-        if persist {
-            // Start persister.
-            spawn_persister(document_handle.clone());
-        }
 
         // Start connection manager.
         let connection_manager = peer::ConnectionManager::new(&config, document_handle.clone(), ui)
@@ -1091,7 +985,6 @@ impl Daemon {
 
         Ok(Self {
             document_handle,
-            listener_path,
             config,
             connection_manager,
         })
@@ -1100,87 +993,6 @@ impl Daemon {
     pub fn secret_address(&self) -> &str {
         self.connection_manager.secret_address()
     }
-}
-
-impl Drop for Daemon {
-    fn drop(&mut self) {
-        debug!("Daemon dropped, removing socket");
-        sandbox::remove_file(&self.config.project_dir, &self.listener_path)
-            .expect("Could not remove socket");
-    }
-}
-
-// Spawn a file watcher and feed its events to the document_handle.
-// In addition, a short timeout after the last event, do a full re-scan, so that we don't miss any
-// file changes - the watcher isn't necessarily exhaustive.
-fn spawn_file_watcher(config: &Config, document_handle: DocumentActorHandle) {
-    let mut event_rx = Watcher::spawn(config.project_dir.clone(), config.vcs_mode);
-
-    tokio::spawn(async move {
-        let debounce_duration = Duration::from_millis(100);
-
-        let debounce_timer = sleep(debounce_duration);
-        // Sleep does not implement the Unpin trait, so in order to use it with select!, we have to
-        // pin it first (according to the documentation https://docs.rs/tokio/latest/tokio/time/struct.Sleep.html).
-        tokio::pin!(debounce_timer);
-
-        let mut rescan_required = false;
-
-        loop {
-            tokio::select! {
-                maybe_event = event_rx.recv() => {
-                    if let Some(watcher_event) = maybe_event {
-                        document_handle
-                            .send_message(DocMessage::FromWatcher(watcher_event))
-                            .await;
-
-                        debounce_timer.as_mut().reset(Instant::now() + debounce_duration);
-                        rescan_required = true;
-                    } else {
-                        // Watcher terminated. Seems we're shutting down.
-                        return;
-                    }
-                }
-
-                () = &mut debounce_timer, if rescan_required => {
-                    document_handle
-                        .send_message(DocMessage::RescanFiles)
-                        .await;
-                    rescan_required = false;
-                }
-            }
-        }
-    });
-}
-
-fn spawn_persister(document_handle: DocumentActorHandle) {
-    tokio::spawn(async move {
-        let mut doc_changed_ping_rx = document_handle.subscribe_document_changes();
-
-        document_handle.send_message(DocMessage::Persist).await;
-
-        loop {
-            match doc_changed_ping_rx.recv().await {
-                Ok(()) => {
-                    // The document has changed.
-                }
-                Err(RecvError::Closed) => {
-                    panic!("Doc changed channel has been closed");
-                }
-                Err(RecvError::Lagged(_)) => {
-                    // This is fine, the messages in this channel are just pings.
-                    // It's fine if we miss some.
-                    debug!("Doc changed ping channel lagged (this is probably fine).");
-                }
-            }
-
-            document_handle.send_message(DocMessage::Persist).await;
-
-            // Alternatively to sleeping, we could use a "back channel" in the Persist
-            // message, so that the daemon tells us when it's done persisting.
-            sleep(Duration::from_secs(1)).await;
-        }
-    });
 }
 
 #[cfg(test)]

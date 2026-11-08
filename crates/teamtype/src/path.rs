@@ -27,21 +27,6 @@ impl AbsolutePath {
         let path = base.join(relative_path);
         Self::try_from(path)
     }
-
-    pub fn to_file_uri(&self) -> FileUri {
-        // Figure out how to prefix paths to make them file URLs. On *nix this is simple. On Windows
-        // it is a three ring circus. Not my circus not my monkeys.
-        let uri = match Url::from_file_path(&self.0) {
-            // If the url crate likes the path, we don't need any monkey business.
-            Ok(url) => url.to_string(),
-            // On the other hand if the url crate thinks the path is nonsense, it probably is.
-            // Windows has several wonkey options it gives back when we canonicalize() relative to
-            // the project. There are multiple possible absolute prefixes we need to normalize.
-            Err(()) => pseudo_absolute_path_to_file_uri(&self.0),
-        };
-        // Percent-encode the file path to be valid as a URI.
-        FileUri::try_from(uri).expect("Should be able to create File URI from absolute path")
-    }
 }
 
 fn pseudo_absolute_path_to_file_uri(path: &Path) -> String {
@@ -142,16 +127,6 @@ impl From<&RelativePath> for Prop {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deref)]
 #[must_use]
 pub struct FileUri(String);
-
-impl FileUri {
-    pub fn to_absolute_path(&self) -> AbsolutePath {
-        let path_buf = Url::parse(self)
-            .expect("Should be able to parse file:// URL as Url")
-            .to_file_path()
-            .expect("Should be able to convert Url to PathBuf");
-        AbsolutePath::try_from(path_buf).expect("File URI should contain an absolute path")
-    }
-}
 
 impl TryFrom<String> for FileUri {
     type Error = anyhow::Error;

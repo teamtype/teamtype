@@ -16,8 +16,6 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::bail;
 use anyhow::{Context, Result};
-use ignore::WalkBuilder;
-use ignore::overrides::OverrideBuilder;
 use path_clean::PathClean;
 
 use crate::config::CONFIG_DIR;
@@ -132,93 +130,6 @@ pub fn exists(absolute_project_dir: &Path, absolute_file_path: &Path) -> Result<
     let canonical_file_path =
         check_inside_project_dir_and_canonicalize(absolute_project_dir, absolute_file_path)?;
     Ok(canonical_file_path.exists())
-}
-
-pub(crate) fn enumerate_non_ignored_files(
-    project_dir: &ProjectDir,
-    vcs_mode: VcsMode,
-) -> Vec<PathBuf> {
-    let mut ignored_things = vec![CONFIG_DIR];
-    if vcs_mode == VcsMode::Ignore {
-        ignored_things.extend([CONFIG_DIR, ".git", ".bzr", ".hg", ".jj", ".pijul", ".svn"]);
-    }
-
-    let walk = WalkBuilder::new(project_dir)
-        .add_custom_ignore_filename(".teamtypeignore")
-        .standard_filters(true)
-        .hidden(false)
-        .require_git(false)
-        // Interestingly, the standard filters don't seem to ignore .git.
-        .filter_entry(move |dir_entry| {
-            let name = dir_entry
-                .path()
-                .file_name()
-                .expect("Failed to get file name from path.")
-                .to_str()
-                .expect("Failed to convert OsStr to str");
-            !ignored_things.contains(&name) && !name.ends_with('~')
-        })
-        .build();
-
-    let mut files: Vec<PathBuf> = walk
-        .filter_map(Result::ok)
-        .filter(|dir_entry| {
-            !dir_entry
-                .file_type()
-                .expect("Couldn't get file type of dir entry")
-                .is_dir()
-        })
-        .map(|dir_entry| dir_entry.path().to_path_buf())
-        .collect();
-
-    // When jj is used colocatedly with Git, there will be a .jj/.gitignore that ignores .jj.
-    // With --sync-vcs, we want to un-ignore it, though! The ignore crate's override functionality
-    // doesn't seem to allow for that - as soon as we positive-list something, everything else gets
-    // ignored.
-    // So do a second walk, and merge the results.
-    if matches!(vcs_mode, VcsMode::Sync) {
-        let overrides = OverrideBuilder::new(project_dir)
-            .add(".jj/")
-            .expect("Failed to add pattern to OverrideBuilder")
-            .add(".jj/**")
-            .expect("Failed to add pattern to OverrideBuilder")
-            .build()
-            .expect("Failed to build Overrides");
-        let walk = WalkBuilder::new(project_dir).overrides(overrides).build();
-        let jj_files: Vec<PathBuf> = walk
-            .filter_map(Result::ok)
-            .filter(|dir_entry| {
-                !dir_entry
-                    .file_type()
-                    .expect("Couldn't get file type of dir entry")
-                    .is_dir()
-            })
-            .map(|dir_entry| dir_entry.path().to_path_buf())
-            .collect();
-
-        // TODO: Remove duplicates, in the case that jj is used non-colocatedly.
-        files.extend(jj_files);
-    }
-
-    files
-}
-
-// TODO: Don't build the list of ignored files on every call.
-// TODO: Allow calling this for non-existing files.
-// TODO: Consider a custom type for sandbox-relative paths
-pub(crate) fn ignored(
-    project_dir: &ProjectDir,
-    vcs_mode: VcsMode,
-    absolute_file_path: &Path,
-) -> Result<bool> {
-    let canonical_file_path =
-        check_inside_project_dir_and_canonicalize(project_dir, absolute_file_path)?;
-
-    Ok(!enumerate_non_ignored_files(project_dir, vcs_mode)
-        .into_iter()
-        .map(|path_buf| absolute_and_canonicalized(&path_buf))
-        .collect::<Result<Vec<_>>>()?
-        .contains(&canonical_file_path))
 }
 
 fn check_inside_project_dir_and_canonicalize(project_dir: &Path, path: &Path) -> Result<PathBuf> {

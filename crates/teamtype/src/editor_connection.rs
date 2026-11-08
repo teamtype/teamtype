@@ -135,16 +135,16 @@ impl EditorConnection {
                         .map_err(anyhow_err_to_protocol_err)?;
                 }
 
-                // We only want to process these messages for files that are not ignored.
-                if sandbox::ignored(&self.project_dir, self.vcs_mode, &absolute_path)
-                    .expect("Could not check ignore status of opened file")
-                {
-                    return Err(EditorProtocolMessageError {
-                        code: -1,
-                        message: format!("File {absolute_path} is ignored"),
-                        data: Some("This file should not be shared with other peers".into()),
-                    });
-                }
+                // // We only want to process these messages for files that are not ignored.
+                // if sandbox::ignored(&self.project_dir, self.vcs_mode, &absolute_path)
+                //     .expect("Could not check ignore status of opened file")
+                // {
+                //     return Err(EditorProtocolMessageError {
+                //         code: -1,
+                //         message: format!("File {absolute_path} is ignored"),
+                //         data: Some("This file should not be shared with other peers".into()),
+                //     });
+                // }
 
                 let ot_server = OTServer::new(content.clone());
                 self.ot_servers.insert(relative_path.clone(), ot_server);

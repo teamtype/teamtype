@@ -78,6 +78,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 data-encoding = "2.10.0"
 url = "2"
+wasm-bindgen-futures = "0.4.80"
 
 [dependencies.clap]
 version = "4.5"
