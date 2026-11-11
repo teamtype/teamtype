@@ -52,6 +52,8 @@
             stylua
             typos
             pkgsForEslint.eslint # TODO: Remove pkgsForEslint once we upgrade to eslint 10.
+            wasm-pack
+            live-server
           ];
 
           workspaceToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
