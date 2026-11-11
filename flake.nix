@@ -90,6 +90,9 @@
           mkDevShell = pkgs.mkShell {
             buildInputs = runtimeDeps;
             nativeBuildInputs = buildDeps ++ devDeps;
+
+            CC_wasm32_unknown_unknown = "${pkgs.llvmPackages.clang-unwrapped}/bin/clang";
+            AR_wasm32_unknown_unknown = "${pkgs.llvmPackages.llvm}/bin/llvm-ar";
           };
         in
         {
