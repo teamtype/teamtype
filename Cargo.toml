@@ -25,6 +25,7 @@ rust-version = "1.92.0"
 
 [workspace.dependencies]
 anyhow = "1"
+color-eyre = "0.6.5"
 async-trait = "0.1"
 docstr = "0.4"
 pretty_assertions = "1"
