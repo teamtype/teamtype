@@ -14,11 +14,25 @@ Another person can use it to connect to you!
 The code only works once.
 You can learn about the security properties in the [Magic Wormhole documentation](https://magic-wormhole.readthedocs.io/en/latest/welcome.html#safely).
 
+```mermaid
+sequenceDiagram
+participant A as teamtype share
+participant W as Magic Wormhole relay
+participant B as teamtype join
+A->>W: join code
+A->>B: join code (via an external secure channel)
+B->>W: join code
+rect rgba(191,233,255,0.5)
+Note over A,B: Magic Wormhole establishes end-to-end encrypted channel
+A-->>B: secret address
+end
+```
+
 ## Secret addresses
 
 Since version 0.7.0 Teamtype uses iroh for making a connection.
-To connect to another daemon, we're using a combination of the iroh [Node Identifier](https://www.iroh.computer/docs/concepts/endpoint#node-identifiers) and a secret key which, smashed together, which looks like `429e94...0e9819#32374e...4a6789`.
-We call this the node's *secret address*.
+To connect to another daemon, we're using a combination of the iroh [Endpoint Identifier](https://docs.iroh.computer/concepts/endpoints#endpoint-identifiers) and a secret key which, smashed together, which looks like `429e94...0e9819#32374e...4a6789`.
+We call this the endpoint's *secret address*.
 Treat it like a password.
 After using a join code, the secret address is stored in your `.teamtype/config`.
 
@@ -27,7 +41,37 @@ After using a join code, the secret address is stored in your `.teamtype/config`
 You can directly connect across different local networks, even when each of you is behind a router.
 This way of connecting is more "ad hoc" and useful if you want to collaborate over a short period of time (as described in more detail in the [pair programming scenario](pair-programming.md)).
 
+```mermaid
+sequenceDiagram
+participant A as teamtype share (A)
+participant Ip as Iroh Pkarr relay
+participant Id as Iroh DNS server
+participant Ir as Iroh Relay
+participant B as teamtype join (B)
+A->>Ir: A's Endpoint ID + connection information
+A->>Ip: A's Endpoint ID + relay
+Ip->>Id: Publishes on
+B->>Id: A's Endpoint ID
+Id->>B: A's relay
+B->>Ir: A's Endpoint ID
+Ir->>B: A's connection information
+rect rgba(191,233,255,0.5)
+note over A,B: Establish an end-to-end encrypted channel, either directly, or via the relay
+B-->>A: secret key
+A->>A: Confirms secret key
+A<<-->>B: Sync messages
+end
+```
+
 Teamtype also uses a "local discovery" mechanism based on mDNS, which allows peers in the same local network to find each other.
+
+```mermaid
+sequenceDiagram
+participant A as teamtype share
+participant B as teamtype join
+A->>B: occasionally broadcasts own Endpoint ID + connection information
+B->>A: direct connection
+```
 
 ## Cloud peer
 

@@ -46,6 +46,8 @@
             jq
             just
             luaPackages.luacheck
+            mdbook
+            mdbook-mermaid
             prettier
             reuse
             rustup
