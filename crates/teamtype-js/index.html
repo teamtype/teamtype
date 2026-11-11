@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <body>
+    <script type="module">
+      import init, { launch } from "./pkg/teamtype.js";
+
+      let log = (message) => {
+        const p = document.createElement("p")
+        p.innerText = "LOG: " + message
+        document.body.append(p)
+      }
+      let inform = (message) => {
+        const p = document.createElement("p")
+        p.innerText = "INFO: " + message
+        document.body.append(p)
+      }
+      let warn = (message) => {
+        const p = document.createElement("p")
+        p.innerText = "WARN: " + message
+        document.body.append(p)
+      }
+
+      init().then(async () => {
+        await launch(log, inform, warn)
+      });
+    </script>
+  </body>
+</html>
