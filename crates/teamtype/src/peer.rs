@@ -93,7 +93,7 @@ impl ConnectionManager {
             ui,
         );
 
-        tokio::spawn(async move { actor.run().await });
+        wasm_bindgen_futures::spawn_local(async move { actor.run().await });
 
         Ok(Self {
             message_tx,
@@ -158,50 +158,11 @@ impl ConnectionManager {
     }
 
     fn get_keypair(project_dir: &ProjectDir) -> (SecretKey, SecretKey) {
-        let config_dir = project_dir.join(CONFIG_DIR);
-        ensure_private_dir(&config_dir).expect("Refusing to create a key in non-private directory");
-        let keyfile = config_dir.join("key");
-        if keyfile.exists() {
-            let metadata =
-                fs::metadata(&keyfile).expect("Expected to have access to metadata of the keyfile");
+        debug!("Generating new keypair.");
+        let secret_key = SecretKey::generate();
+        let passphrase = SecretKey::generate();
 
-            ensure_private_file(keyfile.as_path()).expect("For security reasons, please make sure to set the key file to user-readable only (set the permissions to 600).");
-
-            assert!(
-                metadata.len() == 64,
-                "Your keyfile is not 64 bytes long. This is a sign that it was created by a Teamtype version older than 0.7.0, which is not compatible. Please remove .teamtype/key, and try again."
-            );
-
-            debug!("Re-using existing keypair.");
-            let mut file = File::open(keyfile).expect("Failed to open key file");
-
-            let mut secret_key = [0; 32];
-            file.read_exact(&mut secret_key)
-                .expect("Failed to read from key file");
-
-            let mut passphrase = [0; 32];
-            file.read_exact(&mut passphrase)
-                .expect("Failed to read from key file");
-
-            (
-                SecretKey::from_bytes(&secret_key),
-                SecretKey::from_bytes(&passphrase),
-            )
-        } else {
-            debug!("Generating new keypair.");
-            let secret_key = SecretKey::generate();
-            let passphrase = SecretKey::generate();
-
-            let mut file = create_private_file(keyfile)
-                .expect("Should have been able to create key file that did not exist before");
-
-            file.write_all(&secret_key.to_bytes())
-                .expect("Failed to write to key file");
-            file.write_all(&passphrase.to_bytes())
-                .expect("Failed to write to key file");
-
-            (secret_key, passphrase)
-        }
+        (secret_key, passphrase)
     }
 }
 
@@ -287,7 +248,7 @@ impl EndpointActor {
 
                 let document_handle_clone = self.document_handle.clone();
                 let message_tx_clone = self.message_tx.clone();
-                tokio::spawn({
+                wasm_bindgen_futures::spawn_local({
                     let ui = self.ui.clone();
                     async move {
                         if let Err(err) = Self::handle_peer(
@@ -379,7 +340,7 @@ impl EndpointActor {
 
         let my_passphrase_clone = self.my_passphrase.clone();
         let document_handle_clone = self.document_handle.clone();
-        tokio::spawn({
+        wasm_bindgen_futures::spawn_local({
             let ui = self.ui.clone();
             async move {
                 if let Err(err) = Self::handle_peer(
@@ -441,7 +402,7 @@ impl PeerMessageStream {
 
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        tokio::spawn(async move {
+        wasm_bindgen_futures::spawn_local(async move {
             let _ = Self::read_loop(receive, message_tx).await;
         });
 

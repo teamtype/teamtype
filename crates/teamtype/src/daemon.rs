@@ -162,23 +162,7 @@ impl DocumentActor {
         vcs_mode: VcsMode,
         ui: &UserInterface,
     ) -> Self {
-        // If there is a persisted version in project_dir/.teamtype/doc, load it.
-        let persistence_file = project_dir.join(CONFIG_DIR).join("doc");
-        let persistence_file_exists = sandbox::exists(&project_dir, &persistence_file)
-            .expect("Could not check for the existence of the persistence file");
-
-        let load_crdt_doc = persistence_file_exists && !init && persist;
-        let crdt_doc = if load_crdt_doc {
-            debug!(
-                "Loading persisted CRDT document from '{}'.",
-                persistence_file.display()
-            );
-            let bytes = sandbox::read_file(&project_dir, &persistence_file)
-                .unwrap_or_else(|_| panic!("Could not read file '{}'", persistence_file.display()));
-            Document::load(&bytes, ui)
-        } else {
-            Document::new(ui)
-        };
+        let crdt_doc = Document::new(ui);
         debug!("Loading CRDT document completed.");
 
         let mut s = Self {
@@ -226,8 +210,7 @@ impl DocumentActor {
                 };
                 self.process_component_message(None, &message).await;
             }
-            DocMessage::FromEditor(editor_id, message) => {
-            }
+            DocMessage::FromEditor(editor_id, message) => {}
             DocMessage::ToEditor(editor_id, message) => {
                 self.send_to_editor_client(&editor_id, message).await;
             }
@@ -364,12 +347,15 @@ impl DocumentActor {
                 let editor_connection_id = self.cursor_id(id);
                 self.editor_connections.insert(
                     id,
-                    (EditorConnection::new(
-                        editor_connection_id,
-                        self.project_dir.clone(),
-                        self.vcs_mode,
-                        self.username.clone(),
-                    ),0),
+                    (
+                        EditorConnection::new(
+                            editor_connection_id,
+                            self.project_dir.clone(),
+                            self.vcs_mode,
+                            self.username.clone(),
+                        ),
+                        0,
+                    ),
                 );
 
                 // Send all known cursor states to editor.
@@ -614,16 +600,12 @@ impl DocumentActor {
                     self.crdt_doc
                         .set_file(document::Content::String(content.clone()), file_path);
                     let _ = self.doc_changed_ping_tx.send(());
-                    self.write_file(file_path);
                 }
             }
-            ComponentMessage::Close { file_path } => {
-                self.write_file(file_path);
-            }
+            ComponentMessage::Close { file_path } => {}
             ComponentMessage::Edit { file_path, delta } => {
                 self.crdt_doc.apply_delta_to_doc(delta, file_path).expect("Failed to apply delta to document while handling edit ComponentMessage. Probably the delta doesn't fit the document content.");
                 let _ = self.doc_changed_ping_tx.send(());
-                self.write_file(file_path);
             }
             ComponentMessage::Cursor {
                 cursor_id,
@@ -737,7 +719,7 @@ impl DocumentActorHandle {
             ui,
         );
 
-        tokio::spawn(async move { actor.run().await });
+        wasm_bindgen_futures::spawn_local(async move { actor.run().await });
 
         Self {
             doc_message_tx,
@@ -816,6 +798,7 @@ impl Daemon {
             .await
             .expect("Failed to start connection manager");
         let address = connection_manager.secret_address();
+        debug!(address);
 
         if config.emit_secret_address {
             ui.inform(&docstr!(format!
