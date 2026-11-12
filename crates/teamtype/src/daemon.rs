@@ -972,6 +972,10 @@ impl Daemon {
     pub fn secret_address(&self) -> &str {
         self.connection_manager.secret_address()
     }
+
+    pub fn document_handle(&self) -> DocumentActorHandle {
+        self.document_handle.clone()
+    }
 }
 
 #[cfg(test)]
