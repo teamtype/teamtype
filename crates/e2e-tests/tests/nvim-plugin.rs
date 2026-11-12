@@ -49,7 +49,7 @@ async fn assert_nvim_deltas_yield_content(
 
     for op in &deltas {
         let editor_message = EditorProtocolMessageToEditor::Edit {
-            uri: format!("file://{}", test_file.display()),
+            relative_uri: format!("file://{}", test_file.display()),
             revision: 0,
             delta: EditorTextDelta(vec![op.clone()]),
         };

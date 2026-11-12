@@ -80,14 +80,14 @@ impl IncomingMessage {
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
 pub enum EditorProtocolMessageToEditor {
     Edit {
-        uri: DocumentUri,
+        relative_uri: DocumentUri,
         revision: usize,
         delta: EditorTextDelta,
     },
     Cursor {
         userid: CursorId,
         name: Option<String>,
-        uri: DocumentUri,
+        relative_uri: DocumentUri,
         ranges: Vec<Range>,
     },
 }
@@ -117,19 +117,19 @@ pub struct EditorProtocolMessageError {
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
 pub enum EditorProtocolMessageFromEditor {
     Open {
-        uri: DocumentUri,
+        relative_uri: DocumentUri,
         content: String,
     },
     Close {
-        uri: DocumentUri,
+        relative_uri: DocumentUri,
     },
     Edit {
-        uri: DocumentUri,
+        relative_uri: DocumentUri,
         revision: usize,
         delta: EditorTextDelta,
     },
     Cursor {
-        uri: DocumentUri,
+        relative_uri: DocumentUri,
         ranges: Vec<Range>,
     },
 }
@@ -151,7 +151,7 @@ mod test_serde {
             IncomingMessage::Request {
                 id: 1.into(),
                 payload: EditorProtocolMessageFromEditor::Open {
-                    uri: "file:///tmp/file".into(),
+                    relative_uri: "file:///tmp/file".into(),
                     content: "initial content".to_string(),
                 }
             }
@@ -168,7 +168,7 @@ mod test_serde {
             IncomingMessage::Request {
                 id: "1".to_string().into(),
                 payload: EditorProtocolMessageFromEditor::Open {
-                    uri: "file:///tmp/file".into(),
+                    relative_uri: "file:///tmp/file".into(),
                     content: "initial content".to_string(),
                 }
             }
