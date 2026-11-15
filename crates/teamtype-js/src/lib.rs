@@ -1,5 +1,8 @@
 use anyhow::Result;
-use teamtype::{Config, Interactions, UserInterface};
+use teamtype::{
+    Config, DocMessage, EditorProtocolMessageFromEditor, IncomingMessage, Interactions, JSONRPCId,
+    OutgoingMessage, UserInterface,
+};
 use tracing::{debug, info, warn};
 use tracing_subscriber::prelude::*;
 use tracing_web::MakeWebConsoleWriter;
@@ -63,7 +66,28 @@ pub async fn launch(
 
     let ui = &UserInterface::new(TestInteractions { log, inform, warn });
 
-    let _daemon = teamtype::run_daemon(config, false, ui).await;
+    let daemon = teamtype::run_daemon(config, false, ui).await.unwrap();
+    let document_handle = daemon.document_handle();
+
+    let (tx, mut rx) = futures::channel::mpsc::channel::<OutgoingMessage>(16);
+    document_handle
+        .send_message(DocMessage::NewEditorConnection(0, tx))
+        .await;
+    let open_message = IncomingMessage::Request {
+        id: JSONRPCId::Usize(1),
+        payload: EditorProtocolMessageFromEditor::Open {
+            relative_uri: "file".to_string(),
+            content: "hi".to_string(),
+        },
+    };
+    document_handle
+        .send_message(DocMessage::FromEditor(0, open_message))
+        .await;
+
+    loop {
+        let msg = rx.recv().await.unwrap();
+        debug!("{:?}", msg);
+    }
 
     Ok(())
 }

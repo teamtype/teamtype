@@ -873,7 +873,7 @@ impl DocumentActorHandle {
     }
 
     /// The TCP and socket connections will send messages through this when they receive something.
-    pub(crate) async fn send_message(&self, message: DocMessage) {
+    pub async fn send_message(&self, message: DocMessage) {
         self.doc_message_tx
             .send(message)
             .await
@@ -955,6 +955,7 @@ impl Daemon {
             put_secret_address_into_wormhole(address, config.magic_wormhole_relay.clone(), ui)
                 .await;
         }
+        ui.inform("here");
         if let Some(Peer::SecretAddress(ref secret_address)) = config.peer {
             connection_manager
                 .connect(secret_address.clone())

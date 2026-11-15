@@ -4282,6 +4282,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
+ "futures 0.3.34",
  "teamtype",
  "tracing",
  "tracing-subscriber",

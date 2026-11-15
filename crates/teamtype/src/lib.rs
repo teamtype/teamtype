@@ -20,6 +20,14 @@ mod traits;
 mod watcher;
 mod wormhole;
 
+// Export stuff for teamtype-js.
+pub use daemon::DocMessage;
+pub use editor_protocol::EditorProtocolMessageFromEditor;
+pub use editor_protocol::EditorProtocolMessageToEditor;
+pub use editor_protocol::IncomingMessage;
+pub use editor_protocol::JSONRPCId;
+pub use editor_protocol::OutgoingMessage;
+
 // The e2e testing reaches deep into internals of these modules that we don't advertise as part of
 // our supported public API, but they still need to cross a crate boundary.
 //

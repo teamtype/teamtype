@@ -35,7 +35,7 @@ use crate::types::UserInterface;
 
 pub type EditorId = usize;
 
-pub type EditorWriter = tokio::sync::mpsc::Sender<OutgoingMessage>;
+pub type EditorWriter = futures::channel::mpsc::Sender<OutgoingMessage>;
 
 #[derive(Debug)]
 pub struct OutgoingProtocolCodec;
