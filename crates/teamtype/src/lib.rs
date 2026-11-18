@@ -56,7 +56,7 @@ pub(crate) mod testing;
 
 // Explicitly export bits from our modules that we have picked to be the public API.
 pub use config::{Config, NetworkMode, Peer, ProjectDir, VcsMode};
-pub use daemon::Daemon;
+pub use daemon::{Daemon, DocumentActorHandle};
 pub use daemon::run_daemon;
 pub use traits::Interactions;
-pub use types::UserInterface;
+pub use types::{UserInterface, Range, Position};

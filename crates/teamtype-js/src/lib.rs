@@ -1,7 +1,8 @@
 use anyhow::Result;
+use futures::channel::mpsc::Receiver;
 use teamtype::{
-    Config, DocMessage, EditorProtocolMessageFromEditor, IncomingMessage, Interactions, JSONRPCId,
-    OutgoingMessage, UserInterface,
+    Config, DocMessage, DocumentActorHandle, EditorProtocolMessageFromEditor, IncomingMessage,
+    Interactions, JSONRPCId, OutgoingMessage, Position, Range, UserInterface,
 };
 use tracing::{debug, info, warn};
 use tracing_subscriber::prelude::*;
@@ -41,11 +42,43 @@ impl Interactions for TestInteractions {
 }
 
 #[wasm_bindgen]
+struct EditorConnection {
+    document_handle: DocumentActorHandle,
+    receiver: Receiver<OutgoingMessage>,
+}
+
+#[wasm_bindgen]
+impl EditorConnection {
+    #[wasm_bindgen]
+    pub async fn cursor(&self, row: usize, col: usize) {
+        let cursor_message = IncomingMessage::Request {
+            id: JSONRPCId::Usize(2),
+            payload: EditorProtocolMessageFromEditor::Cursor {
+                relative_uri: "file".to_string(),
+                ranges: vec![Range {
+                    start: Position {
+                        line: row,
+                        character: col,
+                    },
+                    end: Position {
+                        line: row,
+                        character: col,
+                    },
+                }],
+            },
+        };
+        self.document_handle
+            .send_message(DocMessage::FromEditor(0, cursor_message))
+            .await;
+    }
+}
+
+#[wasm_bindgen]
 pub async fn launch(
     log: js_sys::Function,
     inform: js_sys::Function,
     warn: js_sys::Function,
-) -> Result<(), JsValue> {
+) -> Result<EditorConnection, JsValue> {
     console_error_panic_hook::set_once();
 
     let console_writer = MakeWebConsoleWriter::new();
@@ -84,10 +117,10 @@ pub async fn launch(
         .send_message(DocMessage::FromEditor(0, open_message))
         .await;
 
-    loop {
-        let msg = rx.recv().await.unwrap();
-        debug!("{:?}", msg);
-    }
+    // loop {
+    //     let msg = rx.recv().await.unwrap();
+    //     debug!("{:?}", msg);
+    // }
 
-    Ok(())
+    Ok(EditorConnection { document_handle, receiver: rx })
 }

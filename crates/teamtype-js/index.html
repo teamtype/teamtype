@@ -24,8 +24,19 @@
       }
 
       init().then(async () => {
-        await launch(log, inform, warn)
+        const editor_connection = await launch(log, inform, warn)
+
+        const ta = document.querySelector("textarea")
+        ta.onchange = (e) => {
+          // send cursor pos to
+          const row = 0
+          const col = 0
+          editor_connection.cursor(row, col)
+        }
       });
+
     </script>
+
+    <textarea></textarea>
   </body>
 </html>
