@@ -2,45 +2,15 @@
 <html lang="en-US">
     <head>
         <meta charset="utf-8" />
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/9.0.0/diff.min.js"
+            integrity="sha512-NGTZEjbUcbMGqNIcsTBHuYn4J1wDeQsTsjvwp6hql0nLzgp+5B3LpbKOusCOqwQWukrZDo/uVkalW9s1lfr7xA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        ></script>
+        <script type="module" src="script.js"></script>
     </head>
     <body>
-        <script type="module">
-            import init, {launch} from "./pkg/teamtype.js"
-
-            let log = (message) => {
-                const p = document.createElement("p")
-                p.innerText = "LOG: " + message
-                document.body.append(p)
-            }
-            let inform = (message) => {
-                const p = document.createElement("p")
-                p.innerText = "INFO: " + message
-                document.body.append(p)
-            }
-            let warn = (message) => {
-                const p = document.createElement("p")
-                p.innerText = "WARN: " + message
-                document.body.append(p)
-            }
-            let msg = (message) => {
-                const p = document.createElement("p")
-                p.innerText = "MSG: " + message
-                document.body.append(p)
-            }
-
-            init().then(async () => {
-                const editor_connection = await launch(msg, log, inform, warn)
-
-                const ta = document.querySelector("textarea")
-                ta.onchange = (e) => {
-                    // send cursor pos to
-                    const row = 0
-                    const col = 0
-                    editor_connection.cursor(row, col)
-                }
-            })
-        </script>
-
         <textarea></textarea>
     </body>
 </html>

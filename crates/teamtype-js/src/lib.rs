@@ -49,22 +49,19 @@ struct EditorConnection {
 #[wasm_bindgen]
 impl EditorConnection {
     #[wasm_bindgen]
-    pub async fn cursor(&self, row: usize, col: usize) {
+    pub async fn send(&self, method: JsValue, params: JsValue) {
+        let x = js_sys::Object::from_entries(&js_sys::Array::of2(
+            &js_sys::Array::of2(&"method".into(), &method),
+            &js_sys::Array::of2(&"params".into(), &params),
+        ))
+        .unwrap()
+        .into();
+
+        let payload = serde_wasm_bindgen::from_value(x).unwrap();
+
         let cursor_message = IncomingMessage::Request {
             id: JSONRPCId::Usize(2),
-            payload: EditorProtocolMessageFromEditor::Cursor {
-                relative_uri: "file".to_string(),
-                ranges: vec![Range {
-                    start: Position {
-                        line: row,
-                        character: col,
-                    },
-                    end: Position {
-                        line: row,
-                        character: col + 1,
-                    },
-                }],
-            },
+            payload,
         };
         self.document_handle
             .send_message(DocMessage::FromEditor(0, cursor_message))
@@ -107,16 +104,17 @@ pub async fn launch(
     document_handle
         .send_message(DocMessage::NewEditorConnection(0, tx))
         .await;
-    let open_message = IncomingMessage::Request {
-        id: JSONRPCId::Usize(1),
-        payload: EditorProtocolMessageFromEditor::Open {
-            relative_uri: "file".to_string(),
-            content: "hi".to_string(),
-        },
-    };
-    document_handle
-        .send_message(DocMessage::FromEditor(0, open_message))
-        .await;
+
+    // let open_message = IncomingMessage::Request {
+    //     id: JSONRPCId::Usize(1),
+    //     payload: EditorProtocolMessageFromEditor::Open {
+    //         relative_uri: "file".to_string(),
+    //         content: "hi".to_string(),
+    //     },
+    // };
+    // document_handle
+    //     .send_message(DocMessage::FromEditor(0, open_message))
+    //     .await;
 
     wasm_bindgen_futures::spawn_local(async move {
         loop {
