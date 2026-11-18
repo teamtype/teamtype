@@ -44,7 +44,6 @@ impl Interactions for TestInteractions {
 #[wasm_bindgen]
 struct EditorConnection {
     document_handle: DocumentActorHandle,
-    receiver: Receiver<OutgoingMessage>,
 }
 
 #[wasm_bindgen]
@@ -62,7 +61,7 @@ impl EditorConnection {
                     },
                     end: Position {
                         line: row,
-                        character: col,
+                        character: col + 1,
                     },
                 }],
             },
@@ -75,6 +74,7 @@ impl EditorConnection {
 
 #[wasm_bindgen]
 pub async fn launch(
+    msg: js_sys::Function,
     log: js_sys::Function,
     inform: js_sys::Function,
     warn: js_sys::Function,
@@ -91,6 +91,7 @@ pub async fn launch(
 
     let config = Config {
         emit_join_code: true,
+        username: Some("Teamtype Web".to_string()),
 
         // Default mailbox server doesn't seem to support wss://.
         magic_wormhole_relay: Some("wss://mailbox.mw.leastauthority.com/v1".to_string()),
@@ -117,10 +118,17 @@ pub async fn launch(
         .send_message(DocMessage::FromEditor(0, open_message))
         .await;
 
-    // loop {
-    //     let msg = rx.recv().await.unwrap();
-    //     debug!("{:?}", msg);
-    // }
+    wasm_bindgen_futures::spawn_local(async move {
+        loop {
+            let the_msg = rx.recv().await.unwrap();
+            debug!("{:?}", msg);
+            msg.call1(
+                &JsValue::NULL,
+                &JsValue::from_str(&the_msg.to_jsonrpc().unwrap()),
+            )
+            .expect("Failed to call msg");
+        }
+    });
 
-    Ok(EditorConnection { document_handle, receiver: rx })
+    Ok(EditorConnection { document_handle })
 }

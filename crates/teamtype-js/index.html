@@ -22,9 +22,14 @@
         p.innerText = "WARN: " + message
         document.body.append(p)
       }
+      let msg = (message) => {
+        const p = document.createElement("p")
+        p.innerText = "MSG: " + message
+        document.body.append(p)
+      }
 
       init().then(async () => {
-        const editor_connection = await launch(log, inform, warn)
+        const editor_connection = await launch(msg, log, inform, warn)
 
         const ta = document.querySelector("textarea")
         ta.onchange = (e) => {
