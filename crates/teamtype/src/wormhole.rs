@@ -22,13 +22,14 @@ pub async fn put_secret_address_into_wormhole(
     ui: &UserInterface,
 ) {
     let payload: Vec<u8> = address.into();
-    let config = build_magic_wormhole_config(magic_wormhole_relay, ui);
+    let config = build_magic_wormhole_config(magic_wormhole_relay.clone(), ui);
 
     let adjectives: Vec<&str> = include_str!("../assets/adjectives.txt").lines().collect();
     let nouns: Vec<&str> = include_str!("../assets/nouns.txt").lines().collect();
 
     wasm_bindgen_futures::spawn_local({
         let ui = ui.clone();
+        // let magic_wormhole_relay = magic_wormhole_relay.clone();
         async move {
             loop {
                 let adjective = adjectives
@@ -54,10 +55,23 @@ pub async fn put_secret_address_into_wormhole(
                 };
                 let code = mailbox_connection.code().clone();
 
+                let options = magic_wormhole_relay.as_ref().map_or_else(
+                    String::new,
+                    |magic_wormhole_relay| {
+                        // wss:// -> ws://
+                        let magic_wormhole_relay =
+                            magic_wormhole_relay.strip_prefix("wss://").map_or_else(
+                                || magic_wormhole_relay.clone(),
+                                |rest| format!("ws://{rest}"),
+                            );
+                        format!(" --magic-wormhole-relay={magic_wormhole_relay}")
+                    },
+                );
+
                 ui.inform(&docstr!(format!
                         /// One other person can use this to connect to you:
                         ///
-                        ///    teamtype join {code}
+                        ///    teamtype join{options} {code}
                         ///
                 ));
 
