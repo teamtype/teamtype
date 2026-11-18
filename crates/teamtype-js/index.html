@@ -1,47 +1,46 @@
 <!doctype html>
 <html lang="en-US">
-  <head>
-    <meta charset="utf-8" />
-  </head>
-  <body>
-    <script type="module">
-      import init, { launch } from "./pkg/teamtype.js";
+    <head>
+        <meta charset="utf-8" />
+    </head>
+    <body>
+        <script type="module">
+            import init, {launch} from "./pkg/teamtype.js"
 
-      let log = (message) => {
-        const p = document.createElement("p")
-        p.innerText = "LOG: " + message
-        document.body.append(p)
-      }
-      let inform = (message) => {
-        const p = document.createElement("p")
-        p.innerText = "INFO: " + message
-        document.body.append(p)
-      }
-      let warn = (message) => {
-        const p = document.createElement("p")
-        p.innerText = "WARN: " + message
-        document.body.append(p)
-      }
-      let msg = (message) => {
-        const p = document.createElement("p")
-        p.innerText = "MSG: " + message
-        document.body.append(p)
-      }
+            let log = (message) => {
+                const p = document.createElement("p")
+                p.innerText = "LOG: " + message
+                document.body.append(p)
+            }
+            let inform = (message) => {
+                const p = document.createElement("p")
+                p.innerText = "INFO: " + message
+                document.body.append(p)
+            }
+            let warn = (message) => {
+                const p = document.createElement("p")
+                p.innerText = "WARN: " + message
+                document.body.append(p)
+            }
+            let msg = (message) => {
+                const p = document.createElement("p")
+                p.innerText = "MSG: " + message
+                document.body.append(p)
+            }
 
-      init().then(async () => {
-        const editor_connection = await launch(msg, log, inform, warn)
+            init().then(async () => {
+                const editor_connection = await launch(msg, log, inform, warn)
 
-        const ta = document.querySelector("textarea")
-        ta.onchange = (e) => {
-          // send cursor pos to
-          const row = 0
-          const col = 0
-          editor_connection.cursor(row, col)
-        }
-      });
+                const ta = document.querySelector("textarea")
+                ta.onchange = (e) => {
+                    // send cursor pos to
+                    const row = 0
+                    const col = 0
+                    editor_connection.cursor(row, col)
+                }
+            })
+        </script>
 
-    </script>
-
-    <textarea></textarea>
-  </body>
+        <textarea></textarea>
+    </body>
 </html>
