@@ -73,7 +73,7 @@ impl TryFrom<&str> for AbsolutePath {
 /// Paths like these are relative to the shared directory.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash, Deref, AsRef, Display)]
 #[as_ref(Path)]
-#[display("'{}'", self.0.display())]
+#[display("{}", self.0.display())]
 #[must_use]
 pub struct RelativePath(PathBuf);
 

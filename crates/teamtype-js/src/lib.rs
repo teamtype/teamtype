@@ -78,13 +78,13 @@ pub async fn launch(
 ) -> Result<EditorConnection, JsValue> {
     console_error_panic_hook::set_once();
 
-    let console_writer = MakeWebConsoleWriter::new();
-    let fmt_layer = tracing_subscriber::fmt::layer()
-        .with_ansi(false)
-        .without_time()
-        .with_writer(console_writer);
-
-    tracing_subscriber::registry().with(fmt_layer).init();
+    // let console_writer = MakeWebConsoleWriter::new();
+    // let fmt_layer = tracing_subscriber::fmt::layer()
+    //     .with_ansi(false)
+    //     .without_time()
+    //     .with_writer(console_writer);
+    //
+    // tracing_subscriber::registry().with(fmt_layer).init();
 
     let config = Config {
         emit_join_code: true,
@@ -122,7 +122,7 @@ pub async fn launch(
             debug!("{:?}", msg);
             msg.call1(
                 &JsValue::NULL,
-                &JsValue::from_str(&the_msg.to_jsonrpc().unwrap()),
+                &js_sys::JSON::parse(&the_msg.to_jsonrpc().unwrap()).unwrap(),
             )
             .expect("Failed to call msg");
         }
