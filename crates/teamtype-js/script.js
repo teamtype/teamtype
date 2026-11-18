@@ -43,17 +43,14 @@ function changesToDelta(changes) {
 }
 
 init().then(async () => {
-    const ta = document.querySelector("textarea")
-    ta.value = ""
+    const text = document.querySelector("input")
+    text.value = ""
     let previous = ""
     let daemon_revision = 0
     let editor_revision = 0
 
     let msg = (message) => {
         console.log(message)
-        const p = document.createElement("p")
-        p.innerText = "MSG: " + JSON.stringify(message)
-        document.body.append(p)
 
         if (
             message["method"] == "edit" &&
@@ -71,7 +68,7 @@ init().then(async () => {
                     d["replacement"] +
                     previous.slice(ec)
             }
-            ta.value = previous
+            text.value = previous
         }
     }
 
@@ -79,27 +76,33 @@ init().then(async () => {
 
     await editor_connection.send("open", {relative_uri: "file", content: ""})
 
-    ta.oninput = (e) => {
-        const changes = Diff.diffChars(previous, ta.value)
+    text.oninput = (e) => {
+        const changes = Diff.diffChars(previous, text.value)
         const delta = changesToDelta(changes)
         console.log(delta)
-        editor_connection.send("edit", {
-            relative_uri: "file",
-            revision: daemon_revision,
-            delta: delta,
-        })
-        editor_revision += 1
 
-        previous = ta.value
+        // Send deltas one by one, backwards. Daemon doesn't actually support an array of them yet.
+
+        delta.reverse()
+        for (const d of delta) {
+            editor_connection.send("edit", {
+                relative_uri: "file",
+                revision: daemon_revision,
+                delta: [d],
+            })
+            editor_revision += 1
+        }
+
+        previous = text.value
     }
 
-    ta.onselectionchange = async () => {
+    text.onselectionchange = async () => {
         await editor_connection.send("cursor", {
             relative_uri: "file",
             ranges: [
                 {
-                    start: {line: 0, character: ta.selectionStart},
-                    end: {line: 0, character: ta.selectionEnd},
+                    start: {line: 0, character: text.selectionStart},
+                    end: {line: 0, character: text.selectionEnd},
                 },
             ],
         })
