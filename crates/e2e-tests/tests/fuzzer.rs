@@ -20,7 +20,6 @@ use teamtype::UserInterface;
 use teamtype::sandbox;
 use teamtype::{Config, Peer, ProjectDir};
 use teamtype::{Daemon, TEST_FILE_PATH};
-use tempfile::tempdir;
 use tokio::time::{Duration, sleep, timeout};
 use tracing::debug;
 
@@ -34,8 +33,8 @@ async fn perform_random_edits(actor: &mut (impl Actor + ?Sized)) {
 }
 
 fn initialize_directory() -> (ProjectDir, PathBuf) {
-    let dir = tempdir().expect("Failed to create temp directory");
-    let project_dir = ProjectDir::Temporary(dir);
+    let project_dir =
+        ProjectDir::new_temporary().expect("Unable to create temporary project directory");
     let teamtype_dir = project_dir.join(CONFIG_DIR);
     sandbox::create_dir_with_privacy(&project_dir, &teamtype_dir)
         .expect("Failed to create .teamtype directory");
