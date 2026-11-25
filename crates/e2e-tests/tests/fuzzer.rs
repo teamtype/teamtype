@@ -16,7 +16,6 @@ use futures::future::join_all;
 use pretty_assertions::assert_eq;
 use rand::RngExt;
 use teamtype::CONFIG_DIR;
-use teamtype::Interactions;
 use teamtype::UserInterface;
 use teamtype::sandbox;
 use teamtype::{Config, Peer, ProjectDir};

@@ -155,10 +155,8 @@ impl OTServer {
                 "Applying confirmed operation {:#?} to last confirmed editor content {:?}",
                 &confirmed_editor_op, &self.last_confirmed_editor_content
             );
-            self.last_confirmed_editor_content = Self::force_apply(
-                &self.last_confirmed_editor_content,
-                confirmed_editor_op.clone(),
-            );
+            self.last_confirmed_editor_content =
+                Self::force_apply(&self.last_confirmed_editor_content, confirmed_editor_op);
         }
         let rev_delta = RevisionedTextDelta::try_from_rev_ed_delta(
             rev_editor_delta,
