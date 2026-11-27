@@ -39,7 +39,7 @@ You could use `screen`, `tmux`, write a systemd service, or, in the easiest case
 nohup teamtype share --show-secret-address &
 ```
 
-Check the output of the command (written to the file `nohup.out` when using `nohup`) for the node's secret address.
+Check the output of the command (written to the file `nohup.out` when using `nohup`) for the endpoint's secret address.
 
 ### 3. Collaborate!
 
