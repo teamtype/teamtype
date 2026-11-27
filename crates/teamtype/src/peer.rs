@@ -23,6 +23,7 @@ use iroh::endpoint::{
     Connection as IrohEndpointConnection, RecvStream, RelayMode, SendStream, presets,
 };
 use iroh::{Endpoint, EndpointAddr, PublicKey, RelayMap, RelayUrl, SecretKey};
+use iroh_mdns_address_lookup::MdnsAddressLookup;
 use postcard::{from_bytes, to_allocvec};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
@@ -82,7 +83,7 @@ impl ConnectionManager {
     ) -> Result<Self> {
         let (message_tx, message_rx) = mpsc::channel(1);
 
-        let (endpoint, my_passphrase) = Self::build_endpoint(config).await?;
+        let (endpoint, my_passphrase) = Self::build_endpoint(config, ui).await?;
 
         let encoded_passphrase = data_encoding::HEXLOWER.encode(&my_passphrase.to_bytes());
         let secret_address = format!("{}#{}", endpoint.id(), encoded_passphrase);
@@ -126,7 +127,7 @@ impl ConnectionManager {
         Ok(())
     }
 
-    async fn build_endpoint(config: &Config) -> Result<(Endpoint, SecretKey)> {
+    async fn build_endpoint(config: &Config, ui: &UserInterface) -> Result<(Endpoint, SecretKey)> {
         let (secret_key, my_passphrase) = Self::get_keypair(&config.project_dir);
 
         let mut builder = match &config.iroh_dns_server {
@@ -135,6 +136,11 @@ impl ConnectionManager {
         };
 
         builder = builder.secret_key(secret_key).alpns(vec![ALPN.to_vec()]);
+
+        if config.local_discovery {
+            ui.log("Activating local discovery of peers");
+            builder = builder.address_lookup(MdnsAddressLookup::builder());
+        }
 
         let relay_mode = match &config.iroh_relay {
             Some(iroh_relay) => {

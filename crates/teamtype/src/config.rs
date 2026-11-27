@@ -32,6 +32,7 @@ pub const CONFIG_FILE: &str = "config";
 
 const EMIT_JOIN_CODE_DEFAULT: bool = true;
 const EMIT_SECRET_ADDRESS_DEFAULT: bool = false;
+const LOCAL_DISCOVERY_DEFAULT: bool = false;
 // TODO: Generate a random funny name.
 const USERNAME_FALLBACK: &str = "Anonymous";
 
@@ -165,6 +166,8 @@ pub struct Config {
     pub iroh_dns_server: Option<String>,
     /// Iroh pkarr relay to use, defaults to a public relay.
     pub iroh_pkarr_relay: Option<String>,
+    /// Whether or not to use local discovery in Iroh.
+    pub local_discovery: bool,
     /// How to handle project directories that are tracked with VCS.
     pub vcs_mode: VcsMode,
     /// Local peer's preferred moniker to be displayed by remote clients.
@@ -242,6 +245,13 @@ impl Config {
                     .get("iroh_pkarr_relay")
                     .map(ToString::to_string)
             }),
+            local_discovery: config_cli.local_discovery
+                || general_section
+                    .get("local_discovery")
+                    .map_or(LOCAL_DISCOVERY_DEFAULT, |ld| {
+                        ld.parse()
+                            .expect("Failed to parse config parameter `local_discovery` as bool")
+                    }),
             vcs_mode: config_cli.vcs_mode,
             username: Some(username),
         })
